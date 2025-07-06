@@ -30,7 +30,6 @@ export default function ProfilePage() {
 
     const [isInfoSaving, setIsInfoSaving] = useState(false);
     const [isPasswordSaving, setIsPasswordSaving] = useState(false);
-    const [isMakingAdmin, setIsMakingAdmin] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -86,20 +85,6 @@ export default function ProfilePage() {
             setConfirmPassword('');
         }
     };
-
-    const handleMakeAdmin = async () => {
-        if (!user) return;
-        setIsMakingAdmin(true);
-        try {
-            const userDocRef = doc(db, 'users', user.uid);
-            await updateDoc(userDocRef, { isAdmin: true });
-            toast({ title: "Success", description: "Admin permissions granted! You can now access the admin dashboard." });
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: "Error", description: error.message });
-        } finally {
-            setIsMakingAdmin(false);
-        }
-    }
 
   return (
     <div>
@@ -157,21 +142,6 @@ export default function ProfilePage() {
                 </CardFooter>
             </form>
           </Card>
-          {user && !user.isAdmin && (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Admin Access</CardTitle>
-                    <CardDescription>
-                        Make yourself an admin to access the admin sections. (This is a temporary development feature).
-                    </CardDescription>
-                </CardHeader>
-                <CardFooter className="border-t px-6 py-4">
-                    <Button onClick={handleMakeAdmin} disabled={isMakingAdmin}>
-                        {isMakingAdmin ? 'Granting...' : 'Make Me Admin'}
-                    </Button>
-                </CardFooter>
-            </Card>
-          )}
         </div>
     </div>
   )
