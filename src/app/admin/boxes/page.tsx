@@ -206,7 +206,8 @@ export default function AdminBoxesPage() {
                   </Label>
                   <Input
                     id="startDate"
-                    type="date"
+                    type="text"
+                    placeholder="e.g. Mid-June"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     className="col-span-3"
@@ -219,7 +220,8 @@ export default function AdminBoxesPage() {
                   </Label>
                   <Input
                     id="endDate"
-                    type="date"
+                    type="text"
+                    placeholder="e.g. Late August"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     className="col-span-3"

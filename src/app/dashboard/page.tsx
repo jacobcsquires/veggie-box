@@ -196,7 +196,7 @@ export default function Dashboard() {
                     <CardDescription>{box.description}</CardDescription>
                     {box.startDate && box.endDate && (
                         <p className="text-xs text-muted-foreground pt-2">
-                            Available from {new Date(`${box.startDate}T00:00`).toLocaleDateString()} to {new Date(`${box.endDate}T00:00`).toLocaleDateString()}
+                            Available from {box.startDate} to {box.endDate}
                         </p>
                     )}
                   </CardHeader>
