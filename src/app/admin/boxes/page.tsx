@@ -1,11 +1,11 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
-import * as Icons from 'lucide-react';
+import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,7 +43,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { Box } from '@/lib/types';
+import type { Box, BoxItem } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminBoxesPage() {
@@ -51,15 +51,20 @@ export default function AdminBoxesPage() {
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Form state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [currentBoxId, setCurrentBoxId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [items, setItems] = useState<BoxItem[]>([]);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemIcon, setNewItemIcon] = useState('');
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'boxes'), (snapshot) => {
@@ -80,6 +85,42 @@ export default function AdminBoxesPage() {
     setQuantity('');
     setStartDate('');
     setEndDate('');
+    setItems([]);
+    setNewItemName('');
+    setNewItemIcon('');
+    setIsEditMode(false);
+    setCurrentBoxId(null);
+  };
+
+  const handleEditClick = (box: Box) => {
+    setIsEditMode(true);
+    setCurrentBoxId(box.id);
+    setName(box.name);
+    setPrice(box.price.toString());
+    setDescription(box.description);
+    setQuantity(box.quantity.toString());
+    setStartDate(box.startDate || '');
+    setEndDate(box.endDate || '');
+    setItems(box.items || []);
+    setIsDialogOpen(true);
+  };
+  
+  const handleAddItem = () => {
+    if (newItemName && newItemIcon) {
+      setItems([...items, { name: newItemName, icon: newItemIcon }]);
+      setNewItemName('');
+      setNewItemIcon('');
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Please provide both an item name and an icon name.',
+        });
+    }
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setItems(items.filter((_, i) => i !== index));
   };
 
   const handleSaveBox = async (e: React.FormEvent) => {
@@ -93,33 +134,40 @@ export default function AdminBoxesPage() {
       return;
     }
     setIsSaving(true);
-    try {
-      await addDoc(collection(db, 'boxes'), {
-        name,
-        price: parseFloat(price),
-        description,
-        quantity: parseInt(quantity, 10),
-        startDate,
-        endDate,
+
+    const boxData = {
+      name,
+      price: parseFloat(price),
+      description,
+      quantity: parseInt(quantity, 10),
+      startDate,
+      endDate,
+      items,
+      ...(isEditMode ? {} : {
         subscribedCount: 0,
         image: 'https://placehold.co/600x400.png',
         hint: 'vegetable box',
-        items: [
-            { name: "Veggies", icon: "Carrot" },
-            { name: "Greens", icon: "Leaf" },
-            { name: "Fruits", icon: "Apple" },
-        ],
         createdAt: serverTimestamp(),
-      });
-      toast({ title: 'Success', description: 'New box added successfully.' });
+      })
+    };
+
+    try {
+      if (isEditMode && currentBoxId) {
+        const boxRef = doc(db, 'boxes', currentBoxId);
+        await updateDoc(boxRef, boxData);
+        toast({ title: 'Success', description: 'Box updated successfully.' });
+      } else {
+        await addDoc(collection(db, 'boxes'), boxData);
+        toast({ title: 'Success', description: 'New box added successfully.' });
+      }
       resetForm();
       setIsDialogOpen(false);
     } catch (error) {
-      console.error('Error adding document: ', error);
+      console.error('Error saving document: ', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Could not add the box. Please try again.',
+        description: 'Could not save the box. Please try again.',
       });
     } finally {
       setIsSaving(false);
@@ -132,7 +180,12 @@ export default function AdminBoxesPage() {
         <h1 className="text-lg font-semibold md:text-2xl font-headline">
           Manage Boxes
         </h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
+            setIsDialogOpen(isOpen);
+            if (!isOpen) {
+                resetForm();
+            }
+        }}>
           <DialogTrigger asChild>
             <Button size="sm" className="h-8 gap-1">
               <PlusCircle className="h-3.5 w-3.5" />
@@ -141,12 +194,12 @@ export default function AdminBoxesPage() {
               </span>
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[600px]">
             <form onSubmit={handleSaveBox}>
               <DialogHeader>
-                <DialogTitle>Add New Box</DialogTitle>
+                <DialogTitle>{isEditMode ? 'Edit Box' : 'Add New Box'}</DialogTitle>
                 <DialogDescription>
-                  Fill out the details for the new veggie box.
+                  {isEditMode ? 'Update the details of the veggie box.' : 'Fill out the details for the new veggie box.'}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -228,6 +281,33 @@ export default function AdminBoxesPage() {
                     disabled={isSaving}
                   />
                 </div>
+
+                <div className="grid grid-cols-4 items-start gap-4">
+                    <Label htmlFor="items" className="text-right pt-2">
+                        Items
+                    </Label>
+                    <div className="col-span-3 space-y-2">
+                      <div className="space-y-2">
+                        {items.map((item, index) => (
+                            <div key={index} className="flex items-center gap-2 p-2 rounded-md border">
+                                <span className="flex-1 font-medium">{item.name}</span>
+                                <span className="flex-1 text-muted-foreground">{item.icon}</span>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={isSaving}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                          <Input id="itemName" placeholder="Item Name (e.g. Carrots)" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} disabled={isSaving} />
+                          <Input id="itemIcon" placeholder="Icon Name (e.g. Carrot)" value={newItemIcon} onChange={(e) => setNewItemIcon(e.target.value)} disabled={isSaving} />
+                          <Button type="button" variant="outline" onClick={handleAddItem} disabled={isSaving}>Add</Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Icon names from lucide-react, e.g., 'Carrot', 'Leaf'.</p>
+                    </div>
+                </div>
+
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={isSaving}>
@@ -293,7 +373,7 @@ export default function AdminBoxesPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleEditClick(box)}>Edit</DropdownMenuItem>
                         <DropdownMenuItem>Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
