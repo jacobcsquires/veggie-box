@@ -1,10 +1,52 @@
+'use client';
+
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowRight, Box, Carrot, Sprout } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
+  const { user, loading } = useAuth();
+
+  const renderAuthButtons = () => {
+    if (loading) {
+      return (
+        <>
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-24" />
+        </>
+      )
+    }
+
+    if (user) {
+      return (
+        <Button asChild>
+          <Link href="/dashboard" prefetch={false}>
+            Go to Dashboard
+          </Link>
+        </Button>
+      )
+    }
+
+    return (
+      <>
+        <Button variant="ghost" asChild>
+          <Link href="/login" prefetch={false}>
+            Login
+          </Link>
+        </Button>
+        <Button asChild>
+          <Link href="/signup" prefetch={false}>
+            Sign Up
+          </Link>
+        </Button>
+      </>
+    )
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="px-4 lg:px-6 h-14 flex items-center bg-background/80 backdrop-blur-sm sticky top-0 z-50">
@@ -13,16 +55,7 @@ export default function Home() {
           <span className="sr-only">Veggie Box</span>
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Button variant="ghost" asChild>
-            <Link href="/login" prefetch={false}>
-              Login
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/signup" prefetch={false}>
-              Sign Up
-            </Link>
-          </Button>
+          {renderAuthButtons()}
         </nav>
       </header>
       <main className="flex-1">
