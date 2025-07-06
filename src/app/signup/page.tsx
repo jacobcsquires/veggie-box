@@ -54,7 +54,6 @@ export default function SignupPage() {
                 displayName: fullName,
                 email: user.email,
                 createdAt: serverTimestamp(),
-                photoURL: user.photoURL || null,
             });
 
             router.push("/dashboard");
@@ -81,7 +80,6 @@ export default function SignupPage() {
                 displayName: user.displayName,
                 email: user.email,
                 createdAt: serverTimestamp(),
-                photoURL: user.photoURL || null,
             }, { merge: true });
 
             router.push('/dashboard');

@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
-import { auth, db, storage } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { doc, updateDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,9 +32,6 @@ export default function ProfilePage() {
     const [isInfoSaving, setIsInfoSaving] = useState(false);
     const [isPasswordSaving, setIsPasswordSaving] = useState(false);
 
-    const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
-    const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
-
     useEffect(() => {
         if (user) {
             setName(user.displayName || '');
@@ -52,34 +48,16 @@ export default function ProfilePage() {
         return name.charAt(0).toUpperCase();
     };
 
-    const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setProfileImageFile(file);
-            setProfileImagePreview(URL.createObjectURL(file));
-        }
-    };
-
     const handleSaveChanges = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return;
         setIsInfoSaving(true);
         try {
-            let newPhotoURL = user.photoURL;
-
-            if (profileImageFile) {
-                const storageRef = ref(storage, `profile_pictures/${user.uid}`);
-                await uploadBytes(storageRef, profileImageFile);
-                newPhotoURL = await getDownloadURL(storageRef);
-            }
-
-            await updateProfile(user, { displayName: name, photoURL: newPhotoURL || null });
+            await updateProfile(user, { displayName: name });
             const userDocRef = doc(db, 'users', user.uid);
-            await updateDoc(userDocRef, { displayName: name, photoURL: newPhotoURL || null });
+            await updateDoc(userDocRef, { displayName: name });
             
             toast({ title: "Success", description: "Profile updated successfully." });
-            setProfileImageFile(null);
-            setProfileImagePreview(null);
         } catch (error: any) {
             toast({ variant: 'destructive', title: "Error", description: error.message });
         } finally {
@@ -109,7 +87,7 @@ export default function ProfilePage() {
             
             await auth.signOut();
 
-        } catch (error: any) {
+        } catch (error: any) => {
             toast({ variant: 'destructive', title: "Error", description: error.message });
         } finally {
             setIsPasswordSaving(false);
@@ -131,23 +109,6 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                 <div className="grid gap-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="picture">Profile Picture</Label>
-                        <div className="flex items-center gap-4">
-                            <Avatar className="h-20 w-20">
-                                <AvatarImage src={profileImagePreview || user?.photoURL || ''} alt={user?.displayName || ''} />
-                                <AvatarFallback>{getInitials(user?.displayName)}</AvatarFallback>
-                            </Avatar>
-                            <Input
-                                id="picture"
-                                type="file"
-                                accept="image/*"
-                                onChange={handleProfileImageChange}
-                                disabled={isInfoSaving}
-                                className="max-w-xs"
-                            />
-                        </div>
-                    </div>
                     <div className="grid gap-2">
                         <Label htmlFor="name">Full Name</Label>
                         <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isInfoSaving} />
