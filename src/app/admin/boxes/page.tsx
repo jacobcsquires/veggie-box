@@ -2,8 +2,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { MoreHorizontal, PlusCircle, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +67,9 @@ export default function AdminBoxesPage() {
   const [items, setItems] = useState<BoxItem[]>([]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemIcon, setNewItemIcon] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'boxes'), (snapshot) => {
@@ -88,6 +93,8 @@ export default function AdminBoxesPage() {
     setItems([]);
     setNewItemName('');
     setNewItemIcon('');
+    setImageFile(null);
+    setImagePreview(null);
     setIsEditMode(false);
     setCurrentBoxId(null);
   };
@@ -102,7 +109,17 @@ export default function AdminBoxesPage() {
     setStartDate(box.startDate || '');
     setEndDate(box.endDate || '');
     setItems(box.items || []);
+    setImagePreview(box.image);
+    setImageFile(null);
     setIsDialogOpen(true);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
   };
   
   const handleAddItem = () => {
@@ -135,6 +152,26 @@ export default function AdminBoxesPage() {
     }
     setIsSaving(true);
 
+    let imageUrlToSave: string | undefined;
+
+    if (isEditMode) {
+      const currentBox = boxes.find(b => b.id === currentBoxId);
+      imageUrlToSave = currentBox?.image;
+    }
+    
+    if (imageFile) {
+        try {
+            const storageRef = ref(storage, `boxes/${Date.now()}_${imageFile.name}`);
+            await uploadBytes(storageRef, imageFile);
+            imageUrlToSave = await getDownloadURL(storageRef);
+        } catch (error) {
+            console.error('Error uploading image: ', error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not upload the image. Please try again.' });
+            setIsSaving(false);
+            return;
+        }
+    }
+
     const boxData = {
       name,
       price: parseFloat(price),
@@ -143,12 +180,7 @@ export default function AdminBoxesPage() {
       startDate,
       endDate,
       items,
-      ...(isEditMode ? {} : {
-        subscribedCount: 0,
-        image: 'https://placehold.co/600x400.png',
-        hint: 'vegetable box',
-        createdAt: serverTimestamp(),
-      })
+      image: imageUrlToSave || 'https://placehold.co/600x400.png',
     };
 
     try {
@@ -157,7 +189,13 @@ export default function AdminBoxesPage() {
         await updateDoc(boxRef, boxData);
         toast({ title: 'Success', description: 'Box updated successfully.' });
       } else {
-        await addDoc(collection(db, 'boxes'), boxData);
+        const fullData = {
+          ...boxData,
+          subscribedCount: 0,
+          hint: 'vegetable box',
+          createdAt: serverTimestamp(),
+        }
+        await addDoc(collection(db, 'boxes'), fullData);
         toast({ title: 'Success', description: 'New box added successfully.' });
       }
       resetForm();
@@ -202,7 +240,7 @@ export default function AdminBoxesPage() {
                   {isEditMode ? 'Update the details of the veggie box.' : 'Fill out the details for the new veggie box.'}
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">
                     Name
@@ -214,6 +252,23 @@ export default function AdminBoxesPage() {
                     className="col-span-3"
                     disabled={isSaving}
                   />
+                </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="image" className="text-right">
+                    Image
+                  </Label>
+                  <div className="col-span-3">
+                    <Input
+                      id="image"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      disabled={isSaving}
+                    />
+                    {imagePreview && (
+                      <Image src={imagePreview} alt="Image Preview" width={100} height={100} className="mt-2 rounded-md object-cover" />
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="price" className="text-right">
