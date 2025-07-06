@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Bell,
   Home,
@@ -10,6 +10,8 @@ import {
   User,
   Sprout,
 } from "lucide-react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 import { useAuth } from "@/contexts/auth-context";
 import { Badge } from "@/components/ui/badge";
@@ -30,14 +32,25 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const navItems = [
-    { href: "/dashboard", icon: Home, label: "Dashboard" },
-    { href: "/dashboard/subscriptions", icon: ShoppingCart, label: "Subscriptions", badge: "3" },
-    { href: "/dashboard/profile", icon: User, label: "Profile" },
-  ];
-
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [subscriptionsCount, setSubscriptionsCount] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      const q = query(collection(db, 'subscriptions'), where('userId', '==', user.uid));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setSubscriptionsCount(snapshot.size);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  const navItems = [
+    { href: "/dashboard", icon: Home, label: "Dashboard" },
+    { href: "/dashboard/subscriptions", icon: ShoppingCart, label: "Subscriptions", badge: subscriptionsCount > 0 ? subscriptionsCount.toString() : undefined },
+    { href: "/dashboard/profile", icon: User, label: "Profile" },
+  ];
 
   useEffect(() => {
     if (loading) return;
