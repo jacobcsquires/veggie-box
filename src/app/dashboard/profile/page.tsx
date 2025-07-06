@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export default function ProfilePage() {
     const { user } = useAuth();
@@ -38,15 +37,6 @@ export default function ProfilePage() {
             setEmail(user.email || '');
         }
     }, [user]);
-
-    const getInitials = (name: string | null | undefined) => {
-        if (!name) return 'U';
-        const names = name.split(' ');
-        if (names.length > 1) {
-            return names[0].charAt(0) + names[names.length - 1].charAt(0);
-        }
-        return name.charAt(0).toUpperCase();
-    };
 
     const handleSaveChanges = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -87,7 +77,7 @@ export default function ProfilePage() {
             
             await auth.signOut();
 
-        } catch (error: any) => {
+        } catch (error: any) {
             toast({ variant: 'destructive', title: "Error", description: error.message });
         } finally {
             setIsPasswordSaving(false);
