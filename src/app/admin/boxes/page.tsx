@@ -57,6 +57,8 @@ export default function AdminBoxesPage() {
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -76,6 +78,8 @@ export default function AdminBoxesPage() {
     setPrice('');
     setDescription('');
     setQuantity('');
+    setStartDate('');
+    setEndDate('');
   };
 
   const handleSaveBox = async (e: React.FormEvent) => {
@@ -84,7 +88,7 @@ export default function AdminBoxesPage() {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Please fill out all fields.',
+        description: 'Please fill out name, price, quantity, and description.',
       });
       return;
     }
@@ -95,6 +99,8 @@ export default function AdminBoxesPage() {
         price: parseFloat(price),
         description,
         quantity: parseInt(quantity, 10),
+        startDate,
+        endDate,
         subscribedCount: 0,
         image: 'https://placehold.co/600x400.png',
         hint: 'vegetable box',
@@ -190,6 +196,32 @@ export default function AdminBoxesPage() {
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
+                    className="col-span-3"
+                    disabled={isSaving}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="startDate" className="text-right">
+                    Start Date
+                  </Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="col-span-3"
+                    disabled={isSaving}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="endDate" className="text-right">
+                    End Date
+                  </Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
                     className="col-span-3"
                     disabled={isSaving}
                   />

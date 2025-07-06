@@ -13,6 +13,8 @@ export type Box = {
   items: BoxItem[];
   quantity: number;
   subscribedCount: number;
+  startDate?: string;
+  endDate?: string;
 };
 
 export type Order = {

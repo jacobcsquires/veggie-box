@@ -160,7 +160,8 @@ export default function Dashboard() {
                   <Skeleton className="rounded-lg aspect-video" />
                   <Skeleton className="h-7 w-48 mt-4" />
                   <Skeleton className="h-4 w-full" />
-                   <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3 w-3/4 mt-2" />
                 </CardHeader>
                 <CardContent>
                   <div className="flex justify-between items-center">
@@ -193,7 +194,11 @@ export default function Dashboard() {
                     />
                     <CardTitle className="pt-4 font-headline">{box.name}</CardTitle>
                     <CardDescription>{box.description}</CardDescription>
-
+                    {box.startDate && box.endDate && (
+                        <p className="text-xs text-muted-foreground pt-2">
+                            Available from {new Date(`${box.startDate}T00:00`).toLocaleDateString()} to {new Date(`${box.endDate}T00:00`).toLocaleDateString()}
+                        </p>
+                    )}
                   </CardHeader>
                   <CardContent>
                     <div className="flex justify-between items-center">
