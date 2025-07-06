@@ -29,12 +29,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (authUser) {
          const userDocRef = doc(db, 'users', authUser.uid);
          const unsubSnapshot = onSnapshot(userDocRef, (docSnap) => {
+            // Start with the authentic Firebase User object
+            const userWithAdminFlag: AppUser = authUser;
+            
             if (docSnap.exists()) {
+                // Augment it with custom data from Firestore without destroying the original object
                 const userData = docSnap.data();
-                setUser({ ...authUser, ...userData });
-            } else {
-                setUser(authUser);
+                userWithAdminFlag.isAdmin = userData.isAdmin || false;
             }
+            
+            setUser(userWithAdminFlag);
             setLoading(false);
          });
          return () => unsubSnapshot();
