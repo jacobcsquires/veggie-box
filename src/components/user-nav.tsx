@@ -69,18 +69,21 @@ export function UserNav() {
           </>
         )}
         <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href="/dashboard/profile">
-              <UserIcon className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-             <Link href="/admin/dashboard">
-              <LayoutDashboard className="mr-2 h-4 w-4" />
-              <span>Admin</span>
-            </Link>
-          </DropdownMenuItem>
+           {user?.isAdmin ? (
+            <DropdownMenuItem asChild>
+              <Link href="/admin/dashboard">
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                <span>Admin Dashboard</span>
+              </Link>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard/profile">
+                <UserIcon className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </Link>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={handleLogout} className="cursor-pointer">
