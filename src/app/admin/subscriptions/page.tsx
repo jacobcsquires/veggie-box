@@ -24,17 +24,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { subscriptions } from "@/lib/placeholder-data"
-import { cn } from "@/lib/utils"
+import { orders } from "@/lib/placeholder-data"
 
-export default function AdminSubscriptionsPage() {
+export default function AdminOrdersPage() {
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case "Delivered":
+        return "default"
+      case "Shipped":
+        return "secondary"
+      case "Processing":
+        return "outline"
+      default:
+        return "secondary"
+    }
+  }
+
   return (
     <div>
-        <h1 className="text-lg font-semibold md:text-2xl font-headline mb-4">Manage Subscriptions</h1>
+        <h1 className="text-lg font-semibold md:text-2xl font-headline mb-4">Manage Orders</h1>
         <Card>
             <CardHeader>
-                <CardTitle>All Subscriptions</CardTitle>
-                <CardDescription>A list of all customer subscriptions.</CardDescription>
+                <CardTitle>All Orders</CardTitle>
+                <CardDescription>A list of all customer orders.</CardDescription>
             </CardHeader>
             <CardContent>
             <Table>
@@ -43,7 +55,7 @@ export default function AdminSubscriptionsPage() {
                     <TableHead>Customer</TableHead>
                     <TableHead>Box Type</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="hidden md:table-cell">Start Date</TableHead>
+                    <TableHead className="hidden md:table-cell">Order Date</TableHead>
                     <TableHead className="text-right">Price</TableHead>
                     <TableHead>
                     <span className="sr-only">Actions</span>
@@ -51,18 +63,17 @@ export default function AdminSubscriptionsPage() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                 {subscriptions.concat(subscriptions).map((sub, i) => (
-                    <TableRow key={`${sub.id}-${i}`}>
-                        <TableCell className="font-medium">{i % 2 === 0 ? "John Doe" : "Alice Smith"}</TableCell>
-                        <TableCell>{sub.boxName}</TableCell>
+                 {orders.map((order) => (
+                    <TableRow key={order.id}>
+                        <TableCell className="font-medium">{order.customerName}</TableCell>
+                        <TableCell>{order.boxName}</TableCell>
                         <TableCell>
-                            <Badge variant={sub.status === 'Active' ? 'default' : 'secondary'} 
-                            className={cn(sub.status === 'Active' ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-800', 'dark:bg-transparent dark:text-foreground')}>
-                                {sub.status}
+                            <Badge variant={getStatusVariant(order.status)}>
+                                {order.status}
                             </Badge>
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">{sub.startDate}</TableCell>
-                        <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
+                        <TableCell className="hidden md:table-cell">{order.orderDate}</TableCell>
+                        <TableCell className="text-right">${order.price.toFixed(2)}</TableCell>
                         <TableCell>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -78,7 +89,7 @@ export default function AdminSubscriptionsPage() {
                             <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>Cancel Subscription</DropdownMenuItem>
+                            <DropdownMenuItem>Update Status</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                         </TableCell>
@@ -89,7 +100,7 @@ export default function AdminSubscriptionsPage() {
             </CardContent>
              <CardFooter>
                 <div className="text-xs text-muted-foreground">
-                    Showing <strong>1-6</strong> of <strong>6</strong> subscriptions
+                    Showing <strong>1-6</strong> of <strong>6</strong> orders
                 </div>
             </CardFooter>
         </Card>

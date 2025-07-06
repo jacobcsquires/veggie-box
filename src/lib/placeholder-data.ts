@@ -102,6 +102,57 @@ export const users = [
     }
 ];
 
+export const orders = [
+    {
+        id: "ord_1",
+        customerName: "John Doe",
+        boxName: "The Family Harvest",
+        orderDate: "2024-07-20",
+        status: "Shipped",
+        price: 45.00,
+    },
+    {
+        id: "ord_2",
+        customerName: "Alice Smith",
+        boxName: "The Starter Sprout",
+        orderDate: "2024-07-21",
+        status: "Processing",
+        price: 25.00,
+    },
+    {
+        id: "ord_3",
+        customerName: "John Doe",
+        boxName: "The Veggie Enthusiast",
+        orderDate: "2024-07-18",
+        status: "Delivered",
+        price: 60.00,
+    },
+    {
+        id: "ord_4",
+        customerName: "Emily White",
+        boxName: "The Starter Sprout",
+        orderDate: "2024-07-22",
+        status: "Processing",
+        price: 25.00,
+    },
+    {
+        id: "ord_5",
+        customerName: "Bob Johnson",
+        boxName: "The Family Harvest",
+        orderDate: "2024-07-19",
+        status: "Delivered",
+        price: 45.00,
+    },
+     {
+        id: "ord_6",
+        customerName: "Alice Smith",
+        boxName: "The Family Harvest",
+        orderDate: "2024-07-22",
+        status: "Shipped",
+        price: 45.00,
+    }
+];
+
 export const revenueData = [
   { month: "Jan", revenue: 1200 },
   { month: "Feb", revenue: 1800 },
