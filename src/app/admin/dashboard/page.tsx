@@ -1,5 +1,9 @@
 "use client"
 
+import { useEffect, useState, useMemo } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type { Order, Subscription, Box } from '@/lib/types';
 import { DollarSign, Package, ShoppingCart, Users } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import {
@@ -12,65 +16,121 @@ import {
   ChartContainer,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { popularBoxesData, revenueData } from "@/lib/placeholder-data"
+import { Skeleton } from "@/components/ui/skeleton";
+import type { AppUser } from "@/contexts/auth-context";
 
 export default function AdminDashboard() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [boxes, setBoxes] = useState<Box[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
+      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+      setIsLoading(false); 
+    });
+    const unsubSubscriptions = onSnapshot(collection(db, 'subscriptions'), (snapshot) => {
+      setSubscriptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription)));
+    });
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      setUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser)));
+    });
+    const unsubBoxes = onSnapshot(collection(db, 'boxes'), (snapshot) => {
+      setBoxes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Box)));
+    });
+
+    return () => {
+      unsubOrders();
+      unsubSubscriptions();
+      unsubUsers();
+      unsubBoxes();
+    }
+  }, []);
+
+  const totalRevenue = useMemo(() => orders.reduce((sum, order) => sum + order.price, 0), [orders]);
+  const subscriptionsCount = useMemo(() => subscriptions.length, [subscriptions]);
+  const newUsersCount = useMemo(() => users.length, [users]);
+  const boxesAvailableCount = useMemo(() => boxes.length, [boxes]);
+
+  const monthlyRevenue = useMemo(() => {
+    if (orders.length === 0) return [];
+    
+    const revenueByMonth: { [key: number]: number } = {};
+    orders.forEach(order => {
+      const monthIndex = new Date(order.orderDate).getMonth();
+      revenueByMonth[monthIndex] = (revenueByMonth[monthIndex] || 0) + order.price;
+    });
+
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    
+    return monthNames.map((month, index) => ({
+      month,
+      revenue: revenueByMonth[index] || 0
+    }));
+  }, [orders]);
+
+  const popularBoxes = useMemo(() => {
+    if (subscriptions.length === 0) return [];
+
+    const boxesCount: { [key: string]: number } = {};
+    subscriptions.forEach(sub => {
+      boxesCount[sub.boxName] = (boxesCount[sub.boxName] || 0) + 1;
+    });
+
+    const chartColors = ["var(--color-chart-1)", "var(--color-chart-2)", "var(--color-chart-3)", "var(--color-chart-4)", "var(--color-chart-5)"];
+    return Object.entries(boxesCount).map(([name, value], index) => ({
+      name,
+      value,
+      fill: chartColors[index % chartColors.length]
+    }));
+  }, [subscriptions]);
+  
   return (
     <div className="flex flex-col gap-4">
         <h1 className="text-lg font-semibold md:text-2xl font-headline">Admin Dashboard</h1>
         <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-                Total Revenue
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-            <div className="text-2xl font-bold">$45,231.89</div>
-            <p className="text-xs text-muted-foreground">
-                +20.1% from last month
-            </p>
-            </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-                Subscriptions
-            </CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-            <div className="text-2xl font-bold">+2350</div>
-            <p className="text-xs text-muted-foreground">
-                +180.1% from last month
-            </p>
-            </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-            <div className="text-2xl font-bold">+12,234</div>
-            <p className="text-xs text-muted-foreground">
-                +19% from last month
-            </p>
-            </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Boxes Available</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-            <div className="text-2xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground">
-                +2 since last quarter
-            </p>
-            </CardContent>
-        </Card>
+          <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                  Total Revenue
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {isLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>}
+              </CardContent>
+          </Card>
+          <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                  Subscriptions
+              </CardTitle>
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {isLoading ? <Skeleton className="h-7 w-16" /> : <div className="text-2xl font-bold">{subscriptionsCount}</div>}
+              </CardContent>
+          </Card>
+          <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">New Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {isLoading ? <Skeleton className="h-7 w-16" /> : <div className="text-2xl font-bold">{newUsersCount}</div>}
+              </CardContent>
+          </Card>
+          <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Boxes Available</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {isLoading ? <Skeleton className="h-7 w-10" /> : <div className="text-2xl font-bold">{boxesAvailableCount}</div>}
+              </CardContent>
+          </Card>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -79,15 +139,23 @@ export default function AdminDashboard() {
               <CardTitle>Monthly Revenue</CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
-              <ChartContainer config={{}} className="h-[300px] w-full">
-                <BarChart data={revenueData}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
-                    <YAxis tickLine={false} axisLine={false} />
-                    <Tooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="revenue" fill="var(--color-primary)" radius={4} />
-                </BarChart>
-              </ChartContainer>
+              {isLoading ? (
+                  <Skeleton className="h-[300px] w-full" />
+                ) : monthlyRevenue.filter(m => m.revenue > 0).length > 0 ? (
+                  <ChartContainer config={{revenue: { label: "Revenue", color: "hsl(var(--chart-1))" }}} className="h-[300px] w-full">
+                    <BarChart data={monthlyRevenue}>
+                        <CartesianGrid vertical={false} />
+                        <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
+                        <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+                        <Tooltip content={<ChartTooltipContent indicator="dot" />} />
+                        <Bar dataKey="revenue" fill="var(--color-primary)" radius={4} />
+                    </BarChart>
+                  </ChartContainer>
+                ) : (
+                  <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                    No revenue data to display.
+                  </div>
+              )}
             </CardContent>
           </Card>
 
@@ -96,12 +164,20 @@ export default function AdminDashboard() {
               <CardTitle>Popular Boxes</CardTitle>
             </CardHeader>
             <CardContent>
-                 <ChartContainer config={{}} className="h-[300px] w-full">
-                    <PieChart>
-                        <Tooltip content={<ChartTooltipContent />} />
-                        <Pie data={popularBoxesData} dataKey="value" nameKey="name" />
-                    </PieChart>
-              </ChartContainer>
+                {isLoading ? (
+                    <Skeleton className="h-[300px] w-full" />
+                ) : popularBoxes.length > 0 ? (
+                    <ChartContainer config={popularBoxes.reduce((acc, cur) => ({...acc, [cur.name]: {label: cur.name, color: cur.fill}}), {})} className="h-[300px] w-full">
+                        <PieChart>
+                            <Tooltip content={<ChartTooltipContent />} />
+                            <Pie data={popularBoxes} dataKey="value" nameKey="name" />
+                        </PieChart>
+                    </ChartContainer>
+                ) : (
+                  <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                    No subscription data to display.
+                  </div>
+                )}
             </CardContent>
           </Card>
         </div>
