@@ -28,7 +28,7 @@ export default function AdminLayout({
 }) {
   const navItems = [
     { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
-    { href: "/admin/subscriptions", icon: ShoppingCart, label: "Orders" },
+    { href: "/admin/orders", icon: ShoppingCart, label: "Orders" },
     { href: "/admin/users", icon: Users, label: "Users" },
     { href: "/admin/boxes", icon: Package, label: "Boxes" },
     { href: "#", icon: LineChart, label: "Analytics" },
@@ -106,7 +106,6 @@ export default function AdminLayout({
                 >
                   <item.icon className="h-4 w-4" />
                   {item.label}
-                  {item.badge && <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">{item.badge}</Badge>}
                 </Link>
               ))}
             </nav>
@@ -143,7 +142,6 @@ export default function AdminLayout({
                     >
                     <item.icon className="h-5 w-5" />
                     {item.label}
-                    {item.badge && <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">{item.badge}</Badge>}
                     </Link>
                 ))}
               </nav>
