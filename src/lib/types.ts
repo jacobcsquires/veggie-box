@@ -7,10 +7,12 @@ export type Box = {
   id: string;
   name: string;
   description: string;
-  price: string;
+  price: number;
   image: string;
   hint: string;
   items: BoxItem[];
+  quantity: number;
+  subscribedCount: number;
 };
 
 export type Order = {

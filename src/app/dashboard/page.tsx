@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
-import { collection, addDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { collection, doc, runTransaction, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +25,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Box } from '@/lib/types';
@@ -78,31 +77,53 @@ export default function Dashboard() {
 
     setIsSubscribing(true);
     try {
-        const subscriptionData = {
-            userId: user.uid,
-            boxId: selectedBox.id,
-            boxName: selectedBox.name,
-            price: parseFloat(selectedBox.price),
-            status: 'Active',
-            startDate: date.toISOString().split('T')[0],
-            nextDelivery: date.toISOString().split('T')[0],
-            createdAt: serverTimestamp(),
-        };
-        await addDoc(collection(db, 'subscriptions'), subscriptionData);
+        const boxRef = doc(db, 'boxes', selectedBox.id);
         
-        const orderData = {
-            userId: user.uid,
-            customerName: user.displayName || 'No name',
-            boxId: selectedBox.id,
-            boxName: selectedBox.name,
-            price: parseFloat(selectedBox.price),
-            status: 'Processing',
-            orderDate: new Date().toISOString().split('T')[0],
-            deliveryDate: date.toISOString().split('T')[0],
-            createdAt: serverTimestamp(),
-        };
-        await addDoc(collection(db, 'orders'), orderData);
-        
+        await runTransaction(db, async (transaction) => {
+            const boxDoc = await transaction.get(boxRef);
+            if (!boxDoc.exists()) {
+                throw new Error("Box does not exist!");
+            }
+
+            const boxData = boxDoc.data() as Omit<Box, 'id'>;
+            const newSubscribedCount = (boxData.subscribedCount || 0) + 1;
+
+            if (newSubscribedCount > boxData.quantity) {
+                throw new Error("Sorry, this box is now sold out.");
+            }
+
+            transaction.update(boxRef, { subscribedCount: newSubscribedCount });
+
+            // Create new subscription and order documents within the same transaction
+            const subscriptionRef = doc(collection(db, 'subscriptions'));
+            const orderRef = doc(collection(db, 'orders'));
+
+            const subscriptionData = {
+                userId: user.uid,
+                boxId: selectedBox.id,
+                boxName: selectedBox.name,
+                price: selectedBox.price,
+                status: 'Active',
+                startDate: date.toISOString().split('T')[0],
+                nextDelivery: date.toISOString().split('T')[0],
+                createdAt: serverTimestamp(),
+            };
+            transaction.set(subscriptionRef, subscriptionData);
+            
+            const orderData = {
+                userId: user.uid,
+                customerName: user.displayName || 'No name',
+                boxId: selectedBox.id,
+                boxName: selectedBox.name,
+                price: selectedBox.price,
+                status: 'Processing',
+                orderDate: new Date().toISOString().split('T')[0],
+                deliveryDate: date.toISOString().split('T')[0],
+                createdAt: serverTimestamp(),
+            };
+            transaction.set(orderRef, orderData);
+        });
+
         toast({
             title: 'Subscribed!',
             description: `You've successfully subscribed to the ${selectedBox.name}.`,
@@ -111,12 +132,12 @@ export default function Dashboard() {
         setIsDialogOpen(false);
         setSelectedBox(null);
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Subscription failed:', error);
         toast({
             variant: 'destructive',
             title: 'Subscription Failed',
-            description: 'There was an error processing your subscription. Please try again.',
+            description: error.message || 'There was an error processing your subscription. Please try again.',
         });
     } finally {
         setIsSubscribing(false);
@@ -157,7 +178,7 @@ export default function Dashboard() {
               </Card>
             ))
           : boxes.map((box) => {
-              const Icon = Icons[box.items?.[0]?.icon as keyof typeof Icons] || Icons.Box;
+              const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
 
               return (
                 <Card key={box.id}>
@@ -199,7 +220,9 @@ export default function Dashboard() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button className="w-full" onClick={() => handleSubscribeClick(box)}>Subscribe</Button>
+                    <Button className="w-full" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut}>
+                        {isSoldOut ? 'Sold Out' : 'Subscribe'}
+                    </Button>
                   </CardFooter>
                 </Card>
               );

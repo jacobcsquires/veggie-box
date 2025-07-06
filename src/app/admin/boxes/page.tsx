@@ -56,6 +56,7 @@ export default function AdminBoxesPage() {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
+  const [quantity, setQuantity] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -74,11 +75,12 @@ export default function AdminBoxesPage() {
     setName('');
     setPrice('');
     setDescription('');
+    setQuantity('');
   };
 
   const handleSaveBox = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price || !description) {
+    if (!name || !price || !description || !quantity) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -90,8 +92,10 @@ export default function AdminBoxesPage() {
     try {
       await addDoc(collection(db, 'boxes'), {
         name,
-        price,
+        price: parseFloat(price),
         description,
+        quantity: parseInt(quantity, 10),
+        subscribedCount: 0,
         image: 'https://placehold.co/600x400.png',
         hint: 'vegetable box',
         items: [
@@ -165,6 +169,19 @@ export default function AdminBoxesPage() {
                     disabled={isSaving}
                   />
                 </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="quantity" className="text-right">
+                    Quantity
+                  </Label>
+                  <Input
+                    id="quantity"
+                    type="number"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="col-span-3"
+                    disabled={isSaving}
+                  />
+                </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="description" className="text-right">
                     Description
@@ -201,7 +218,7 @@ export default function AdminBoxesPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden md:table-cell">
-                  Subscribers
+                  Inventory
                 </TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead>
@@ -226,7 +243,7 @@ export default function AdminBoxesPage() {
                   <TableCell>
                     <Badge variant="outline">Active</Badge>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">120</TableCell>
+                  <TableCell className="hidden md:table-cell">{box.subscribedCount} / {box.quantity}</TableCell>
                   <TableCell className="text-right">${box.price}</TableCell>
                   <TableCell>
                     <DropdownMenu>
