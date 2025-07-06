@@ -73,9 +73,9 @@ export default function ProfilePage() {
                 newPhotoURL = await getDownloadURL(storageRef);
             }
 
-            await updateProfile(user, { displayName: name, photoURL: newPhotoURL });
+            await updateProfile(user, { displayName: name, photoURL: newPhotoURL || null });
             const userDocRef = doc(db, 'users', user.uid);
-            await updateDoc(userDocRef, { displayName: name, photoURL: newPhotoURL });
+            await updateDoc(userDocRef, { displayName: name, photoURL: newPhotoURL || null });
             
             toast({ title: "Success", description: "Profile updated successfully." });
             setProfileImageFile(null);
