@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LayoutDashboard, LogOut, User as UserIcon } from "lucide-react"
 import Link from "next/link"
-import { ThemeToggle } from "./theme-toggle";
 
 export function UserNav() {
   const { user } = useAuth();
@@ -83,11 +82,6 @@ export function UserNav() {
             </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-           <ThemeToggle />
-           <span className="ml-2">Toggle Theme</span>
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={handleLogout} className="cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
