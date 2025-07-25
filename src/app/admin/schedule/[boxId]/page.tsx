@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 
 export default function AdminSchedulePage({ params }: { params: { boxId: string } }) {
   const { toast } = useToast();
-  const boxId = params.boxId;
+  const { boxId } = params;
 
   const [box, setBox] = useState<Box | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -47,6 +47,7 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     const q = query(collection(db, 'deliveries'), where('boxId', '==', boxId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const deliveriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Delivery));
+      console.log('Fetched schedule data:', deliveriesData);
       setDeliveries(deliveriesData);
     });
 
