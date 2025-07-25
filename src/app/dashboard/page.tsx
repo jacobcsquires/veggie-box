@@ -28,8 +28,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Box, Pickup } from '@/lib/types';
+import type { Box, Pickup, BoxItem } from '@/lib/types';
 import { format } from 'date-fns';
+import { Separator } from '@/components/ui/separator';
 
 
 export default function Dashboard() {
@@ -42,7 +43,8 @@ export default function Dashboard() {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedBox, setSelectedBox] = useState<Box | null>(null);
-  const [availablePickups, setAvailablePickups] = useState<Date[]>([]);
+  const [availablePickups, setAvailablePickups] = useState<Pickup[]>([]);
+  const [selectedPickupItems, setSelectedPickupItems] = useState<BoxItem[]>([]);
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
 
   useEffect(() => {
@@ -61,29 +63,39 @@ export default function Dashboard() {
       setIsLoadingPickups(true);
       const pickupsQuery = query(collection(db, 'pickups'), where('boxId', '==', selectedBox.id));
       const unsubscribe = onSnapshot(pickupsQuery, (snapshot) => {
-        const pickupDates = snapshot.docs
-          .map(doc => {
-            const data = doc.data() as Pickup;
-            // Dates are stored as 'YYYY-MM-DD', convert to JS Date object correctly.
-            return new Date(data.pickupDate.replace(/-/g, '\/'));
-          })
-          .filter(d => d >= new Date(new Date().setHours(0,0,0,0))); // Filter out past dates
+        const pickupsData = snapshot.docs
+          .map(doc => doc.data() as Pickup)
+          .filter(p => new Date(p.pickupDate.replace(/-/g, '\/')) >= new Date(new Date().setHours(0,0,0,0)));
 
-        setAvailablePickups(pickupDates);
+        setAvailablePickups(pickupsData);
         setIsLoadingPickups(false);
-        // Automatically select the first available pickup date
-        if (pickupDates.length > 0) {
-          setDate(pickupDates[0]);
+        
+        if (pickupsData.length > 0) {
+            const firstAvailableDate = new Date(pickupsData[0].pickupDate.replace(/-/g, '\/'));
+            setDate(firstAvailableDate);
+            setSelectedPickupItems(pickupsData[0].items);
         } else {
-          setDate(undefined);
+            setDate(undefined);
+            setSelectedPickupItems([]);
         }
       });
       return () => unsubscribe();
     } else {
       setAvailablePickups([]);
       setDate(undefined);
+      setSelectedPickupItems([]);
     }
   }, [selectedBox, isDialogOpen]);
+
+  useEffect(() => {
+    if (date) {
+        const dateString = format(date, 'yyyy-MM-dd');
+        const pickupForDate = availablePickups.find(p => p.pickupDate === dateString);
+        setSelectedPickupItems(pickupForDate?.items || []);
+    } else {
+        setSelectedPickupItems([]);
+    }
+  }, [date, availablePickups]);
 
   const handleSubscribeClick = (box: Box) => {
     setSelectedBox(box);
@@ -162,6 +174,7 @@ export default function Dashboard() {
     }
   };
   
+  const availablePickupDates = availablePickups.map(p => new Date(p.pickupDate.replace(/-/g, '\/')));
 
   return (
     <>
@@ -233,45 +246,65 @@ export default function Dashboard() {
             })}
       </div>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Schedule Your First Pick Up</DialogTitle>
               <DialogDescription>
                 Select an available start date for your '{selectedBox?.name}' subscription.
               </DialogDescription>
             </DialogHeader>
-            <div className="flex justify-center">
-                {isLoadingPickups ? (
-                    <div className="flex flex-col items-center justify-center h-[290px]">
-                        <Icons.Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-2" />
-                        <p className="text-muted-foreground">Loading available dates...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                <div className="flex justify-center">
+                    {isLoadingPickups ? (
+                        <div className="flex flex-col items-center justify-center h-[290px]">
+                            <Icons.Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-2" />
+                            <p className="text-muted-foreground">Loading available dates...</p>
+                        </div>
+                    ) : availablePickupDates.length > 0 ? (
+                        <Calendar
+                            mode="single"
+                            selected={date}
+                            onSelect={setDate}
+                            disabled={(currentDate) => {
+                                const today = new Date();
+                                today.setHours(0,0,0,0);
+                                if (currentDate < today) return true;
+                                return !availablePickupDates.some(
+                                    (pickupDate) => format(pickupDate, 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')
+                                );
+                            }}
+                            className="rounded-md border"
+                        />
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-[290px] text-center p-4">
+                            <Icons.CalendarX className="h-8 w-8 text-muted-foreground mb-2" />
+                            <p className="text-muted-foreground">No upcoming pickup dates have been scheduled for this box yet. Please check back later.</p>
+                        </div>
+                    )}
+                </div>
+                 <div className="space-y-4">
+                    <h3 className="font-semibold">What's in the box?</h3>
+                    <div className="space-y-2 text-sm max-h-[220px] overflow-y-auto pr-2">
+                        {selectedPickupItems.length > 0 ? (
+                            selectedPickupItems.map((item, index) => {
+                                const ItemIcon = Icons[item.icon as keyof typeof Icons] || Icons.HelpCircle;
+                                return (
+                                    <div key={index} className="flex items-center gap-2 text-muted-foreground">
+                                        <ItemIcon className="h-4 w-4" />
+                                        <span>{item.name}</span>
+                                    </div>
+                                )
+                            })
+                        ) : (
+                            <p className="text-muted-foreground">Select a date to see the items.</p>
+                        )}
                     </div>
-                ) : availablePickups.length > 0 ? (
-                    <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={setDate}
-                        disabled={(currentDate) => {
-                            const today = new Date();
-                            today.setHours(0,0,0,0);
-                            if (currentDate < today) return true;
-                            // Check if the current date is in the list of available pickup dates
-                            return !availablePickups.some(
-                                (pickupDate) => format(pickupDate, 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')
-                            );
-                        }}
-                        className="rounded-md border"
-                    />
-                ) : (
-                    <div className="flex flex-col items-center justify-center h-[290px] text-center p-4">
-                        <Icons.CalendarX className="h-8 w-8 text-muted-foreground mb-2" />
-                        <p className="text-muted-foreground">No upcoming pickup dates have been scheduled for this box yet. Please check back later.</p>
-                    </div>
-                )}
+                </div>
             </div>
+            <Separator />
             <DialogFooter>
-              <Button onClick={handleConfirmSubscription} disabled={isSubscribing || !date || isLoadingPickups}>
-                {isSubscribing ? 'Confirming...' : 'Confirm Subscription'}
+              <Button onClick={handleConfirmSubscription} disabled={isSubscribing || !date || isLoadingPickups} className="w-full">
+                {isSubscribing ? 'Confirming...' : `Subscribe for $${selectedBox?.price}`}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -279,3 +312,5 @@ export default function Dashboard() {
     </>
   );
 }
+
+    
