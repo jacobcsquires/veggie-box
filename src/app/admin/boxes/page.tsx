@@ -4,11 +4,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, getDocs, writeBatch, deleteField } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { MoreHorizontal, PlusCircle, X, Calendar as CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, X, Calendar as CalendarIcon, DatabaseZap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,6 +48,18 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { Box } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
 
 export default function AdminBoxesPage() {
   const { toast } = useToast();
@@ -55,6 +67,7 @@ export default function AdminBoxesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
 
   // Form state
   const [isEditMode, setIsEditMode] = useState(false);
@@ -187,139 +200,198 @@ export default function AdminBoxesPage() {
     }
   };
 
+  const handleMigrateData = async () => {
+    setIsMigrating(true);
+    try {
+      const batch = writeBatch(db);
+      const boxesSnapshot = await getDocs(collection(db, 'boxes'));
+      
+      boxesSnapshot.forEach((doc) => {
+        const boxData = doc.data();
+        if (boxData.items) {
+          console.log(`Preparing to remove 'items' field from box: ${doc.id}`);
+          batch.update(doc.ref, { items: deleteField() });
+        }
+      });
+
+      await batch.commit();
+
+      toast({
+        title: 'Migration Complete',
+        description: 'Successfully removed the "items" field from all boxes.',
+      });
+    } catch (error) {
+      console.error('Migration failed:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Migration Failed',
+        description: 'There was an error migrating the data. Check the console for details.',
+      });
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2">
         <h1 className="text-lg font-semibold md:text-2xl font-headline">
           Manage Boxes
         </h1>
-        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
-            setIsDialogOpen(isOpen);
-            if (!isOpen) {
-                resetForm();
-            }
-        }}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="h-8 gap-1">
-              <PlusCircle className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Add Box
-              </span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <form onSubmit={handleSaveBox}>
-              <DialogHeader>
-                <DialogTitle>{isEditMode ? 'Edit Box' : 'Add New Box'}</DialogTitle>
-                <DialogDescription>
-                  {isEditMode ? 'Update the details of the veggie box.' : 'Fill out the details for the new veggie box.'}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    Name
-                  </Label>
-                  <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="col-span-3"
-                    disabled={isSaving}
-                  />
-                </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="image" className="text-right">
-                    Image
-                  </Label>
-                  <div className="col-span-3">
-                    <Input
-                      id="image"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      disabled={isSaving}
-                    />
-                    {imagePreview && (
-                      <Image src={imagePreview} alt="Image Preview" width={100} height={100} className="mt-2 rounded-md object-cover" />
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="price" className="text-right">
-                    Price
-                  </Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    className="col-span-3"
-                    disabled={isSaving}
-                  />
-                </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="quantity" className="text-right">
-                    Quantity
-                  </Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="col-span-3"
-                    disabled={isSaving}
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="description" className="text-right">
-                    Description
-                  </Label>
-                  <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="col-span-3"
-                    disabled={isSaving}
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="startDate" className="text-right">
-                    Start Date
-                  </Label>
-                  <Input
-                    id="startDate"
-                    type="text"
-                    placeholder="e.g. Mid-June"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="col-span-3"
-                    disabled={isSaving}
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="endDate" className="text-right">
-                    End Date
-                  </Label>
-                  <Input
-                    id="endDate"
-                    type="text"
-                    placeholder="e.g. Late August"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="col-span-3"
-                    disabled={isSaving}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save box'}
+        <div className="flex items-center gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-1" disabled={isMigrating}>
+                    <DatabaseZap className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                      {isMigrating ? 'Migrating...' : 'Migrate Data'}
+                    </span>
                 </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure you want to migrate?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This is a one-time operation that will remove the old 'items' field from all of your boxes in the database. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleMigrateData}>
+                    Yes, Migrate Data
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
+                setIsDialogOpen(isOpen);
+                if (!isOpen) {
+                    resetForm();
+                }
+            }}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="h-8 gap-1">
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    Add Box
+                  </span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <form onSubmit={handleSaveBox}>
+                  <DialogHeader>
+                    <DialogTitle>{isEditMode ? 'Edit Box' : 'Add New Box'}</DialogTitle>
+                    <DialogDescription>
+                      {isEditMode ? 'Update the details of the veggie box.' : 'Fill out the details for the new veggie box.'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="name" className="text-right">
+                        Name
+                      </Label>
+                      <Input
+                        id="name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="col-span-3"
+                        disabled={isSaving}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="image" className="text-right">
+                        Image
+                      </Label>
+                      <div className="col-span-3">
+                        <Input
+                          id="image"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          disabled={isSaving}
+                        />
+                        {imagePreview && (
+                          <Image src={imagePreview} alt="Image Preview" width={100} height={100} className="mt-2 rounded-md object-cover" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="price" className="text-right">
+                        Price
+                      </Label>
+                      <Input
+                        id="price"
+                        type="number"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        className="col-span-3"
+                        disabled={isSaving}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="quantity" className="text-right">
+                        Quantity
+                      </Label>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value)}
+                        className="col-span-3"
+                        disabled={isSaving}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="description" className="text-right">
+                        Description
+                      </Label>
+                      <Textarea
+                        id="description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="col-span-3"
+                        disabled={isSaving}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="startDate" className="text-right">
+                        Start Date
+                      </Label>
+                      <Input
+                        id="startDate"
+                        type="text"
+                        placeholder="e.g. Mid-June"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="col-span-3"
+                        disabled={isSaving}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="endDate" className="text-right">
+                        End Date
+                      </Label>
+                      <Input
+                        id="endDate"
+                        type="text"
+                        placeholder="e.g. Late August"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="col-span-3"
+                        disabled={isSaving}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit" disabled={isSaving}>
+                      {isSaving ? 'Saving...' : 'Save box'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+        </div>
       </div>
       <Card>
         <CardHeader>
