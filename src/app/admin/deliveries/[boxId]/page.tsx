@@ -41,12 +41,11 @@ import {
 import type { Box, BoxItem, Delivery } from '@/lib/types';
 
 export default function AdminDeliveryCalendarPage({
-  params,
+  params: { boxId },
 }: {
   params: { boxId: string };
 }) {
   const { toast } = useToast();
-  const { boxId } = params;
 
   const [box, setBox] = useState<Box | null>(null);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);

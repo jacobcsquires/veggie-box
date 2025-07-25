@@ -27,11 +27,10 @@ import type { Box, Delivery, BoxItem } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 
 export default function UserDeliveryCalendarPage({
-  params,
+  params: { boxId },
 }: {
   params: { boxId: string };
 }) {
-  const { boxId } = params;
 
   const [box, setBox] = useState<Box | null>(null);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
