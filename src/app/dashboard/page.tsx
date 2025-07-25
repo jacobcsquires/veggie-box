@@ -1,3 +1,4 @@
+
 'use client';
 
 import Image from 'next/image';
@@ -166,11 +167,6 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="flex justify-between items-center">
                     <Skeleton className="h-8 w-24" />
-                    <div className="flex -space-x-2">
-                        <Skeleton className="h-8 w-8 rounded-full" />
-                        <Skeleton className="h-8 w-8 rounded-full" />
-                        <Skeleton className="h-8 w-8 rounded-full" />
-                    </div>
                   </div>
                 </CardContent>
                 <CardFooter>
@@ -208,20 +204,6 @@ export default function Dashboard() {
                           /week
                         </span>
                       </p>
-                      <div className="flex -space-x-2">
-                        {box.items?.map((item) => {
-                          const ItemIcon = Icons[item.icon as keyof typeof Icons] || Icons.HelpCircle;
-                          return (
-                            <div
-                              key={item.name}
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 border-2 border-background"
-                              title={item.name}
-                            >
-                              <ItemIcon className="h-4 w-4 text-primary" />
-                            </div>
-                          );
-                        })}
-                      </div>
                     </div>
                   </CardContent>
                   <CardFooter>

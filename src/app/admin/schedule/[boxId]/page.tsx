@@ -39,8 +39,6 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
       if (docSnap.exists()) {
         const boxData = { id: docSnap.id, ...docSnap.data() } as Box;
         setBox(boxData);
-        // Set initial items from the box definition
-        setSelectedDeliveryItems(boxData.items || []);
       }
       setIsLoading(false);
     });
@@ -59,10 +57,10 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     if (selectedDate) {
       const dateString = format(selectedDate, 'yyyy-MM-dd');
       const deliveryForDate = deliveries.find(d => d.deliveryDate === dateString);
-      // If a delivery is saved for this date, use its items. Otherwise, use the box's default items.
-      setSelectedDeliveryItems(deliveryForDate?.items || box?.items || []);
+      // If a delivery is saved for this date, use its items. Otherwise, start with an empty array.
+      setSelectedDeliveryItems(deliveryForDate?.items || []);
     } else {
-      setSelectedDeliveryItems(box?.items || []);
+      setSelectedDeliveryItems([]);
     }
   }, [selectedDate, deliveries, box]);
 

@@ -11,7 +11,6 @@ export type Box = {
   price: number;
   image: string;
   hint: string;
-  items: BoxItem[];
   quantity: number;
   subscribedCount: number;
   startDate?: string;

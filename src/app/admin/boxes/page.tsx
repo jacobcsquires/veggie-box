@@ -46,7 +46,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { Box, BoxItem } from '@/lib/types';
+import type { Box } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminBoxesPage() {
@@ -65,9 +65,6 @@ export default function AdminBoxesPage() {
   const [quantity, setQuantity] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [items, setItems] = useState<BoxItem[]>([]);
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemIcon, setNewItemIcon] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
@@ -91,9 +88,6 @@ export default function AdminBoxesPage() {
     setQuantity('');
     setStartDate('');
     setEndDate('');
-    setItems([]);
-    setNewItemName('');
-    setNewItemIcon('');
     setImageFile(null);
     setImagePreview(null);
     setIsEditMode(false);
@@ -109,7 +103,6 @@ export default function AdminBoxesPage() {
     setQuantity(box.quantity.toString());
     setStartDate(box.startDate || '');
     setEndDate(box.endDate || '');
-    setItems(box.items || []);
     setImagePreview(box.image);
     setImageFile(null);
     setIsDialogOpen(true);
@@ -121,24 +114,6 @@ export default function AdminBoxesPage() {
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
     }
-  };
-  
-  const handleAddItem = () => {
-    if (newItemName && newItemIcon) {
-      setItems([...items, { name: newItemName, icon: newItemIcon }]);
-      setNewItemName('');
-      setNewItemIcon('');
-    } else {
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Please provide both an item name and an icon name.',
-        });
-    }
-  };
-
-  const handleRemoveItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
   };
 
   const handleSaveBox = async (e: React.FormEvent) => {
@@ -180,7 +155,6 @@ export default function AdminBoxesPage() {
       quantity: parseInt(quantity, 10),
       startDate,
       endDate,
-      items,
       image: imageUrlToSave || 'https://placehold.co/600x400.png',
     };
 
@@ -337,33 +311,6 @@ export default function AdminBoxesPage() {
                     disabled={isSaving}
                   />
                 </div>
-
-                <div className="grid grid-cols-4 items-start gap-4">
-                    <Label htmlFor="items" className="text-right pt-2">
-                        Items
-                    </Label>
-                    <div className="col-span-3 space-y-2">
-                      <div className="space-y-2">
-                        {items.map((item, index) => (
-                            <div key={index} className="flex items-center gap-2 p-2 rounded-md border">
-                                <span className="flex-1 font-medium">{item.name}</span>
-                                <span className="flex-1 text-muted-foreground">{item.icon}</span>
-                                <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={isSaving}>
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                          <Input id="itemName" placeholder="Item Name (e.g. Carrots)" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} disabled={isSaving} />
-                          <Input id="itemIcon" placeholder="Icon Name (e.g. Carrot)" value={newItemIcon} onChange={(e) => setNewItemIcon(e.target.value)} disabled={isSaving} />
-                          <Button type="button" variant="outline" onClick={handleAddItem} disabled={isSaving}>Add</Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Icon names from lucide-react, e.g., 'Carrot', 'Leaf'.</p>
-                    </div>
-                </div>
-
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={isSaving}>
@@ -455,5 +402,3 @@ export default function AdminBoxesPage() {
     </div>
   );
 }
-
-    
