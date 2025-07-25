@@ -71,7 +71,7 @@ export default function Dashboard() {
         toast({
             variant: 'destructive',
             title: 'Error',
-            description: 'Please select a box and a delivery date.',
+            description: 'Please select a box and a pick up date.',
         });
         return;
     }
@@ -105,7 +105,7 @@ export default function Dashboard() {
                 price: selectedBox.price,
                 status: 'Active',
                 startDate: date.toISOString().split('T')[0],
-                nextDelivery: date.toISOString().split('T')[0],
+                nextPickup: date.toISOString().split('T')[0],
                 createdAt: serverTimestamp(),
             };
             transaction.set(subscriptionRef, subscriptionData);
@@ -204,7 +204,7 @@ export default function Dashboard() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Schedule Your First Delivery</DialogTitle>
+              <DialogTitle>Schedule Your First Pick Up</DialogTitle>
               <DialogDescription>
                 Select a start date for your '{selectedBox?.name}' subscription. You can change this later.
               </DialogDescription>

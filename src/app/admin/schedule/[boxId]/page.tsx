@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { X, Plus, Loader2 } from 'lucide-react';
-import type { Box, BoxItem, Delivery } from '@/lib/types';
+import type { Box, BoxItem, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
@@ -21,8 +21,8 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
 
   const [box, setBox] = useState<Box | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [selectedDeliveryItems, setSelectedDeliveryItems] = useState<BoxItem[]>([]);
+  const [pickups, setPickups] = useState<Pickup[]>([]);
+  const [selectedPickupItems, setSelectedPickupItems] = useState<BoxItem[]>([]);
   
   const [newItemName, setNewItemName] = useState('');
   const [newItemIcon, setNewItemIcon] = useState('');
@@ -43,34 +43,34 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
       setIsLoading(false);
     });
 
-    // Listen for real-time delivery updates from Firestore
-    const deliveriesQuery = query(collection(db, 'deliveries'), where('boxId', '==', boxId));
-    const unsubscribe = onSnapshot(deliveriesQuery, (snapshot) => {
-      const deliveriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Delivery));
-      setDeliveries(deliveriesData);
-      console.log('Fetched schedule data from Firestore:', deliveriesData);
+    // Listen for real-time pickup updates from Firestore
+    const pickupsQuery = query(collection(db, 'pickups'), where('boxId', '==', boxId));
+    const unsubscribe = onSnapshot(pickupsQuery, (snapshot) => {
+      const pickupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pickup));
+      setPickups(pickupsData);
+      console.log('Fetched schedule data from Firestore:', pickupsData);
     });
 
     return () => unsubscribe();
   }, [boxId]);
 
-  // This effect runs when the user selects a new date or when the deliveries data from Firestore changes.
-  // It ensures the local state for items (selectedDeliveryItems) is always in sync with what's in Firestore for the chosen date.
+  // This effect runs when the user selects a new date or when the pickups data from Firestore changes.
+  // It ensures the local state for items (selectedPickupItems) is always in sync with what's in Firestore for the chosen date.
   useEffect(() => {
     if (selectedDate) {
       const dateString = format(selectedDate, 'yyyy-MM-dd');
-      const deliveryForDate = deliveries.find(d => d.deliveryDate === dateString);
-      // If a delivery is saved in Firestore for this date, use its items. Otherwise, start with an empty array.
-      setSelectedDeliveryItems(deliveryForDate?.items || []);
+      const pickupForDate = pickups.find(d => d.pickupDate === dateString);
+      // If a pickup is saved in Firestore for this date, use its items. Otherwise, start with an empty array.
+      setSelectedPickupItems(pickupForDate?.items || []);
     } else {
-      setSelectedDeliveryItems([]);
+      setSelectedPickupItems([]);
     }
-  }, [selectedDate, deliveries]);
+  }, [selectedDate, pickups]);
 
   const handleAddItem = () => {
     if (newItemName && newItemIcon) {
       // Update local state. The changes will be sent to Firestore upon saving.
-      setSelectedDeliveryItems([...selectedDeliveryItems, { name: newItemName, icon: newItemIcon }]);
+      setSelectedPickupItems([...selectedPickupItems, { name: newItemName, icon: newItemIcon }]);
       setNewItemName('');
       setNewItemIcon('');
     } else {
@@ -84,11 +84,11 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
 
   const handleRemoveItem = (index: number) => {
     // Update local state. The changes will be sent to Firestore upon saving.
-    setSelectedDeliveryItems(selectedDeliveryItems.filter((_, i) => i !== index));
+    setSelectedPickupItems(selectedPickupItems.filter((_, i) => i !== index));
   };
 
-  // This function handles all interactions with Firestore for saving or deleting delivery data.
-  const handleSaveDelivery = async () => {
+  // This function handles all interactions with Firestore for saving or deleting pickup data.
+  const handleSavePickup = async () => {
     if (!selectedDate) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a date.' });
         return;
@@ -98,39 +98,39 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     const dateString = format(selectedDate, 'yyyy-MM-dd');
     // Use a consistent ID for the document to easily find and update it later.
     const docId = `${boxId}_${dateString}`;
-    const deliveryRef = doc(db, 'deliveries', docId);
+    const pickupRef = doc(db, 'pickups', docId);
 
     try {
         // If there are items, we create or update the document in Firestore.
-        if (selectedDeliveryItems.length > 0) {
-            const deliveryData: Delivery = {
+        if (selectedPickupItems.length > 0) {
+            const pickupData: Pickup = {
                 id: docId,
                 boxId,
                 boxName: box?.name || '',
-                deliveryDate: dateString,
-                items: selectedDeliveryItems,
+                pickupDate: dateString,
+                items: selectedPickupItems,
             };
             // setDoc with merge:true will create the document if it doesn't exist, or update it if it does.
-            await setDoc(deliveryRef, deliveryData, { merge: true });
-            toast({ title: 'Success', description: `Delivery for ${dateString} saved to Firestore.` });
+            await setDoc(pickupRef, pickupData, { merge: true });
+            toast({ title: 'Success', description: `Pickup for ${dateString} saved to Firestore.` });
         } else {
-            // If there are no items, it means we should remove the delivery plan for this date.
+            // If there are no items, it means we should remove the pickup plan for this date.
             // We check if the document exists in Firestore before trying to delete it.
-            const docSnap = await getDoc(deliveryRef);
+            const docSnap = await getDoc(pickupRef);
             if (docSnap.exists()) {
-                await deleteDoc(deliveryRef);
-                toast({ title: 'Success', description: `Delivery for ${dateString} cleared from Firestore.` });
+                await deleteDoc(pickupRef);
+                toast({ title: 'Success', description: `Pickup for ${dateString} cleared from Firestore.` });
             }
         }
     } catch (error) {
-        console.error("Error saving delivery to Firestore: ", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not save delivery to Firestore.' });
+        console.error("Error saving pickup to Firestore: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not save pickup to Firestore.' });
     } finally {
         setIsSaving(false);
     }
   };
   
-  const deliveryDates = deliveries.map(d => new Date(d.deliveryDate.replace(/-/g, '\/')));
+  const pickupDates = pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/')));
 
   if (isLoading) {
     return (
@@ -177,15 +177,15 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
         <div className="md:col-span-2">
           <Card>
             <CardHeader>
-                <CardTitle>Delivery Calendar</CardTitle>
-                <CardDescription>Select a date to plan the items for that delivery. Dates with scheduled deliveries are highlighted.</CardDescription>
+                <CardTitle>Pick Up Calendar</CardTitle>
+                <CardDescription>Select a date to plan the items for that pick up. Dates with scheduled pickups are highlighted.</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center">
               <Calendar
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
-                modifiers={{ scheduled: deliveryDates }}
+                modifiers={{ scheduled: pickupDates }}
                 modifiersClassNames={{ scheduled: 'bg-primary/20' }}
                 className="rounded-md border"
               />
@@ -202,9 +202,9 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Current Items in Box</Label>
-                   {selectedDeliveryItems.length > 0 ? (
+                   {selectedPickupItems.length > 0 ? (
                         <div className="space-y-2">
-                            {selectedDeliveryItems.map((item, index) => (
+                            {selectedPickupItems.map((item, index) => (
                                 <div key={index} className="flex items-center gap-2 p-2 rounded-md border text-sm">
                                     <span className="flex-1 font-medium">{item.name}</span>
                                     <span className="flex-1 text-muted-foreground">{item.icon}</span>
@@ -226,9 +226,9 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
                         <Button type="button" variant="outline" size="icon" onClick={handleAddItem} disabled={isSaving}><Plus className="h-4 w-4"/></Button>
                     </div>
                 </div>
-                 <Button onClick={handleSaveDelivery} disabled={isSaving || !selectedDate} className="w-full">
+                 <Button onClick={handleSavePickup} disabled={isSaving || !selectedDate} className="w-full">
                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isSaving ? 'Saving to Firestore...' : 'Save Delivery Plan'}
+                    {isSaving ? 'Saving to Firestore...' : 'Save Pick Up Plan'}
                 </Button>
               </div>
             </CardContent>

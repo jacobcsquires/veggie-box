@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase';
 import * as Icons from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Box, Delivery } from '@/lib/types';
+import type { Box, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
@@ -16,8 +16,8 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
 
   const [box, setBox] = useState<Box | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [selectedDeliveryItems, setSelectedDeliveryItems] = useState<any[]>([]);
+  const [pickups, setPickups] = useState<Pickup[]>([]);
+  const [selectedPickupItems, setSelectedPickupItems] = useState<any[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   
@@ -33,11 +33,11 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
       setIsLoading(false);
     });
 
-    // Listen for delivery updates
-    const q = query(collection(db, 'deliveries'), where('boxId', '==', boxId));
+    // Listen for pickup updates
+    const q = query(collection(db, 'pickups'), where('boxId', '==', boxId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const deliveriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Delivery));
-      setDeliveries(deliveriesData);
+      const pickupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pickup));
+      setPickups(pickupsData);
     });
 
     return () => unsubscribe();
@@ -46,14 +46,14 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
   useEffect(() => {
     if (selectedDate) {
       const dateString = format(selectedDate, 'yyyy-MM-dd');
-      const deliveryForDate = deliveries.find(d => d.deliveryDate === dateString);
-      setSelectedDeliveryItems(deliveryForDate?.items || []);
+      const pickupForDate = pickups.find(d => d.pickupDate === dateString);
+      setSelectedPickupItems(pickupForDate?.items || []);
     } else {
-        setSelectedDeliveryItems([]);
+        setSelectedPickupItems([]);
     }
-  }, [selectedDate, deliveries]);
+  }, [selectedDate, pickups]);
 
-  const deliveryDates = deliveries.map(d => new Date(d.deliveryDate.replace(/-/g, '\/')));
+  const pickupDates = pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/')));
 
   if (isLoading) {
     return (
@@ -93,20 +93,20 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
 
   return (
     <div>
-      <h1 className="text-2xl font-headline mb-4">Delivery Schedule for {box.name}</h1>
+      <h1 className="text-2xl font-headline mb-4">Pick Up Schedule for {box.name}</h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
         <div className="md:col-span-2">
           <Card>
              <CardHeader>
-                <CardTitle>Delivery Calendar</CardTitle>
-                <CardDescription>Select a date to see what's planned for your delivery. Dates with scheduled deliveries are highlighted.</CardDescription>
+                <CardTitle>Pick Up Calendar</CardTitle>
+                <CardDescription>Select a date to see what's planned for your pick up. Dates with scheduled pickups are highlighted.</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center">
               <Calendar
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
-                modifiers={{ scheduled: deliveryDates }}
+                modifiers={{ scheduled: pickupDates }}
                 modifiersClassNames={{ scheduled: 'bg-primary/20' }}
                 className="rounded-md border"
               />
@@ -121,8 +121,8 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
             </CardHeader>
             <CardContent>
                 <div className="space-y-3">
-                    {selectedDeliveryItems.length > 0 ? (
-                        selectedDeliveryItems.map((item, index) => {
+                    {selectedPickupItems.length > 0 ? (
+                        selectedPickupItems.map((item, index) => {
                             const ItemIcon = Icons[item.icon as keyof typeof Icons] || Icons.HelpCircle;
                             return (
                                 <div key={index} className="flex items-center gap-3 p-3 rounded-md border bg-muted/20">
@@ -135,9 +135,9 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
                         })
                     ) : (
                         <p className="text-sm text-muted-foreground text-center py-8">
-                            {selectedDate && deliveryDates.some(d => format(d, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'))
-                                ? "Items for this delivery haven't been announced yet. Check back soon!"
-                                : "No delivery scheduled for this date."
+                            {selectedDate && pickupDates.some(d => format(d, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'))
+                                ? "Items for this pickup haven't been announced yet. Check back soon!"
+                                : "No pick up scheduled for this date."
                             }
                         </p>
                     )}

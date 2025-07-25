@@ -72,7 +72,7 @@ export default function SubscriptionsPage() {
               <TableRow>
                 <TableHead>Box Type</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Next Delivery</TableHead>
+                <TableHead>Next Pick Up</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead>
                     <span className="sr-only">Actions</span>
@@ -107,7 +107,7 @@ export default function SubscriptionsPage() {
                         {sub.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{sub.nextDelivery}</TableCell>
+                    <TableCell>{sub.nextPickup}</TableCell>
                     <TableCell className="text-right">
                       ${sub.price.toFixed(2)}
                     </TableCell>

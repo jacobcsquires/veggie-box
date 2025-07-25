@@ -25,15 +25,15 @@ export type Subscription = {
     boxName:string;
     startDate: string;
     status: 'Active' | 'Cancelled';
-    nextDelivery: string;
+    nextPickup: string;
     price: number;
     createdAt: any; // Firestore timestamp
 }
 
-export type Delivery = {
+export type Pickup = {
     id: string;
     boxId: string;
     boxName: string;
-    deliveryDate: string; // YYYY-MM-DD
+    pickupDate: string; // YYYY-MM-DD
     items: BoxItem[];
 }
