@@ -253,7 +253,7 @@ export default function Dashboard() {
                 Select an available start date for your '{selectedBox?.name}' subscription.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                 <div className="flex justify-center">
                     {isLoadingPickups ? (
                         <div className="flex flex-col items-center justify-center h-[290px]">
