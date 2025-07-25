@@ -23,7 +23,7 @@ export type Order = {
     customerName: string;
     boxId: string;
     boxName: string;
-    orderDate: string; 
+    orderDate: string;
     status: 'Processing' | 'Shipped' | 'Delivered';
     price: number;
     createdAt: any; // Firestore timestamp
@@ -39,4 +39,11 @@ export type Subscription = {
     nextDelivery: string;
     price: number;
     createdAt: any; // Firestore timestamp
+}
+
+export type Delivery = {
+  id: string;
+  boxId: string;
+  deliveryDate: string; // YYYY-MM-DD
+  items: BoxItem[];
 }

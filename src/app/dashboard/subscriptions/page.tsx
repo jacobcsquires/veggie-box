@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -71,6 +73,9 @@ export default function SubscriptionsPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Next Delivery</TableHead>
                 <TableHead className="text-right">Price</TableHead>
+                <TableHead>
+                    <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -81,11 +86,12 @@ export default function SubscriptionsPage() {
                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
                   </TableRow>
                 ))
               ) : subscriptions.length === 0 ? (
                 <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                         You have no subscriptions yet.
                     </TableCell>
                 </TableRow>
@@ -96,12 +102,6 @@ export default function SubscriptionsPage() {
                     <TableCell>
                       <Badge
                         variant={sub.status === 'Active' ? 'default' : 'secondary'}
-                        className={cn(
-                          sub.status === 'Active'
-                            ? 'bg-green-200 text-green-800'
-                            : 'bg-gray-200 text-gray-800',
-                          'dark:bg-transparent dark:text-foreground'
-                        )}
                       >
                         {sub.status}
                       </Badge>
@@ -109,6 +109,11 @@ export default function SubscriptionsPage() {
                     <TableCell>{sub.nextDelivery}</TableCell>
                     <TableCell className="text-right">
                       ${sub.price.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                        <Button asChild variant="outline" size="sm">
+                            <Link href={`/dashboard/deliveries/${sub.boxId}`}>View Calendar</Link>
+                        </Button>
                     </TableCell>
                   </TableRow>
                 ))

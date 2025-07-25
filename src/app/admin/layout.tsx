@@ -14,10 +14,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UserNav } from "@/components/user-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 

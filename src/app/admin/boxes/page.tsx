@@ -2,12 +2,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { MoreHorizontal, PlusCircle, X } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, X, Calendar as CalendarIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -429,6 +430,12 @@ export default function AdminBoxesPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onSelect={() => handleEditClick(box)}>Edit</DropdownMenuItem>
+                         <DropdownMenuItem asChild>
+                            <Link href={`/admin/deliveries/${box.id}`} className="flex items-center cursor-pointer">
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <span>Calendar</span>
+                            </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuItem>Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
