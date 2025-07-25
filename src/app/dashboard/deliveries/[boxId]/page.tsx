@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -27,11 +28,11 @@ import type { Box, Delivery, BoxItem } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 
 export default function UserDeliveryCalendarPage({
-  params: { boxId },
+  params,
 }: {
   params: { boxId: string };
 }) {
-
+  const { boxId } = params;
   const [box, setBox] = useState<Box | null>(null);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
