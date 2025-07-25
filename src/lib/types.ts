@@ -1,3 +1,4 @@
+
 export type BoxItem = {
   name: string;
   icon: string;
@@ -15,6 +16,7 @@ export type Box = {
   subscribedCount: number;
   startDate?: string;
   endDate?: string;
+  createdAt?: any;
 };
 
 export type Order = {
@@ -41,4 +43,10 @@ export type Subscription = {
     createdAt: any; // Firestore timestamp
 }
 
-    
+export type Delivery = {
+    id: string;
+    boxId: string;
+    boxName: string;
+    deliveryDate: string; // YYYY-MM-DD
+    items: BoxItem[];
+}
