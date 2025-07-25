@@ -431,9 +431,9 @@ export default function AdminBoxesPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onSelect={() => handleEditClick(box)}>Edit</DropdownMenuItem>
                          <DropdownMenuItem asChild>
-                            <Link href={`/admin/deliveries/${box.id}`} className="flex items-center cursor-pointer">
+                            <Link href={`/admin/schedule/${box.id}`} className="flex items-center cursor-pointer">
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                <span>Calendar</span>
+                                <span>Schedule</span>
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem>Delete</DropdownMenuItem>
@@ -455,3 +455,5 @@ export default function AdminBoxesPage() {
     </div>
   );
 }
+
+    

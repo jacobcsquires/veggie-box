@@ -41,9 +41,4 @@ export type Subscription = {
     createdAt: any; // Firestore timestamp
 }
 
-export type Delivery = {
-  id: string;
-  boxId: string;
-  deliveryDate: string; // YYYY-MM-DD
-  items: BoxItem[];
-}
+    

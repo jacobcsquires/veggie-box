@@ -113,7 +113,7 @@ export default function SubscriptionsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                         <Button asChild variant="outline" size="sm">
-                            <Link href={`/dashboard/deliveries/${sub.boxId}`}>View Calendar</Link>
+                            <Link href={`/dashboard/schedule/${sub.boxId}`}>View Schedule</Link>
                         </Button>
                     </TableCell>
                   </TableRow>
@@ -126,3 +126,5 @@ export default function SubscriptionsPage() {
     </div>
   );
 }
+
+    
