@@ -69,7 +69,7 @@ export default function UserDeliveryCalendarPage({
     });
 
     return () => unsubscribe();
-  }, [boxId, currentMonth]);
+  }, [boxId]);
 
   const deliveryDates = deliveries.map(d => new Date(d.deliveryDate + 'T00:00:00'));
 
@@ -109,7 +109,7 @@ export default function UserDeliveryCalendarPage({
                     available: deliveryDates,
                 }}
                 modifiersClassNames={{
-                    available: 'bg-primary/20',
+                    available: 'bg-primary/20 text-accent-foreground',
                 }}
                 disabled={(date) => !deliveryDates.some(d => d.getTime() === date.getTime())}
             />

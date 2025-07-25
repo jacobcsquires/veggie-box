@@ -36,7 +36,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 
 import type { Box, BoxItem, Delivery } from '@/lib/types';
@@ -52,7 +51,7 @@ export default function AdminDeliveryCalendarPage({
   const [box, setBox] = useState<Box | null>(null);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    new Date()
+    undefined
   );
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [isSaving, setIsSaving] = useState(false);
@@ -79,7 +78,7 @@ export default function AdminDeliveryCalendarPage({
     }
   }, [boxId, toast]);
 
-  // Fetch deliveries for the current month
+  // Fetch deliveries for the current box
   useEffect(() => {
     if (!boxId) return;
     
@@ -96,7 +95,7 @@ export default function AdminDeliveryCalendarPage({
     });
 
     return () => unsubscribe();
-  }, [boxId, currentMonth]);
+  }, [boxId]);
 
   const deliveryDates = deliveries.map(d => new Date(d.deliveryDate + 'T00:00:00'));
 
@@ -183,7 +182,7 @@ export default function AdminDeliveryCalendarPage({
             <Calendar
                 mode="multiple"
                 selected={deliveryDates}
-                onSelect={handleDateSelect}
+                onSelect={(day) => handleDateSelect(day as Date)}
                 onMonthChange={setCurrentMonth}
                 className="p-0"
                 modifiersClassNames={{
@@ -192,7 +191,7 @@ export default function AdminDeliveryCalendarPage({
             />
         </CardContent>
          <CardFooter>
-            <p className="text-sm text-muted-foreground">Select a date to set the items for that specific delivery. Dates with custom items are highlighted.</p>
+            <p className="text-sm text-muted-foreground">Select a date to set or edit items for that delivery. Highlighted dates have a delivery scheduled.</p>
         </CardFooter>
       </Card>
       
@@ -201,7 +200,7 @@ export default function AdminDeliveryCalendarPage({
             <DialogHeader>
                 <DialogTitle>Edit Delivery for {selectedDate && format(selectedDate, 'PPP')}</DialogTitle>
                 <DialogDescription>
-                    Customize the items for this specific delivery date. If you don't set any items, the box's default items will be used.
+                    Customize the items for this specific delivery date. If no items are set, the box's default items will be used.
                 </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-4">
@@ -222,9 +221,9 @@ export default function AdminDeliveryCalendarPage({
                     <Button type="button" variant="outline" onClick={handleAddItem} disabled={isSaving}>Add</Button>
                 </div>
             </div>
-            <DialogFooter className="flex-col sm:flex-row sm:justify-between w-full">
-                <Button variant="destructive" onClick={handleClearDelivery} disabled={isSaving}>
-                    {isSaving ? 'Clearing...' : 'Clear Delivery Items'}
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between w-full">
+                <Button variant="outline" onClick={handleClearDelivery} disabled={isSaving || !deliveries.find(d => selectedDate && d.deliveryDate === format(selectedDate, 'yyyy-MM-dd'))}>
+                    {isSaving ? 'Clearing...' : 'Clear Delivery'}
                 </Button>
                 <Button onClick={handleSaveDelivery} disabled={isSaving}>
                     {isSaving ? 'Saving...' : 'Save Delivery'}
