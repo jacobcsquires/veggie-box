@@ -4,11 +4,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, getDocs, writeBatch, deleteField } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { MoreHorizontal, PlusCircle, X, Calendar as CalendarIcon, DatabaseZap } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, X, Calendar as CalendarIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,17 +48,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { Box } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 
 
 export default function AdminBoxesPage() {
@@ -67,7 +56,6 @@ export default function AdminBoxesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isMigrating, setIsMigrating] = useState(false);
 
   // Form state
   const [isEditMode, setIsEditMode] = useState(false);
@@ -200,38 +188,6 @@ export default function AdminBoxesPage() {
     }
   };
 
-  const handleMigrateData = async () => {
-    setIsMigrating(true);
-    try {
-      const batch = writeBatch(db);
-      const boxesSnapshot = await getDocs(collection(db, 'boxes'));
-      
-      boxesSnapshot.forEach((doc) => {
-        const boxData = doc.data();
-        if (boxData.items) {
-          console.log(`Preparing to remove 'items' field from box: ${doc.id}`);
-          batch.update(doc.ref, { items: deleteField() });
-        }
-      });
-
-      await batch.commit();
-
-      toast({
-        title: 'Migration Complete',
-        description: 'Successfully removed the "items" field from all boxes.',
-      });
-    } catch (error) {
-      console.error('Migration failed:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Migration Failed',
-        description: 'There was an error migrating the data. Check the console for details.',
-      });
-    } finally {
-      setIsMigrating(false);
-    }
-  };
-
 
   return (
     <div>
@@ -240,30 +196,6 @@ export default function AdminBoxesPage() {
           Manage Boxes
         </h1>
         <div className="flex items-center gap-2">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1" disabled={isMigrating}>
-                    <DatabaseZap className="h-3.5 w-3.5" />
-                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                      {isMigrating ? 'Migrating...' : 'Migrate Data'}
-                    </span>
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure you want to migrate?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This is a one-time operation that will remove the old 'items' field from all of your boxes in the database. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleMigrateData}>
-                    Yes, Migrate Data
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
             <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
                 setIsDialogOpen(isOpen);
                 if (!isOpen) {
