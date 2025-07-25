@@ -3,7 +3,7 @@
 
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
-import { collection, doc, runTransaction, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { collection, doc, runTransaction, serverTimestamp, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -28,7 +28,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Box } from '@/lib/types';
+import type { Box, Pickup } from '@/lib/types';
+import { format } from 'date-fns';
 
 
 export default function Dashboard() {
@@ -36,11 +37,13 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [date, setDate] = useState<Date | undefined>(undefined);
   
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedBox, setSelectedBox] = useState<Box | null>(null);
+  const [availablePickups, setAvailablePickups] = useState<Date[]>([]);
+  const [isLoadingPickups, setIsLoadingPickups] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'boxes'), (snapshot) => {
@@ -52,6 +55,35 @@ export default function Dashboard() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (selectedBox && isDialogOpen) {
+      setIsLoadingPickups(true);
+      const pickupsQuery = query(collection(db, 'pickups'), where('boxId', '==', selectedBox.id));
+      const unsubscribe = onSnapshot(pickupsQuery, (snapshot) => {
+        const pickupDates = snapshot.docs
+          .map(doc => {
+            const data = doc.data() as Pickup;
+            // Dates are stored as 'YYYY-MM-DD', convert to JS Date object correctly.
+            return new Date(data.pickupDate.replace(/-/g, '\/'));
+          })
+          .filter(d => d >= new Date(new Date().setHours(0,0,0,0))); // Filter out past dates
+
+        setAvailablePickups(pickupDates);
+        setIsLoadingPickups(false);
+        // Automatically select the first available pickup date
+        if (pickupDates.length > 0) {
+          setDate(pickupDates[0]);
+        } else {
+          setDate(undefined);
+        }
+      });
+      return () => unsubscribe();
+    } else {
+      setAvailablePickups([]);
+      setDate(undefined);
+    }
+  }, [selectedBox, isDialogOpen]);
 
   const handleSubscribeClick = (box: Box) => {
     setSelectedBox(box);
@@ -95,9 +127,8 @@ export default function Dashboard() {
 
             transaction.update(boxRef, { subscribedCount: newSubscribedCount });
 
-            // Create new subscription and order documents within the same transaction
+            // Create new subscription document
             const subscriptionRef = doc(collection(db, 'subscriptions'));
-
             const subscriptionData = {
                 userId: user.uid,
                 boxId: selectedBox.id,
@@ -206,20 +237,40 @@ export default function Dashboard() {
             <DialogHeader>
               <DialogTitle>Schedule Your First Pick Up</DialogTitle>
               <DialogDescription>
-                Select a start date for your '{selectedBox?.name}' subscription. You can change this later.
+                Select an available start date for your '{selectedBox?.name}' subscription.
               </DialogDescription>
             </DialogHeader>
             <div className="flex justify-center">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                disabled={(d) => d < new Date(new Date().setDate(new Date().getDate() - 1))}
-                className="rounded-md border"
-              />
+                {isLoadingPickups ? (
+                    <div className="flex flex-col items-center justify-center h-[290px]">
+                        <Icons.Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-2" />
+                        <p className="text-muted-foreground">Loading available dates...</p>
+                    </div>
+                ) : availablePickups.length > 0 ? (
+                    <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                        disabled={(currentDate) => {
+                            const today = new Date();
+                            today.setHours(0,0,0,0);
+                            if (currentDate < today) return true;
+                            // Check if the current date is in the list of available pickup dates
+                            return !availablePickups.some(
+                                (pickupDate) => format(pickupDate, 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')
+                            );
+                        }}
+                        className="rounded-md border"
+                    />
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-[290px] text-center p-4">
+                        <Icons.CalendarX className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="text-muted-foreground">No upcoming pickup dates have been scheduled for this box yet. Please check back later.</p>
+                    </div>
+                )}
             </div>
             <DialogFooter>
-              <Button onClick={handleConfirmSubscription} disabled={isSubscribing}>
+              <Button onClick={handleConfirmSubscription} disabled={isSubscribing || !date || isLoadingPickups}>
                 {isSubscribing ? 'Confirming...' : 'Confirm Subscription'}
               </Button>
             </DialogFooter>
