@@ -282,7 +282,7 @@ export default function Dashboard() {
                         </div>
                     )}
                 </div>
-                 <div className="space-y-4">
+                 <div className="space-y-4 ml-4">
                     <h3 className="font-semibold">What's in the box?</h3>
                     <div className="space-y-2 text-sm max-h-[220px] overflow-y-auto pr-2">
                         {selectedPickupItems.length > 0 ? (
@@ -312,5 +312,3 @@ export default function Dashboard() {
     </>
   );
 }
-
-    
