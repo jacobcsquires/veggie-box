@@ -33,7 +33,7 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
   useEffect(() => {
     if (!boxId) return;
 
-    // Fetch box details
+    // Fetch box details once
     const boxRef = doc(db, 'boxes', boxId);
     getDoc(boxRef).then((docSnap) => {
       if (docSnap.exists()) {
@@ -43,30 +43,33 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
       setIsLoading(false);
     });
 
-    // Listen for delivery updates
-    const q = query(collection(db, 'deliveries'), where('boxId', '==', boxId));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    // Listen for real-time delivery updates from Firestore
+    const deliveriesQuery = query(collection(db, 'deliveries'), where('boxId', '==', boxId));
+    const unsubscribe = onSnapshot(deliveriesQuery, (snapshot) => {
       const deliveriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Delivery));
-      console.log('Fetched schedule data:', deliveriesData);
       setDeliveries(deliveriesData);
+      console.log('Fetched schedule data from Firestore:', deliveriesData);
     });
 
     return () => unsubscribe();
   }, [boxId]);
 
+  // This effect runs when the user selects a new date or when the deliveries data from Firestore changes.
+  // It ensures the local state for items (selectedDeliveryItems) is always in sync with what's in Firestore for the chosen date.
   useEffect(() => {
     if (selectedDate) {
       const dateString = format(selectedDate, 'yyyy-MM-dd');
       const deliveryForDate = deliveries.find(d => d.deliveryDate === dateString);
-      // If a delivery is saved for this date, use its items. Otherwise, start with an empty array.
+      // If a delivery is saved in Firestore for this date, use its items. Otherwise, start with an empty array.
       setSelectedDeliveryItems(deliveryForDate?.items || []);
     } else {
       setSelectedDeliveryItems([]);
     }
-  }, [selectedDate, deliveries, box]);
+  }, [selectedDate, deliveries]);
 
   const handleAddItem = () => {
     if (newItemName && newItemIcon) {
+      // Update local state. The changes will be sent to Firestore upon saving.
       setSelectedDeliveryItems([...selectedDeliveryItems, { name: newItemName, icon: newItemIcon }]);
       setNewItemName('');
       setNewItemIcon('');
@@ -80,9 +83,11 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
   };
 
   const handleRemoveItem = (index: number) => {
+    // Update local state. The changes will be sent to Firestore upon saving.
     setSelectedDeliveryItems(selectedDeliveryItems.filter((_, i) => i !== index));
   };
 
+  // This function handles all interactions with Firestore for saving or deleting delivery data.
   const handleSaveDelivery = async () => {
     if (!selectedDate) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a date.' });
@@ -91,30 +96,35 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     
     setIsSaving(true);
     const dateString = format(selectedDate, 'yyyy-MM-dd');
+    // Use a consistent ID for the document to easily find and update it later.
     const docId = `${boxId}_${dateString}`;
     const deliveryRef = doc(db, 'deliveries', docId);
 
     try {
+        // If there are items, we create or update the document in Firestore.
         if (selectedDeliveryItems.length > 0) {
-            const deliveryData = {
+            const deliveryData: Delivery = {
+                id: docId,
                 boxId,
                 boxName: box?.name || '',
                 deliveryDate: dateString,
                 items: selectedDeliveryItems,
             };
+            // setDoc with merge:true will create the document if it doesn't exist, or update it if it does.
             await setDoc(deliveryRef, deliveryData, { merge: true });
-            toast({ title: 'Success', description: `Delivery for ${dateString} saved.` });
+            toast({ title: 'Success', description: `Delivery for ${dateString} saved to Firestore.` });
         } else {
-            // If no items, delete the delivery doc if it exists
+            // If there are no items, it means we should remove the delivery plan for this date.
+            // We check if the document exists in Firestore before trying to delete it.
             const docSnap = await getDoc(deliveryRef);
             if (docSnap.exists()) {
                 await deleteDoc(deliveryRef);
-                toast({ title: 'Success', description: `Delivery for ${dateString} cleared.` });
+                toast({ title: 'Success', description: `Delivery for ${dateString} cleared from Firestore.` });
             }
         }
     } catch (error) {
-        console.error("Error saving delivery: ", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not save delivery.' });
+        console.error("Error saving delivery to Firestore: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not save delivery to Firestore.' });
     } finally {
         setIsSaving(false);
     }
@@ -218,7 +228,7 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
                 </div>
                  <Button onClick={handleSaveDelivery} disabled={isSaving || !selectedDate} className="w-full">
                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isSaving ? 'Saving...' : 'Save Delivery Plan'}
+                    {isSaving ? 'Saving to Firestore...' : 'Save Delivery Plan'}
                 </Button>
               </div>
             </CardContent>
