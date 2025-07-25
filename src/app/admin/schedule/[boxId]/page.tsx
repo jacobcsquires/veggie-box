@@ -37,7 +37,10 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     const boxRef = doc(db, 'boxes', boxId);
     getDoc(boxRef).then((docSnap) => {
       if (docSnap.exists()) {
-        setBox({ id: docSnap.id, ...docSnap.data() } as Box);
+        const boxData = { id: docSnap.id, ...docSnap.data() } as Box;
+        setBox(boxData);
+        // Set initial items from the box definition
+        setSelectedDeliveryItems(boxData.items || []);
       }
       setIsLoading(false);
     });
@@ -56,11 +59,12 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     if (selectedDate) {
       const dateString = format(selectedDate, 'yyyy-MM-dd');
       const deliveryForDate = deliveries.find(d => d.deliveryDate === dateString);
-      setSelectedDeliveryItems(deliveryForDate?.items || []);
+      // If a delivery is saved for this date, use its items. Otherwise, use the box's default items.
+      setSelectedDeliveryItems(deliveryForDate?.items || box?.items || []);
     } else {
-      setSelectedDeliveryItems([]);
+      setSelectedDeliveryItems(box?.items || []);
     }
-  }, [selectedDate, deliveries]);
+  }, [selectedDate, deliveries, box]);
 
   const handleAddItem = () => {
     if (newItemName && newItemIcon) {
@@ -183,12 +187,12 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
           <Card>
             <CardHeader>
               <CardTitle>Items for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
-              <CardDescription>Add or remove items for the selected date.</CardDescription>
+              <CardDescription>Add or remove items for the selected date's box.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Current Items</Label>
+                  <Label>Current Items in Box</Label>
                    {selectedDeliveryItems.length > 0 ? (
                         <div className="space-y-2">
                             {selectedDeliveryItems.map((item, index) => (
