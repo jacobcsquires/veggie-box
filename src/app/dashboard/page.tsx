@@ -246,7 +246,7 @@ export default function Dashboard() {
             })}
       </div>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-xl">
             <DialogHeader>
               <DialogTitle>Schedule Your First Pick Up</DialogTitle>
               <DialogDescription>
