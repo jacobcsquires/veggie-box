@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import type { Order, Subscription, Box } from '@/lib/types';
+import type { Subscription, Box } from '@/lib/types';
 import { DollarSign, Package, ShoppingCart, Users } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import {
@@ -20,19 +20,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { AppUser } from "@/contexts/auth-context";
 
 export default function AdminDashboard() {
-  const [orders, setOrders] = useState<Order[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
-      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-      setIsLoading(false); 
-    });
     const unsubSubscriptions = onSnapshot(collection(db, 'subscriptions'), (snapshot) => {
       setSubscriptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription)));
+      setIsLoading(false);
     });
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser)));
@@ -42,25 +38,24 @@ export default function AdminDashboard() {
     });
 
     return () => {
-      unsubOrders();
       unsubSubscriptions();
       unsubUsers();
       unsubBoxes();
     }
   }, []);
 
-  const totalRevenue = useMemo(() => orders.reduce((sum, order) => sum + order.price, 0), [orders]);
+  const totalRevenue = useMemo(() => subscriptions.reduce((sum, sub) => sum + sub.price, 0), [subscriptions]);
   const subscriptionsCount = useMemo(() => subscriptions.length, [subscriptions]);
   const newUsersCount = useMemo(() => users.length, [users]);
   const boxesAvailableCount = useMemo(() => boxes.length, [boxes]);
 
   const monthlyRevenue = useMemo(() => {
-    if (orders.length === 0) return [];
+    if (subscriptions.length === 0) return [];
     
     const revenueByMonth: { [key: number]: number } = {};
-    orders.forEach(order => {
-      const monthIndex = new Date(order.orderDate).getMonth();
-      revenueByMonth[monthIndex] = (revenueByMonth[monthIndex] || 0) + order.price;
+    subscriptions.forEach(sub => {
+      const monthIndex = new Date(sub.startDate).getMonth();
+      revenueByMonth[monthIndex] = (revenueByMonth[monthIndex] || 0) + sub.price;
     });
 
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -69,7 +64,7 @@ export default function AdminDashboard() {
       month,
       revenue: revenueByMonth[index] || 0
     }));
-  }, [orders]);
+  }, [subscriptions]);
 
   const popularBoxes = useMemo(() => {
     if (subscriptions.length === 0) return [];

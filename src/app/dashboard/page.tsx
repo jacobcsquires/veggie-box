@@ -97,7 +97,6 @@ export default function Dashboard() {
 
             // Create new subscription and order documents within the same transaction
             const subscriptionRef = doc(collection(db, 'subscriptions'));
-            const orderRef = doc(collection(db, 'orders'));
 
             const subscriptionData = {
                 userId: user.uid,
@@ -110,19 +109,6 @@ export default function Dashboard() {
                 createdAt: serverTimestamp(),
             };
             transaction.set(subscriptionRef, subscriptionData);
-            
-            const orderData = {
-                userId: user.uid,
-                customerName: user.displayName || 'No name',
-                boxId: selectedBox.id,
-                boxName: selectedBox.name,
-                price: selectedBox.price,
-                status: 'Processing',
-                orderDate: new Date().toISOString().split('T')[0],
-                deliveryDate: date.toISOString().split('T')[0],
-                createdAt: serverTimestamp(),
-            };
-            transaction.set(orderRef, orderData);
         });
 
         toast({

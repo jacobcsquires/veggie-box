@@ -18,18 +18,6 @@ export type Box = {
   createdAt?: any;
 };
 
-export type Order = {
-    id: string;
-    userId: string;
-    customerName: string;
-    boxId: string;
-    boxName: string;
-    orderDate: string;
-    status: 'Processing' | 'Shipped' | 'Delivered';
-    price: number;
-    createdAt: any; // Firestore timestamp
-}
-
 export type Subscription = {
     id: string;
     userId: string;
