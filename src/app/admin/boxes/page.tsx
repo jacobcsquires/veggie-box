@@ -41,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -154,8 +154,8 @@ export default function AdminBoxesPage() {
       description,
       quantity: parseInt(quantity, 10),
       image: imageUrlToSave || 'https://placehold.co/600x400.png',
-      startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
-      endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
+      startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
+      endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
     };
 
     try {
@@ -357,8 +357,8 @@ export default function AdminBoxesPage() {
               ) : boxes.map((box) => (
                 <TableRow key={box.id} onClick={() => router.push(`/admin/boxes/${box.id}`)} className="cursor-pointer">
                   <TableCell className="font-medium">{box.name}</TableCell>
-                  <TableCell>{box.startDate ? format(new Date(box.startDate.replace(/-/g, '/')), 'PPP') : 'N/A'}</TableCell>
-                  <TableCell>{box.endDate ? format(new Date(box.endDate.replace(/-/g, '/')), 'PPP') : 'N/A'}</TableCell>
+                  <TableCell>{box.startDate ? format(parseISO(box.startDate), 'PPP') : 'N/A'}</TableCell>
+                  <TableCell>{box.endDate ? format(parseISO(box.endDate), 'PPP') : 'N/A'}</TableCell>
                   <TableCell>{box.nextPickup || "Not scheduled"}</TableCell>
                   <TableCell>{box.totalPickups}</TableCell>
                   <TableCell className="hidden md:table-cell">{box.subscribedCount} / {box.quantity}</TableCell>

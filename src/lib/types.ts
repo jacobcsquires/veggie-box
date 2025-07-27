@@ -9,8 +9,8 @@ export type Box = {
   hint: string;
   quantity: number;
   subscribedCount: number;
-  startDate?: string;
-  endDate?: string;
+  startDate?: string | null;
+  endDate?: string | null;
   createdAt?: any;
 };
 
