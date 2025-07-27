@@ -36,16 +36,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Stripe from 'stripe';
 
 type BoxWithSchedule = Box & { nextPickup?: string; totalPickups: number };
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
-
-const stripe = new Stripe(process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
-});
 
 const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: boolean }) => {
     if (isLoading) {
@@ -238,20 +233,19 @@ export default function AdminBoxesPage() {
             await uploadBytes(storageRef, imageFile);
             imageUrlToSave = await getDownloadURL(storageRef);
         }
-
-        // Create Stripe Product
-        const product = await stripe.products.create({
-            name: name,
-            description: description,
+        
+        const stripeResponse = await fetch('/api/create-stripe-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description, price: parseFloat(price) }),
         });
 
-        // Create Stripe Price
-        const stripePrice = await stripe.prices.create({
-            product: product.id,
-            unit_amount: parseFloat(price) * 100,
-            currency: 'usd',
-            recurring: { interval: 'week' },
-        });
+        if (!stripeResponse.ok) {
+            const error = await stripeResponse.json();
+            throw new Error(error.message || 'Failed to create Stripe product.');
+        }
+
+        const { stripeProductId, stripePriceId } = await stripeResponse.json();
 
         const boxData = {
           name,
@@ -261,8 +255,8 @@ export default function AdminBoxesPage() {
           image: imageUrlToSave || 'https://placehold.co/600x400.png',
           startDate: null,
           endDate: null,
-          stripeProductId: product.id,
-          stripePriceId: stripePrice.id,
+          stripeProductId,
+          stripePriceId,
         };
 
         const fullData = {
@@ -412,3 +406,5 @@ export default function AdminBoxesPage() {
     </div>
   );
 }
+
+    
