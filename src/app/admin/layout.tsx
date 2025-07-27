@@ -26,19 +26,63 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
+
+function AdminPageContent({ children }: { children: React.ReactNode }) {
+  const { state } = useSidebar();
+  const navItems = [
+    { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
+    { href: "/admin/boxes", icon: Package, label: "Boxes" },
+    { href: "/admin/users", icon: Users, label: "Users" },
+  ];
+  return (
+    <SidebarProvider>
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+            <Sprout className="h-6 w-6 text-primary" />
+            <span className="font-headline">Veggie Box Admin</span>
+          </Link>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarMenu>
+            {navItems.map(item => (
+              <SidebarMenuItem key={item.label}>
+                <SidebarMenuButton asChild tooltip={item.label}>
+                  <Link href={item.href}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarContent>
+        <SidebarRail />
+      </Sidebar>
+      <SidebarInset>
+        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
+           {state === 'collapsed' && <SidebarTrigger />}
+          <div className="w-full flex-1">
+            {/* Can add a search bar here if needed */}
+          </div>
+          <UserNav />
+        </header>
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-background">
+          {children}
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}
+
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const navItems = [
-    { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
-    { href: "/admin/boxes", icon: Package, label: "Boxes" },
-    { href: "/admin/users", icon: Users, label: "Users" },
-  ];
-
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -87,42 +131,5 @@ export default function AdminLayout({
     );
   }
 
-  return (
-    <SidebarProvider>
-      <Sidebar collapsible="offcanvas">
-        <SidebarHeader>
-          <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-            <Sprout className="h-6 w-6 text-primary" />
-            <span className="font-headline">Veggie Box Admin</span>
-          </Link>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarMenu>
-            {navItems.map(item => (
-              <SidebarMenuItem key={item.label}>
-                <SidebarMenuButton asChild tooltip={item.label}>
-                  <Link href={item.href}>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarContent>
-      </Sidebar>
-      <SidebarInset>
-        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <SidebarTrigger />
-          <div className="w-full flex-1">
-            {/* Can add a search bar here if needed */}
-          </div>
-          <UserNav />
-        </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-background">
-          {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
-  )
+  return <AdminPageContent>{children}</AdminPageContent>
 }

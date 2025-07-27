@@ -15,7 +15,6 @@ import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 import { useAuth } from "@/contexts/auth-context";
-import { Badge } from "@/components/ui/badge";
 import { UserNav } from "@/components/user-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -30,7 +29,70 @@ import {
   SidebarMenuBadge,
   SidebarInset,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
+
+function DashboardPageContent({ children }: { children: React.ReactNode }) {
+    const { user } = useAuth();
+    const { state } = useSidebar();
+    const [subscriptionsCount, setSubscriptionsCount] = useState(0);
+
+    useEffect(() => {
+        if (user) {
+        const q = query(collection(db, 'subscriptions'), where('userId', '==', user.uid));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setSubscriptionsCount(snapshot.size);
+        });
+        return () => unsubscribe();
+        }
+    }, [user]);
+
+    const navItems = [
+        { href: "/dashboard", icon: Home, label: "Dashboard" },
+        { href: "/dashboard/subscriptions", icon: ShoppingCart, label: "Subscriptions", badge: subscriptionsCount > 0 ? subscriptionsCount : undefined },
+        { href: "/dashboard/profile", icon: User, label: "Profile" },
+    ];
+    return (
+        <SidebarProvider>
+            <Sidebar collapsible="icon">
+                <SidebarHeader>
+                <Link href="/" className="flex items-center gap-2 font-semibold">
+                    <Sprout className="h-6 w-6 text-primary" />
+                    <span className="font-headline">Veggie Box</span>
+                </Link>
+                </SidebarHeader>
+                <SidebarContent>
+                <SidebarMenu>
+                    {navItems.map(item => (
+                    <SidebarMenuItem key={item.label}>
+                        <SidebarMenuButton asChild tooltip={item.label}>
+                        <Link href={item.href}>
+                            <item.icon />
+                            <span>{item.label}</span>
+                            {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
+                        </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    ))}
+                </SidebarMenu>
+                </SidebarContent>
+                <SidebarRail />
+            </Sidebar>
+            <SidebarInset>
+                <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
+                {state === 'collapsed' && <SidebarTrigger />}
+                <div className="w-full flex-1">
+                    {/* Can add a search bar here if needed */}
+                </div>
+                <UserNav />
+                </header>
+                <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-background">
+                {children}
+                </main>
+            </SidebarInset>
+        </SidebarProvider>
+    )
+}
 
 export default function DashboardLayout({
   children,
@@ -39,23 +101,7 @@ export default function DashboardLayout({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [subscriptionsCount, setSubscriptionsCount] = useState(0);
-
-  useEffect(() => {
-    if (user) {
-      const q = query(collection(db, 'subscriptions'), where('userId', '==', user.uid));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        setSubscriptionsCount(snapshot.size);
-      });
-      return () => unsubscribe();
-    }
-  }, [user]);
-
-  const navItems = [
-    { href: "/dashboard", icon: Home, label: "Dashboard" },
-    { href: "/dashboard/subscriptions", icon: ShoppingCart, label: "Subscriptions", badge: subscriptionsCount > 0 ? subscriptionsCount : undefined },
-    { href: "/dashboard/profile", icon: User, label: "Profile" },
-  ];
+  
 
   useEffect(() => {
     if (loading) return;
@@ -100,43 +146,5 @@ export default function DashboardLayout({
     );
   }
 
-  return (
-    <SidebarProvider>
-      <Sidebar collapsible="offcanvas">
-        <SidebarHeader>
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <Sprout className="h-6 w-6 text-primary" />
-            <span className="font-headline">Veggie Box</span>
-          </Link>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarMenu>
-            {navItems.map(item => (
-              <SidebarMenuItem key={item.label}>
-                 <SidebarMenuButton asChild tooltip={item.label}>
-                  <Link href={item.href}>
-                    <item.icon />
-                    <span>{item.label}</span>
-                    {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarContent>
-      </Sidebar>
-      <SidebarInset>
-        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <SidebarTrigger />
-          <div className="w-full flex-1">
-            {/* Can add a search bar here if needed */}
-          </div>
-          <UserNav />
-        </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-background">
-          {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
-  )
+  return <DashboardPageContent>{children}</DashboardPageContent>
 }
