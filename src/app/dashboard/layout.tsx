@@ -1,10 +1,10 @@
+
 'use client';
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  Bell,
   Home,
   ShoppingCart,
   User,
@@ -104,10 +104,6 @@ export default function DashboardLayout({
               <Sprout className="h-6 w-6 text-primary" />
               <span className="font-headline">Veggie Box</span>
             </Link>
-            <Button variant="outline" size="icon" className="ml-auto h-8 w-8">
-              <Bell className="h-4 w-4" />
-              <span className="sr-only">Toggle notifications</span>
-            </Button>
           </div>
           <div className="flex-1">
             <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
