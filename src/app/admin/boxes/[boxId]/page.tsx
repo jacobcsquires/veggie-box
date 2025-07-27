@@ -230,40 +230,34 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
   
   const handleSavePickup = async () => {
     if (!selectedDate || !box) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a date.' });
-        return;
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a date.' });
+      return;
     }
-    
+
     setIsSavingPickup(true);
     const dateString = format(selectedDate, 'yyyy-MM-dd');
     const existingPickup = pickups.find(p => p.pickupDate === dateString);
 
     try {
-        if (pickupNote.trim()) {
-            const pickupData = {
-                pickupDate: dateString,
-                note: pickupNote,
-            };
-            
-            if (existingPickup) {
-                const pickupRef = doc(db, 'boxes', boxId, 'pickups', existingPickup.id);
-                await setDoc(pickupRef, pickupData, { merge: true });
-            } else {
-                await addDoc(collection(db, 'boxes', boxId, 'pickups'), pickupData);
-            }
-            toast({ title: 'Success', description: `Pickup note for ${dateString} saved.` });
+      const pickupData = {
+        pickupDate: dateString,
+        note: pickupNote,
+      };
 
-        } else if (existingPickup) {
-            const pickupRef = doc(db, 'boxes', boxId, 'pickups', existingPickup.id);
-            await deleteDoc(pickupRef);
-            toast({ title: 'Success', description: `Pickup for ${dateString} cleared.` });
-        }
-        setIsNoteDialogOpen(false);
+      if (existingPickup) {
+        const pickupRef = doc(db, 'boxes', boxId, 'pickups', existingPickup.id);
+        await setDoc(pickupRef, pickupData, { merge: true });
+      } else {
+        await addDoc(collection(db, 'boxes', boxId, 'pickups'), pickupData);
+      }
+      toast({ title: 'Success', description: `Pickup note for ${dateString} saved.` });
+
+      setIsNoteDialogOpen(false);
     } catch (error) {
-        console.error("Error saving pickup: ", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not save pickup.' });
+      console.error("Error saving pickup: ", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not save pickup.' });
     } finally {
-        setIsSavingPickup(false);
+      setIsSavingPickup(false);
     }
   };
 
