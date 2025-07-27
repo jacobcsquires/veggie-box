@@ -8,7 +8,7 @@ import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where,
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive } from 'lucide-react';
+import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,14 +33,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { Box, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -50,71 +42,85 @@ type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
 
-const BoxTable = ({ boxes, isLoading, onRowClick }: { boxes: BoxWithSchedule[], isLoading: boolean, onRowClick: (boxId: string) => void }) => {
+const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: boolean }) => {
+    if (isLoading) {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                    <Card key={i}>
+                        <CardHeader>
+                            <Skeleton className="rounded-lg aspect-video" />
+                            <Skeleton className="h-7 w-48 mt-4" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center"><Skeleton className="h-4 w-20" /><Skeleton className="h-4 w-16" /></div>
+                                <div className="flex justify-between items-center"><Skeleton className="h-4 w-24" /><Skeleton className="h-4 w-12" /></div>
+                                <div className="flex justify-between items-center"><Skeleton className="h-4 w-28" /><Skeleton className="h-4 w-10" /></div>
+                                <div className="flex justify-between items-center"><Skeleton className="h-4 w-20" /><Skeleton className="h-4 w-16" /></div>
+                            </div>
+                        </CardContent>
+                         <CardFooter>
+                            <Skeleton className="h-9 w-full" />
+                        </CardFooter>
+                    </Card>
+                ))}
+            </div>
+        )
+    }
+
+    if (boxes.length === 0) {
+        return (
+            <div className="text-center text-muted-foreground py-10">
+                <p>No boxes to display in this category.</p>
+            </div>
+        )
+    }
+
     return (
-        <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[300px]">Name</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>End Date</TableHead>
-                <TableHead>Next Pickup</TableHead>
-                <TableHead>Total # of Pickups</TableHead>
-                <TableHead className="hidden md:table-cell">
-                  Subscribers
-                </TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">
-                  Actions
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-10" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                  </TableRow>
-                ))
-              ) : boxes.map((box) => {
-                const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
-                const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
-                const formattedStartDate = startDateObj && isValidDate(startDateObj) ? format(startDateObj, 'MM/dd/yy') : 'N/A';
-                const formattedEndDate = endDateObj && isValidDate(endDateObj) ? format(endDateObj, 'MM/dd/yy') : 'N/A';
-                
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {boxes.map(box => {
+                 const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
+                 const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
+                 const formattedStartDate = startDateObj && isValidDate(startDateObj) ? format(startDateObj, 'MM/dd/yy') : 'N/A';
+                 const formattedEndDate = endDateObj && isValidDate(endDateObj) ? format(endDateObj, 'MM/dd/yy') : 'N/A';
+                 const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
                 return (
-                <TableRow key={box.id} onClick={() => onRowClick(box.id)} className="cursor-pointer">
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-3">
-                        <Image src={box.image} alt={box.name} width={40} height={40} className="rounded-md object-cover" />
-                        <span>{box.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{formattedStartDate}</TableCell>
-                  <TableCell>{formattedEndDate}</TableCell>
-                  <TableCell>{box.nextPickup || "Not scheduled"}</TableCell>
-                  <TableCell>{box.totalPickups}</TableCell>
-                  <TableCell className="hidden md:table-cell">{box.subscribedCount} / {box.quantity}</TableCell>
-                  <TableCell className="text-right">${box.price.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild size="sm" variant="outline" onClick={(e) => e.stopPropagation()}>
-                        <Link href={`/admin/boxes/${box.id}`}>
-                            <FilePen className="h-4 w-4 mr-2" />
-                            Edit Box
-                        </Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              )})}
-            </TableBody>
-          </Table>
+                     <Card key={box.id}>
+                        <CardHeader className="p-0">
+                            <Image src={box.image} alt={box.name} width={400} height={200} className="rounded-t-lg object-cover aspect-video" />
+                        </CardHeader>
+                        <CardContent className="p-4 space-y-3">
+                            <CardTitle className="text-xl font-headline">{box.name}</CardTitle>
+                            <div className="text-sm text-muted-foreground space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium flex items-center"><CalendarDays className="mr-2 h-4 w-4"/>Schedule</span>
+                                    <span>{formattedStartDate} - {formattedEndDate}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium flex items-center"><ListTree className="mr-2 h-4 w-4" />Pickups</span>
+                                    <span>{box.totalPickups} total</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium flex items-center"><Users className="mr-2 h-4 w-4" />Subscribers</span>
+                                    <Badge variant={isSoldOut ? 'destructive' : 'secondary'}>{box.subscribedCount} / {box.quantity}</Badge>
+                                </div>
+                                <div className="flex items-center justify-between pt-2">
+                                    <span className="text-lg font-bold">${box.price.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                        <CardFooter>
+                            <Button asChild className="w-full">
+                                <Link href={`/admin/boxes/${box.id}`}>
+                                    <FilePen className="mr-2 h-4 w-4" /> Edit Box
+                                </Link>
+                            </Button>
+                        </CardFooter>
+                     </Card>
+                )
+            })}
+        </div>
     )
 }
 
@@ -379,50 +385,16 @@ export default function AdminBoxesPage() {
       </div>
       <Tabs defaultValue="active">
         <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="active"><Package className="mr-2" />Active Boxes</TabsTrigger>
-            <TabsTrigger value="past"><Archive className="mr-2" />Past Boxes</TabsTrigger>
+            <TabsTrigger value="active"><Package className="mr-2 h-4 w-4" />Active Boxes ({activeBoxes.length})</TabsTrigger>
+            <TabsTrigger value="past"><Archive className="mr-2 h-4 w-4" />Past Boxes ({pastBoxes.length})</TabsTrigger>
         </TabsList>
-        <TabsContent value="active">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Active Boxes</CardTitle>
-                    <CardDescription>
-                        A list of all veggie boxes that are currently available or scheduled for the future.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <BoxTable boxes={activeBoxes} isLoading={isLoading} onRowClick={(boxId) => router.push(`/admin/boxes/${boxId}`)} />
-                </CardContent>
-                <CardFooter>
-                  <div className="text-xs text-muted-foreground">
-                    Showing <strong>{activeBoxes.length}</strong> active boxes.
-                  </div>
-                </CardFooter>
-            </Card>
+        <TabsContent value="active" className="mt-4">
+           <BoxGrid boxes={activeBoxes} isLoading={isLoading} />
         </TabsContent>
-        <TabsContent value="past">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Past Boxes</CardTitle>
-                    <CardDescription>
-                       A list of all veggie boxes that have already ended.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <BoxTable boxes={pastBoxes} isLoading={isLoading} onRowClick={(boxId) => router.push(`/admin/boxes/${boxId}`)} />
-                </CardContent>
-                <CardFooter>
-                  <div className="text-xs text-muted-foreground">
-                    Showing <strong>{pastBoxes.length}</strong> past boxes.
-                  </div>
-                </CardFooter>
-            </Card>
+        <TabsContent value="past" className="mt-4">
+            <BoxGrid boxes={pastBoxes} isLoading={isLoading} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
-
-    
-
-
