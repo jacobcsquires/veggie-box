@@ -55,7 +55,7 @@ const BoxTable = ({ boxes, isLoading, onRowClick }: { boxes: BoxWithSchedule[], 
         <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead className="w-[300px]">Name</TableHead>
                 <TableHead>Start Date</TableHead>
                 <TableHead>End Date</TableHead>
                 <TableHead>Next Pickup</TableHead>
@@ -91,7 +91,12 @@ const BoxTable = ({ boxes, isLoading, onRowClick }: { boxes: BoxWithSchedule[], 
                 
                 return (
                 <TableRow key={box.id} onClick={() => onRowClick(box.id)} className="cursor-pointer">
-                  <TableCell className="font-medium">{box.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-3">
+                        <Image src={box.image} alt={box.name} width={40} height={40} className="rounded-md object-cover" />
+                        <span>{box.name}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>{formattedStartDate}</TableCell>
                   <TableCell>{formattedEndDate}</TableCell>
                   <TableCell>{box.nextPickup || "Not scheduled"}</TableCell>
@@ -419,4 +424,5 @@ export default function AdminBoxesPage() {
 }
 
     
+
 
