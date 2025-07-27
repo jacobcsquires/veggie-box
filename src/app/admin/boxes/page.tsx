@@ -288,7 +288,7 @@ export default function AdminBoxesPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Next Pickup</TableHead>
                 <TableHead className="hidden md:table-cell">
-                  Inventory
+                  Subscribers
                 </TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">
