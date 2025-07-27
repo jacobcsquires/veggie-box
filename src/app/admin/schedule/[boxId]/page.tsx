@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { doc, getDoc, collection, onSnapshot, setDoc, query, where, deleteDoc, writeBatch, updateDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
@@ -56,18 +56,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Separator } from '@/components/ui/separator';
 
-type AdminSchedulePageProps = {
-    params: {
-        boxId: string;
-    }
-}
-
-
-export default function AdminSchedulePage({ params }: AdminSchedulePageProps) {
+export default function AdminSchedulePage({ params }: { params: { boxId: string } }) {
   const { toast } = useToast();
-  const boxId = use(Promise.resolve(params.boxId));
+  const boxId = params.boxId;
 
   const [box, setBox] = useState<Box | null>(null);
   const [pickups, setPickups] = useState<Pickup[]>([]);
@@ -532,5 +524,3 @@ export default function AdminSchedulePage({ params }: AdminSchedulePageProps) {
     </div>
   );
 }
-
-    

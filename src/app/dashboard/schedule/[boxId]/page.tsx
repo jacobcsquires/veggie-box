@@ -4,7 +4,6 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import * as Icons from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Box, Pickup } from '@/lib/types';
