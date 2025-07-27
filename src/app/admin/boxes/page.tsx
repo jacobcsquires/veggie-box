@@ -43,7 +43,7 @@ import {
 } from '@/components/ui/table';
 import { format } from 'date-fns';
 
-type BoxWithSchedule = Box & { nextPickup?: string };
+type BoxWithSchedule = Box & { nextPickup?: string; totalPickups: number };
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 export default function AdminBoxesPage() {
@@ -70,16 +70,22 @@ export default function AdminBoxesPage() {
       const boxesWithSchedule: BoxWithSchedule[] = await Promise.all(boxesData.map(async (box) => {
         const today = format(new Date(), 'yyyy-MM-dd');
         const pickupsRef = collection(db, 'boxes', box.id, 'pickups');
-        const q = query(pickupsRef, where('pickupDate', '>=', today), orderBy('pickupDate'), limit(1));
-        const pickupsSnapshot = await getDocs(q);
+        
+        // Query for next pickup
+        const nextPickupQuery = query(pickupsRef, where('pickupDate', '>=', today), orderBy('pickupDate'), limit(1));
+        const nextPickupSnapshot = await getDocs(nextPickupQuery);
         
         let nextPickup;
-        if (!pickupsSnapshot.empty) {
-          const nextPickupDoc = pickupsSnapshot.docs[0].data() as PickupInternal;
+        if (!nextPickupSnapshot.empty) {
+          const nextPickupDoc = nextPickupSnapshot.docs[0].data() as PickupInternal;
           nextPickup = format(new Date(nextPickupDoc.pickupDate.replace(/-/g, '\/')), 'PPP');
         }
+
+        // Query for total pickups count
+        const allPickupsSnapshot = await getDocs(pickupsRef);
+        const totalPickups = allPickupsSnapshot.size;
         
-        return { ...box, nextPickup };
+        return { ...box, nextPickup, totalPickups };
       }));
       
       setBoxes(boxesWithSchedule);
@@ -287,6 +293,7 @@ export default function AdminBoxesPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Next Pickup</TableHead>
+                <TableHead>Total # of Pickups</TableHead>
                 <TableHead className="hidden md:table-cell">
                   Subscribers
                 </TableHead>
@@ -302,6 +309,7 @@ export default function AdminBoxesPage() {
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-10" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
@@ -311,6 +319,7 @@ export default function AdminBoxesPage() {
                 <TableRow key={box.id}>
                   <TableCell className="font-medium">{box.name}</TableCell>
                   <TableCell>{box.nextPickup || "Not scheduled"}</TableCell>
+                  <TableCell>{box.totalPickups}</TableCell>
                   <TableCell className="hidden md:table-cell">{box.subscribedCount} / {box.quantity}</TableCell>
                   <TableCell className="text-right">${box.price.toFixed(2)}</TableCell>
                   <TableCell className="text-right">
