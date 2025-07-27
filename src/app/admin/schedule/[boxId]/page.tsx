@@ -2,18 +2,41 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { doc, getDoc, collection, onSnapshot, setDoc, query, where, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, onSnapshot, setDoc, query, where, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Bot } from 'lucide-react';
 import type { Box, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 export default function AdminSchedulePage({ params }: { params: { boxId: string } }) {
   const { toast } = useToast();
@@ -26,6 +49,14 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  // State for the generation dialog
+  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateStartDate, setGenerateStartDate] = useState<Date | undefined>();
+  const [generateEndDate, setGenerateEndDate] = useState<Date | undefined>();
+  const [generateFrequency, setGenerateFrequency] = useState('weekly');
+  const [generateNote, setGenerateNote] = useState('');
 
   useEffect(() => {
     if (!boxId) return;
@@ -45,7 +76,6 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     const unsubscribe = onSnapshot(pickupsQuery, (snapshot) => {
       const pickupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pickup));
       setPickups(pickupsData);
-      console.log('Fetched schedule data from Firestore:', pickupsData);
     });
 
     return () => unsubscribe();
@@ -101,6 +131,53 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
         setIsSaving(false);
     }
   };
+
+  const handleGenerateSchedule = async () => {
+    if (!generateStartDate || !generateEndDate || !generateNote || !box) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please fill out all fields to generate the schedule.' });
+        return;
+    }
+
+    if (generateEndDate < generateStartDate) {
+        toast({ variant: 'destructive', title: 'Error', description: 'End date cannot be before the start date.' });
+        return;
+    }
+
+    setIsGenerating(true);
+    const batch = writeBatch(db);
+    const daysIncrement = generateFrequency === 'weekly' ? 7 : 14;
+    let currentDate = generateStartDate;
+
+    while (currentDate <= generateEndDate) {
+        const dateString = format(currentDate, 'yyyy-MM-dd');
+        const docId = `${boxId}_${dateString}`;
+        const pickupRef = doc(db, 'pickups', docId);
+
+        const pickupData: Pickup = {
+            id: docId,
+            boxId,
+            boxName: box.name,
+            pickupDate: dateString,
+            note: generateNote,
+        };
+        batch.set(pickupRef, pickupData);
+        currentDate = addDays(currentDate, daysIncrement);
+    }
+
+    try {
+        await batch.commit();
+        toast({ title: 'Success', description: 'Schedule generated successfully.' });
+        setIsGenerateDialogOpen(false);
+        setGenerateStartDate(undefined);
+        setGenerateEndDate(undefined);
+        setGenerateNote('');
+    } catch (error) {
+        console.error("Error generating schedule:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not generate the schedule.' });
+    } finally {
+        setIsGenerating(false);
+    }
+  };
   
   const pickupDates = pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/')));
 
@@ -143,7 +220,108 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
 
   return (
     <div>
-      <h1 className="text-2xl font-headline mb-4">Manage Schedule for {box.name}</h1>
+        <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-headline">Manage Schedule for {box.name}</h1>
+            <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button>
+                        <Bot className="mr-2 h-4 w-4" />
+                        Generate Schedule
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Generate Recurring Schedule</DialogTitle>
+                        <DialogDescription>
+                            Automatically create pickup dates for this box.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="start-date" className="text-right">Start Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "col-span-3 justify-start text-left font-normal",
+                                    !generateStartDate && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {generateStartDate ? format(generateStartDate, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={generateStartDate}
+                                    onSelect={setGenerateStartDate}
+                                    initialFocus
+                                />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="end-date" className="text-right">End Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "col-span-3 justify-start text-left font-normal",
+                                    !generateEndDate && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {generateEndDate ? format(generateEndDate, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={generateEndDate}
+                                    onSelect={setGenerateEndDate}
+                                    disabled={(date) =>
+                                        generateStartDate ? date < generateStartDate : false
+                                    }
+                                    initialFocus
+                                />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                             <Label htmlFor="frequency" className="text-right">Frequency</Label>
+                             <Select value={generateFrequency} onValueChange={setGenerateFrequency}>
+                                <SelectTrigger className="col-span-3">
+                                    <SelectValue placeholder="Select frequency" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="weekly">Weekly</SelectItem>
+                                    <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="note" className="text-right">Note</Label>
+                            <Textarea 
+                                id="note"
+                                value={generateNote}
+                                onChange={(e) => setGenerateNote(e.target.value)}
+                                className="col-span-3"
+                                placeholder="e.g. This week's box includes..."
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" onClick={handleGenerateSchedule} disabled={isGenerating}>
+                            {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isGenerating ? 'Generating...' : 'Generate'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
         <div className="md:col-span-2">
           <Card>
@@ -184,7 +362,7 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
                 </div>
                  <Button onClick={handleSavePickup} disabled={isSaving || !selectedDate} className="w-full">
                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isSaving ? 'Saving to Firestore...' : 'Save Pick Up Plan'}
+                    {isSaving ? 'Saving...' : 'Save Pick Up Plan'}
                 </Button>
               </div>
             </CardContent>
@@ -194,3 +372,6 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     </div>
   );
 }
+
+
+    
