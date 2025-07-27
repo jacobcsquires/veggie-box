@@ -14,6 +14,7 @@ export type Box = {
   createdAt?: any;
   stripeProductId?: string;
   stripePriceId?: string;
+  frequency: 'weekly' | 'bi-weekly' | 'monthly';
 };
 
 export type Subscription = {

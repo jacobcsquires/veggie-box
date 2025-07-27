@@ -80,6 +80,7 @@ export default function AdminBoxDetailPage() {
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [frequency, setFrequency] = useState<'weekly' | 'bi-weekly' | 'monthly'>('weekly');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSavingBox, setIsSavingBox] = useState(false);
@@ -128,6 +129,7 @@ export default function AdminBoxDetailPage() {
         setPrice(boxData.price.toString());
         setDescription(boxData.description);
         setQuantity(boxData.quantity.toString());
+        setFrequency(boxData.frequency || 'weekly');
         setImagePreview(boxData.image);
       }
       setIsLoading(false);
@@ -215,6 +217,7 @@ export default function AdminBoxDetailPage() {
     setIsSavingBox(true);
 
     let imageUrlToSave = box.image;
+    let newStripePriceId = box.stripePriceId;
 
     if (imageFile) {
       try {
@@ -229,21 +232,44 @@ export default function AdminBoxDetailPage() {
       }
     }
 
-    const boxData = {
-      name,
-      price: parseFloat(price),
-      description,
-      quantity: parseInt(quantity, 10),
-      image: imageUrlToSave,
-    };
-
     try {
-      const boxRef = doc(db, 'boxes', boxId);
-      await updateDoc(boxRef, boxData);
-      toast({ title: 'Success', description: 'Box details updated successfully.' });
-    } catch (error) {
+        if (box.frequency !== frequency || box.price !== parseFloat(price)) {
+            const stripeResponse = await fetch('/api/create-stripe-product', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    name, 
+                    description, 
+                    price: parseFloat(price), 
+                    frequency,
+                    existingProductId: box.stripeProductId,
+                    oldPriceId: box.stripePriceId
+                }),
+            });
+             if (!stripeResponse.ok) {
+                const error = await stripeResponse.json();
+                throw new Error(error.message || 'Failed to update Stripe product.');
+            }
+            const { stripePriceId } = await stripeResponse.json();
+            newStripePriceId = stripePriceId;
+        }
+
+        const boxData = {
+          name,
+          price: parseFloat(price),
+          description,
+          quantity: parseInt(quantity, 10),
+          frequency,
+          image: imageUrlToSave,
+          stripePriceId: newStripePriceId,
+        };
+
+        const boxRef = doc(db, 'boxes', boxId);
+        await updateDoc(boxRef, boxData);
+        toast({ title: 'Success', description: 'Box details updated successfully.' });
+    } catch (error: any) {
       console.error('Error updating document: ', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not update the box. Please try again.' });
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not update the box. Please try again.' });
     } finally {
       setIsSavingBox(false);
     }
@@ -308,7 +334,21 @@ export default function AdminBoxDetailPage() {
             setIsAddingPickup(false);
             return;
         }
-        const daysIncrement = addFrequency === 'weekly' ? 7 : 14;
+        let daysIncrement: number;
+        switch (addFrequency) {
+            case 'weekly':
+                daysIncrement = 7;
+                break;
+            case 'bi-weekly':
+                daysIncrement = 14;
+                break;
+            case 'monthly':
+                daysIncrement = 0; // special handling
+                break;
+            default:
+                daysIncrement = 7;
+        }
+
         let currentDate = addStartDate;
         const existingPickupDatesStrings = new Set(pickups.map(p => p.pickupDate));
 
@@ -319,7 +359,11 @@ export default function AdminBoxDetailPage() {
                 const pickupData = { pickupDate: dateString, note: addNote };
                 batch.set(pickupRef, pickupData);
             }
-            currentDate = addDays(currentDate, daysIncrement);
+             if (daysIncrement > 0) {
+                currentDate = addDays(currentDate, daysIncrement);
+            } else { // monthly
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            }
         }
     }
 
@@ -535,14 +579,31 @@ export default function AdminBoxDetailPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Name</Label>
-                            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSavingBox} />
+                            <div className="space-y-2">
+                                <Label htmlFor="name">Name</Label>
+                                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSavingBox} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="price">Price</Label>
+                                <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} disabled={isSavingBox} />
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="price">Price</Label>
-                            <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} disabled={isSavingBox} />
-                        </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div className="space-y-2">
+                                <Label htmlFor="frequency">Frequency</Label>
+                                <Select value={frequency} onValueChange={(value) => setFrequency(value as any)} disabled={isSavingBox}>
+                                    <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="weekly">Weekly</SelectItem>
+                                        <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
+                                        <SelectItem value="monthly">Monthly</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="quantity">Quantity</Label>
+                                <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={isSavingBox} />
+                            </div>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="image">Image</Label>
@@ -555,12 +616,7 @@ export default function AdminBoxDetailPage() {
                         <Label htmlFor="description">Description</Label>
                         <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSavingBox} />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="quantity">Quantity</Label>
-                            <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={isSavingBox} />
-                        </div>
-                        </div>
+
                     </CardContent>
                     <CardFooter className="justify-between">
                         <Button type="submit" disabled={isSavingBox}>
@@ -662,6 +718,7 @@ export default function AdminBoxDetailPage() {
                                                         <SelectContent>
                                                             <SelectItem value="weekly">Weekly</SelectItem>
                                                             <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
+                                                            <SelectItem value="monthly">Monthly</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 </div>

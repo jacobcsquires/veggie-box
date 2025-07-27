@@ -31,6 +31,7 @@ import type { Box } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 type PickupInternal = {
   id: string;
@@ -204,10 +205,8 @@ export default function Dashboard() {
                     <div className="flex justify-between items-center">
                       <p className="text-2xl font-bold">
                         ${box.price.toFixed(2)}
-                        <span className="text-sm font-normal text-muted-foreground">
-                          /week
-                        </span>
                       </p>
+                      <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                     </div>
                   </CardContent>
                   <CardFooter>
@@ -231,7 +230,10 @@ export default function Dashboard() {
               <div>
                 <h3 className="font-semibold text-sm mb-2">Box Details</h3>
                 <p className="text-sm text-muted-foreground">{selectedBox?.description}</p>
-                <p className="text-lg font-bold mt-2">${selectedBox?.price.toFixed(2)} / week</p>
+                 <div className="flex justify-between items-center mt-2">
+                    <p className="text-lg font-bold">${selectedBox?.price.toFixed(2)}</p>
+                    <Badge variant="secondary" className="capitalize">{selectedBox?.frequency}</Badge>
+                </div>
               </div>
               <Separator />
                <div>

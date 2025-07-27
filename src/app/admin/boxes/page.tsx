@@ -36,6 +36,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type BoxWithSchedule = Box & { nextPickup?: string; totalPickups: number };
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
@@ -116,6 +117,7 @@ const BoxGrid = ({ boxes, isLoading, onSync }: { boxes: BoxWithSchedule[], isLoa
                                 </div>
                                 <div className="flex items-center justify-between pt-2">
                                     <span className="text-lg font-bold">${box.price.toFixed(2)}</span>
+                                     <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                                 </div>
                             </div>
                         </CardContent>
@@ -156,6 +158,7 @@ export default function AdminBoxesPage() {
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [frequency, setFrequency] = useState<'weekly' | 'bi-weekly' | 'monthly'>('weekly');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
@@ -220,6 +223,7 @@ export default function AdminBoxesPage() {
     setPrice('');
     setDescription('');
     setQuantity('');
+    setFrequency('weekly');
     setImageFile(null);
     setImagePreview(null);
   };
@@ -256,7 +260,7 @@ export default function AdminBoxesPage() {
         const stripeResponse = await fetch('/api/create-stripe-product', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description, price: parseFloat(price) }),
+            body: JSON.stringify({ name, description, price: parseFloat(price), frequency }),
         });
 
         if (!stripeResponse.ok) {
@@ -272,6 +276,7 @@ export default function AdminBoxesPage() {
           description,
           quantity: parseInt(quantity, 10),
           image: imageUrlToSave || 'https://placehold.co/600x400.png',
+          frequency,
           startDate: null,
           endDate: null,
           stripeProductId,
@@ -303,11 +308,11 @@ export default function AdminBoxesPage() {
 
   const handleSyncWithStripe = async (box: Box) => {
     try {
-        const { name, description, price } = box;
+        const { name, description, price, frequency } = box;
         const stripeResponse = await fetch('/api/create-stripe-product', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description, price }),
+            body: JSON.stringify({ name, description, price, frequency: frequency || 'weekly' }),
         });
 
         if (!stripeResponse.ok) {
@@ -404,6 +409,19 @@ export default function AdminBoxesPage() {
                         className="col-span-3"
                         disabled={isSaving}
                       />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="frequency" className="text-right">Frequency</Label>
+                        <Select value={frequency} onValueChange={(value) => setFrequency(value as any)} disabled={isSaving}>
+                            <SelectTrigger className="col-span-3">
+                                <SelectValue placeholder="Select frequency" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="weekly">Weekly</SelectItem>
+                                <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
+                                <SelectItem value="monthly">Monthly</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="quantity" className="text-right">

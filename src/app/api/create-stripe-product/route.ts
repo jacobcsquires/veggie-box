@@ -6,33 +6,58 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
 
+function getStripeInterval(frequency: string): { interval: Stripe.PriceCreateParams.Recurring.Interval, interval_count: number } {
+    switch (frequency) {
+        case 'bi-weekly':
+            return { interval: 'week', interval_count: 2 };
+        case 'monthly':
+            return { interval: 'month', interval_count: 1 };
+        case 'weekly':
+        default:
+            return { interval: 'week', interval_count: 1 };
+    }
+}
+
 export async function POST(request: Request) {
   try {
-    const { name, description, price } = await request.json();
+    const { name, description, price, frequency, existingProductId, oldPriceId } = await request.json();
 
-    if (!name || !description || !price) {
+    if (!name || !description || !price || !frequency) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
-    // Create Stripe Product
-    const product = await stripe.products.create({
-        name,
-        description,
-    });
+    let productId = existingProductId;
+    if (!productId) {
+        // Create a new Stripe Product
+        const product = await stripe.products.create({
+            name,
+            description,
+        });
+        productId = product.id;
+    }
+
+    // Archive the old price if it exists
+    if (oldPriceId) {
+        try {
+            await stripe.prices.update(oldPriceId, { active: false });
+        } catch (error) {
+            console.warn(`Could not archive old price ${oldPriceId}, it might already be inactive or deleted.`);
+        }
+    }
+
+    const { interval, interval_count } = getStripeInterval(frequency);
 
     // Create Stripe Price
     const stripePrice = await stripe.prices.create({
-        product: product.id,
+        product: productId,
         unit_amount: price * 100,
         currency: 'usd',
-        recurring: { interval: 'week' },
+        recurring: { interval, interval_count },
     });
 
-    return NextResponse.json({ stripeProductId: product.id, stripePriceId: stripePrice.id });
+    return NextResponse.json({ stripeProductId: productId, stripePriceId: stripePrice.id });
   } catch (error: any) {
     console.error('Stripe product creation failed:', error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
-
-    
