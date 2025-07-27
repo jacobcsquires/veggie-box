@@ -41,7 +41,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   return (
       <>
         <Sidebar collapsible="icon">
-            <SidebarHeader>
+            <SidebarHeader className="group-data-[collapsible=icon]:justify-center">
             <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
                 <Sprout className="h-6 w-6 text-primary" />
                 <span className="font-headline group-data-[collapsible=icon]:hidden">Veggie Box Admin</span>
