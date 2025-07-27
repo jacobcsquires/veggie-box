@@ -8,7 +8,7 @@ import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Calendar as CalendarIcon, Bot, Trash2 } from 'lucide-react';
@@ -57,7 +57,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-export default function AdminSchedulePage({ params: {boxId} }: { params: { boxId: string } }) {
+export default function AdminSchedulePage({ params }: { params: { boxId: string } }) {
+  const { boxId } = params;
   const { toast } = useToast();
 
   const [box, setBox] = useState<Box | null>(null);
@@ -523,5 +524,3 @@ export default function AdminSchedulePage({ params: {boxId} }: { params: { boxId
     </div>
   );
 }
-
-    
