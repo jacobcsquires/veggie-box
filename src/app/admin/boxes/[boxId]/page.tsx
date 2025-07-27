@@ -233,7 +233,7 @@ export default function AdminBoxDetailPage() {
     }
 
     try {
-        if (box.frequency !== frequency || box.price !== parseFloat(price)) {
+        if (box.price !== parseFloat(price)) {
             const stripeResponse = await fetch('/api/create-stripe-product', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -241,7 +241,7 @@ export default function AdminBoxDetailPage() {
                     name, 
                     description, 
                     price: parseFloat(price), 
-                    frequency,
+                    frequency, // frequency is not editable, so this is safe
                     existingProductId: box.stripeProductId,
                     oldPriceId: box.stripePriceId
                 }),
@@ -254,12 +254,11 @@ export default function AdminBoxDetailPage() {
             newStripePriceId = stripePriceId;
         }
 
-        const boxData = {
+        const boxData: Partial<Box> = {
           name,
           price: parseFloat(price),
           description,
           quantity: parseInt(quantity, 10),
-          frequency,
           image: imageUrlToSave,
           stripePriceId: newStripePriceId,
         };
@@ -591,7 +590,7 @@ export default function AdminBoxDetailPage() {
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <div className="space-y-2">
                                 <Label htmlFor="frequency">Frequency</Label>
-                                <Select value={frequency} onValueChange={(value) => setFrequency(value as any)} disabled={isSavingBox}>
+                                <Select value={frequency} onValueChange={(value) => setFrequency(value as any)} disabled>
                                     <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="weekly">Weekly</SelectItem>
