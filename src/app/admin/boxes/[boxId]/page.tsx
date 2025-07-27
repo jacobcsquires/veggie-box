@@ -377,22 +377,45 @@ export default function AdminBoxDetailPage() {
     }
   };
   
-  const handleAddSinglePickup = async (date: Date) => {
+  const handleAddSinglePickup = async (date: Date, isNewFirstPickup: boolean) => {
     if (!box) return;
-    const lastPickup = pickups.length > 0 ? pickups[pickups.length - 1] : null;
+
+    setIsUpdatingStripe(true);
     const dateString = format(date, 'yyyy-MM-dd');
     
     try {
       const pickupData = {
         pickupDate: dateString,
-        note: lastPickup?.note || '', // Carry over the last note
+        note: pickups[0]?.note || '', // Carry over the first note if adding before
       };
       await addDoc(collection(db, 'boxes', boxId, 'pickups'), pickupData);
       toast({ title: 'Success', description: `Pickup for ${dateString} added.` });
+
+      if (isNewFirstPickup) {
+        const response = await fetch('/api/update-billing-anchor', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ boxId: box.id, newStartDate: dateString }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to update billing dates in Stripe.');
+        }
+
+        const { updatedCount } = await response.json();
+        toast({
+            title: 'Stripe Updated',
+            description: `Billing anchor updated for ${updatedCount} subscription(s).`
+        });
+      }
+
       await updateBoxDates();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding single pickup:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Could not add the pickup.' });
+    } finally {
+      setIsUpdatingStripe(false);
     }
   };
 
@@ -619,9 +642,9 @@ export default function AdminBoxDetailPage() {
         return (
              <Popover>
                 <PopoverTrigger asChild>
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Add
+                    <Button disabled={isUpdatingStripe}>
+                        {isUpdatingStripe ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                        {isUpdatingStripe ? 'Updating...' : 'Add'}
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -630,7 +653,8 @@ export default function AdminBoxDetailPage() {
                              <Button
                                 variant="ghost"
                                 className="justify-start"
-                                onClick={() => handleAddSinglePickup(previousPossiblePickupDate)}
+                                onClick={() => handleAddSinglePickup(previousPossiblePickupDate, true)}
+                                disabled={isUpdatingStripe}
                             >
                                 Add previous: {format(previousPossiblePickupDate, 'PPP')}
                             </Button>
@@ -639,7 +663,8 @@ export default function AdminBoxDetailPage() {
                              <Button
                                 variant="ghost"
                                 className="justify-start"
-                                onClick={() => handleAddSinglePickup(nextPossiblePickupDate)}
+                                onClick={() => handleAddSinglePickup(nextPossiblePickupDate, false)}
+                                disabled={isUpdatingStripe}
                             >
                                 Add next: {format(nextPossiblePickupDate, 'PPP')}
                             </Button>
