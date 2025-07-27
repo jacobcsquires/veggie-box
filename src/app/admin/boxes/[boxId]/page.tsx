@@ -296,32 +296,45 @@ export default function AdminBoxDetailPage() {
 
     setIsAddingPickup(true);
     const batch = writeBatch(db);
+    const existingPickupDates = new Set(pickups.map(p => p.pickupDate));
+    let duplicatesFound = false;
 
-    // If there's no end date, just add a single pickup
     if (addPickupType === 'single') {
-      const dateString = format(addStartDate, 'yyyy-MM-dd');
-      const pickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
-      const pickupData = { pickupDate: dateString, note: addNote };
-      batch.set(pickupRef, pickupData);
+        const dateString = format(addStartDate, 'yyyy-MM-dd');
+        if (existingPickupDates.has(dateString)) {
+            duplicatesFound = true;
+        } else {
+            const pickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
+            const pickupData = { pickupDate: dateString, note: addNote };
+            batch.set(pickupRef, pickupData);
+        }
     } else {
-      // If there is an end date, add recurring pickups
-      if (!addEndDate) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please provide an end date for multiple pickups.' });
-        setIsAddingPickup(false);
-        return;
-      }
-      const daysIncrement = addFrequency === 'weekly' ? 7 : 14;
-      let currentDate = addStartDate;
+        if (!addEndDate) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please provide an end date for multiple pickups.' });
+            setIsAddingPickup(false);
+            return;
+        }
+        const daysIncrement = addFrequency === 'weekly' ? 7 : 14;
+        let currentDate = addStartDate;
 
-      while (currentDate <= addEndDate) {
-          const dateString = format(currentDate, 'yyyy-MM-dd');
-          const pickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
-          const pickupData = { pickupDate: dateString, note: addNote };
-          batch.set(pickupRef, pickupData);
-          currentDate = addDays(currentDate, daysIncrement);
-      }
+        while (currentDate <= addEndDate) {
+            const dateString = format(currentDate, 'yyyy-MM-dd');
+            if (existingPickupDates.has(dateString)) {
+                duplicatesFound = true;
+            } else {
+                const pickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
+                const pickupData = { pickupDate: dateString, note: addNote };
+                batch.set(pickupRef, pickupData);
+            }
+            currentDate = addDays(currentDate, daysIncrement);
+        }
     }
 
+    if (duplicatesFound) {
+        toast({ variant: 'destructive', title: 'Error', description: 'One or more of the selected dates already has a pickup scheduled. No new pickups were added.' });
+        setIsAddingPickup(false);
+        return;
+    }
 
     try {
         await batch.commit();
