@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle } from 'lucide-react';
 import type { Box, Pickup, Subscription } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, addDays, isBefore, startOfToday, addMonths } from 'date-fns';
+import { format, addDays, isBefore, startOfToday, addMonths, subDays, subMonths } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -76,6 +76,19 @@ function getNextPickupDate(lastDate: Date, frequency: Box['frequency']): Date {
             return addMonths(lastDate, 1);
         default:
             return addDays(lastDate, 7);
+    }
+}
+
+function getPreviousPickupDate(firstDate: Date, frequency: Box['frequency']): Date {
+    switch (frequency) {
+        case 'weekly':
+            return subDays(firstDate, 7);
+        case 'bi-weekly':
+            return subDays(firstDate, 14);
+        case 'monthly':
+            return subMonths(firstDate, 1);
+        default:
+            return subDays(firstDate, 7);
     }
 }
 
@@ -471,6 +484,20 @@ export default function AdminBoxDetailPage() {
     return getNextPickupDate(lastDate, box.frequency);
   }, [box, pickups]);
 
+  const previousPossiblePickupDate = useMemo(() => {
+    if (!box || pickups.length === 0) return null;
+
+    const firstPickupDateStr = pickups[0].pickupDate;
+    const firstDate = new Date(firstPickupDateStr.replace(/-/g, '\/'));
+    const prevDate = getPreviousPickupDate(firstDate, box.frequency);
+    
+    if (isBefore(prevDate, startOfToday())) {
+        return null;
+    }
+    
+    return prevDate;
+  }, [box, pickups]);
+
   if (isLoading) {
     return (
         <div>
@@ -516,7 +543,7 @@ export default function AdminBoxDetailPage() {
                                         mode="single" 
                                         selected={addStartDate} 
                                         onSelect={setAddStartDate} 
-                                        disabled={(date) => isBefore(date, startOfToday()) || existingPickupDateStrings.has(format(date, 'yyyy-MM-dd'))}
+                                        disabled={(date) => isBefore(date, startOfToday())}
                                         initialFocus 
                                     />
                                 </PopoverContent>
@@ -561,7 +588,16 @@ export default function AdminBoxDetailPage() {
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
                     <div className="flex flex-col gap-1 p-2">
-                        {nextPossiblePickupDate ? (
+                        {previousPossiblePickupDate && (
+                             <Button
+                                variant="ghost"
+                                className="justify-start"
+                                onClick={() => handleAddSinglePickup(previousPossiblePickupDate)}
+                            >
+                                Add previous: {format(previousPossiblePickupDate, 'PPP')}
+                            </Button>
+                        )}
+                        {nextPossiblePickupDate && (
                              <Button
                                 variant="ghost"
                                 className="justify-start"
@@ -569,8 +605,9 @@ export default function AdminBoxDetailPage() {
                             >
                                 Add next: {format(nextPossiblePickupDate, 'PPP')}
                             </Button>
-                        ) : (
-                            <p className="text-sm text-muted-foreground p-2">Cannot determine next date.</p>
+                        )}
+                        {!previousPossiblePickupDate && !nextPossiblePickupDate && (
+                            <p className="text-sm text-muted-foreground p-2">Cannot determine next/previous date.</p>
                         )}
                     </div>
                 </PopoverContent>
