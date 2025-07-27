@@ -176,8 +176,7 @@ export default function AdminBoxDetailPage() {
 
   const handleDateSelect = (date: Date | undefined) => {
     if (!date) return;
-    const dateString = format(date, 'yyyy-MM-dd');
-    const isScheduled = pickups.some(p => p.pickupDate === dateString);
+    const isScheduled = pickups.some(p => p.pickupDate === format(date, 'yyyy-MM-dd'));
     // Open dialog only if a date is selected, and for calendar view, only if it's already scheduled
     if (date) {
         openNoteDialog(date);
@@ -848,3 +847,5 @@ export default function AdminBoxDetailPage() {
     </div>
   );
 }
+
+    
