@@ -1,5 +1,15 @@
 
 
+export type Order = {
+    id: string;
+    customerName: string;
+    boxName: string;
+    status: 'Processing' | 'Shipped' | 'Delivered';
+    orderDate: string;
+    price: number;
+    createdAt?: any;
+}
+
 export type Box = {
   id: string;
   name: string;
@@ -33,3 +43,5 @@ export type Pickup = {
     pickupDate: string; // YYYY-MM-DD
     note: string;
 }
+
+    

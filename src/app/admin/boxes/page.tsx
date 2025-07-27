@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, getDocs, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, getDocs, query, orderBy } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
@@ -49,7 +49,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { Box } from '@/lib/types';
+import type { Box, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -59,7 +59,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { format } from 'date-fns';
 
+type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 export default function AdminBoxesPage() {
   const { toast } = useToast();
@@ -68,7 +70,7 @@ export default function AdminBoxesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isMigrating, setIsMigrating] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [boxToDelete, setBoxToDelete] = useState<Box | null>(null);
 
@@ -155,47 +157,39 @@ export default function AdminBoxesPage() {
     }
   };
   
-  const handleMigrateData = async () => {
-      setIsMigrating(true);
-      toast({ title: "Starting Migration", description: "Please do not close this window." });
+  const handleSyncSchedules = async () => {
+      setIsSyncing(true);
+      toast({ title: "Starting Schedule Sync", description: "Updating start and end dates for all boxes..." });
 
       try {
           const batch = writeBatch(db);
+          const boxesSnapshot = await getDocs(collection(db, 'boxes'));
           
-          // Get all old pickups
-          const oldPickupsQuery = query(collection(db, 'pickups'));
-          const oldPickupsSnapshot = await getDocs(oldPickupsQuery);
-
-          if (oldPickupsSnapshot.empty) {
-              toast({ variant: 'destructive', title: "Migration Not Needed", description: "No old pickups found to migrate." });
-              setIsMigrating(false);
-              return;
+          for (const boxDoc of boxesSnapshot.docs) {
+              const boxRef = boxDoc.ref;
+              const pickupsRef = collection(db, 'boxes', boxDoc.id, 'pickups');
+              const pickupsSnapshot = await getDocs(query(pickupsRef, orderBy('pickupDate')));
+              
+              if (pickupsSnapshot.empty) {
+                  batch.update(boxRef, { startDate: "Schedule TBD", endDate: "Schedule TBD" });
+              } else {
+                  const pickupsData = pickupsSnapshot.docs.map(doc => doc.data() as PickupInternal);
+                  const firstPickupDate = pickupsData[0].pickupDate;
+                  const lastPickupDate = pickupsData[pickupsData.length - 1].pickupDate;
+                  batch.update(boxRef, { 
+                      startDate: format(new Date(firstPickupDate.replace(/-/g, '\/')), 'PPP'), 
+                      endDate: format(new Date(lastPickupDate.replace(/-/g, '\/')), 'PPP')
+                  });
+              }
           }
-
-          oldPickupsSnapshot.forEach(pickupDoc => {
-              const pickupData = pickupDoc.data();
-              const boxId = pickupData.boxId;
-              
-              // New ref inside the subcollection
-              const newPickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
-              
-              // Create a new pickup document in the subcollection
-              batch.set(newPickupRef, {
-                  note: pickupData.note,
-                  pickupDate: pickupData.pickupDate,
-              });
-
-              // Delete the old pickup document
-              batch.delete(pickupDoc.ref);
-          });
           
           await batch.commit();
-          toast({ title: "Migration Successful", description: "All pickups have been moved to sub-collections." });
+          toast({ title: "Sync Successful", description: "All box schedules have been updated." });
       } catch (error) {
-          console.error("Migration failed:", error);
-          toast({ variant: 'destructive', title: "Migration Failed", description: "An error occurred during data migration." });
+          console.error("Schedule sync failed:", error);
+          toast({ variant: 'destructive', title: "Sync Failed", description: "An error occurred during schedule synchronization." });
       } finally {
-          setIsMigrating(false);
+          setIsSyncing(false);
       }
   };
 
@@ -405,9 +399,9 @@ export default function AdminBoxesPage() {
               A list of all available veggie boxes.
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={handleMigrateData} disabled={isMigrating}>
-            {isMigrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
-            {isMigrating ? 'Migrating...' : 'Migrate Data'}
+          <Button variant="outline" size="sm" onClick={handleSyncSchedules} disabled={isSyncing}>
+            {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+            {isSyncing ? 'Syncing...' : 'Sync Schedules'}
           </Button>
         </CardHeader>
         <CardContent>
@@ -504,4 +498,5 @@ export default function AdminBoxesPage() {
 
     </div>
   );
-}
+
+    
