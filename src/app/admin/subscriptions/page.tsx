@@ -108,7 +108,7 @@ export default function AdminSubscriptionsPage() {
                 subscriptions.map((subscription) => (
                   <TableRow key={subscription.id}>
                     <TableCell className="font-medium">
-                      {subscription.userId}
+                      {subscription.customerName || subscription.userId}
                     </TableCell>
                     <TableCell>{subscription.boxName}</TableCell>
                     <TableCell>
