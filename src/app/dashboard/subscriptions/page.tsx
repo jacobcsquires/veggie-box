@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription } from '@/lib/types';
+import type { Subscription, Pickup } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,13 +24,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 
 export default function SubscriptionsPage() {
   const { user } = useAuth();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [pickups, setPickups] = useState<Pickup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [scheduleRanges, setScheduleRanges] = useState<{[boxId: string]: {start: string, end: string} | null}>({});
 
   useEffect(() => {
     if (!user) {
@@ -43,16 +45,52 @@ export default function SubscriptionsPage() {
       where('userId', '==', user.uid)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeSubs = onSnapshot(q, (snapshot) => {
       const subsData = snapshot.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() } as Subscription)
       );
       setSubscriptions(subsData);
-      setIsLoading(false);
+      if (pickups.length > 0 || snapshot.docs.length === 0) {
+        setIsLoading(false);
+      }
     });
 
-    return () => unsubscribe();
+    const unsubscribePickups = onSnapshot(collection(db, 'pickups'), (snapshot) => {
+        const pickupsData = snapshot.docs.map(
+            (doc) => ({ id: doc.id, ...doc.data() } as Pickup)
+        );
+        setPickups(pickupsData);
+        if (subscriptions.length > 0 || snapshot.docs.length === 0) {
+          setIsLoading(false);
+        }
+    });
+
+    return () => {
+        unsubscribeSubs();
+        unsubscribePickups();
+    };
   }, [user]);
+
+  useEffect(() => {
+    if (subscriptions.length > 0 && pickups.length > 0) {
+      const ranges: {[boxId: string]: {start: string, end: string} | null} = {};
+      subscriptions.forEach(sub => {
+        const relevantPickups = pickups
+          .filter(p => p.boxId === sub.boxId)
+          .sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
+        
+        if (relevantPickups.length > 0) {
+          const startDate = format(new Date(relevantPickups[0].pickupDate.replace(/-/g, '\/')), 'PPP');
+          const endDate = format(new Date(relevantPickups[relevantPickups.length - 1].pickupDate.replace(/-/g, '\/')), 'PPP');
+          ranges[sub.boxId] = { start: startDate, end: endDate };
+        } else {
+          ranges[sub.boxId] = null;
+        }
+      });
+      setScheduleRanges(ranges);
+    }
+  }, [subscriptions, pickups]);
+
 
   return (
     <div>
@@ -72,7 +110,7 @@ export default function SubscriptionsPage() {
               <TableRow>
                 <TableHead>Box Type</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Next Pick Up</TableHead>
+                <TableHead>Schedule Dates</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead>
                     <span className="sr-only">Actions</span>
@@ -85,7 +123,7 @@ export default function SubscriptionsPage() {
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
                   </TableRow>
@@ -107,7 +145,12 @@ export default function SubscriptionsPage() {
                         {sub.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{sub.nextPickup}</TableCell>
+                    <TableCell>
+                        {scheduleRanges[sub.boxId] 
+                            ? `${scheduleRanges[sub.boxId]?.start} - ${scheduleRanges[sub.boxId]?.end}`
+                            : 'Schedule TBD'
+                        }
+                    </TableCell>
                     <TableCell className="text-right">
                       ${sub.price.toFixed(2)}
                     </TableCell>
