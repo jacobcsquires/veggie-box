@@ -71,40 +71,37 @@ export default function AdminSubscriptionsPage() {
 
   return (
     <div>
-      <h1 className="text-lg font-semibold md:text-2xl font-headline mb-4">
+      <h1 className="text-lg font-semibold md:text-2xl font-headline">
         Subscriptions
       </h1>
+      <p className="text-muted-foreground mb-4">
+        A list of all active and pending subscriptions.
+      </p>
+      <div className="flex flex-col md:flex-row gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search by name..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <Select value={selectedBoxId} onValueChange={setSelectedBoxId}>
+          <SelectTrigger className="w-full md:w-[200px]">
+            <SelectValue placeholder="Filter by box" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Boxes</SelectItem>
+            {boxes.map(box => (
+              <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <Card>
-        <CardHeader>
-          <CardTitle>Subscriptions</CardTitle>
-          <CardDescription>
-            A list of all active and pending subscriptions.
-          </CardDescription>
-          <div className="flex flex-col md:flex-row gap-2 mt-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search by name..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Select value={selectedBoxId} onValueChange={setSelectedBoxId}>
-              <SelectTrigger className="w-full md:w-[200px]">
-                <SelectValue placeholder="Filter by box" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Boxes</SelectItem>
-                {boxes.map(box => (
-                  <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <Table>
             <TableHeader>
               <TableRow>
