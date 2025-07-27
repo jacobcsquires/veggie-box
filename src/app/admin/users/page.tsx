@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -57,17 +58,14 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <h1 className="text-lg font-semibold md:text-2xl font-headline mb-4">
+      <h1 className="text-lg font-semibold md:text-2xl font-headline">
         Manage Users
       </h1>
+       <p className="text-muted-foreground mb-4">
+        A list of all users for Veggie Box.
+      </p>
       <Card>
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-          <CardDescription>
-            A list of all users for Veggie Box.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <Table>
             <TableHeader>
               <TableRow>
