@@ -57,7 +57,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-export default function AdminSchedulePage({ params }: { params: { boxId: string } }) {
+export default function AdminBoxDetailPage({ params }: { params: { boxId: string } }) {
   const { boxId } = params;
   const { toast } = useToast();
 
