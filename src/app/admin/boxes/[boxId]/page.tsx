@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle } from 'lucide-react';
 import type { Box, Pickup, Subscription } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addDays } from 'date-fns';
@@ -89,12 +89,12 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
 
   // State for the generation dialog
-  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generateStartDate, setGenerateStartDate] = useState<Date | undefined>();
-  const [generateEndDate, setGenerateEndDate] = useState<Date | undefined>();
-  const [generateFrequency, setGenerateFrequency] = useState('weekly');
-  const [generateNote, setGenerateNote] = useState('');
+  const [isAddPickupDialogOpen, setIsAddPickupDialogOpen] = useState(false);
+  const [isAddingPickup, setIsAddingPickup] = useState(false);
+  const [addStartDate, setAddStartDate] = useState<Date | undefined>();
+  const [addEndDate, setAddEndDate] = useState<Date | undefined>();
+  const [addFrequency, setAddFrequency] = useState('weekly');
+  const [addNote, setAddNote] = useState('');
 
   // State for delete confirmation dialog
   const [isPickupDeleteDialogOpen, setIsPickupDeleteDialogOpen] = useState(false);
@@ -264,41 +264,52 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
     }
   };
 
-  const handleGenerateSchedule = async () => {
-    if (!generateStartDate || !generateEndDate || !generateNote || !box) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please fill out all fields.' });
+  const handleAddPickups = async () => {
+    if (!addStartDate || !box) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please provide a start date.' });
         return;
     }
-    if (generateEndDate < generateStartDate) {
+    if (addEndDate && addEndDate < addStartDate) {
         toast({ variant: 'destructive', title: 'Error', description: 'End date cannot be before start date.' });
         return;
     }
 
-    setIsGenerating(true);
+    setIsAddingPickup(true);
     const batch = writeBatch(db);
-    const daysIncrement = generateFrequency === 'weekly' ? 7 : 14;
-    let currentDate = generateStartDate;
 
-    while (currentDate <= generateEndDate) {
-        const dateString = format(currentDate, 'yyyy-MM-dd');
-        const pickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
-        const pickupData = { pickupDate: dateString, note: generateNote };
-        batch.set(pickupRef, pickupData);
-        currentDate = addDays(currentDate, daysIncrement);
+    // If there's no end date, just add a single pickup
+    if (!addEndDate) {
+      const dateString = format(addStartDate, 'yyyy-MM-dd');
+      const pickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
+      const pickupData = { pickupDate: dateString, note: addNote };
+      batch.set(pickupRef, pickupData);
+    } else {
+      // If there is an end date, add recurring pickups
+      const daysIncrement = addFrequency === 'weekly' ? 7 : 14;
+      let currentDate = addStartDate;
+
+      while (currentDate <= addEndDate) {
+          const dateString = format(currentDate, 'yyyy-MM-dd');
+          const pickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
+          const pickupData = { pickupDate: dateString, note: addNote };
+          batch.set(pickupRef, pickupData);
+          currentDate = addDays(currentDate, daysIncrement);
+      }
     }
+
 
     try {
         await batch.commit();
-        toast({ title: 'Success', description: 'Schedule generated successfully.' });
-        setIsGenerateDialogOpen(false);
-        setGenerateStartDate(undefined);
-        setGenerateEndDate(undefined);
-        setGenerateNote('');
+        toast({ title: 'Success', description: 'Pickup(s) added successfully.' });
+        setIsAddPickupDialogOpen(false);
+        setAddStartDate(undefined);
+        setAddEndDate(undefined);
+        setAddNote('');
     } catch (error) {
-        console.error("Error generating schedule:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not generate schedule.' });
+        console.error("Error adding pickups:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not add pickups.' });
     } finally {
-        setIsGenerating(false);
+        setIsAddingPickup(false);
     }
   };
 
@@ -534,46 +545,46 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                                     <CalendarIcon className="h-4 w-4" />
                                 </ToggleGroupItem>
                             </ToggleGroup>
-                            <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
+                            <Dialog open={isAddPickupDialogOpen} onOpenChange={setIsAddPickupDialogOpen}>
                                 <DialogTrigger asChild>
                                     <Button>
-                                        <Bot className="mr-2 h-4 w-4" />
-                                        Generate
+                                        <PlusCircle className="mr-2 h-4 w-4" />
+                                        Add
                                     </Button>
                                 </DialogTrigger>
                                 <DialogContent className="sm:max-w-[425px]">
                                     <DialogHeader>
-                                        <DialogTitle>Generate Recurring Schedule</DialogTitle>
-                                        <DialogDescription>Automatically create pickup dates for this box.</DialogDescription>
+                                        <DialogTitle>Add Pickups</DialogTitle>
+                                        <DialogDescription>Add a single or recurring pickup date for this box.</DialogDescription>
                                     </DialogHeader>
                                     <div className="grid gap-4 py-4">
                                         <div className="grid grid-cols-4 items-center gap-4">
                                             <Label htmlFor="start-date" className="text-right">Start Date</Label>
                                             <Popover>
                                                 <PopoverTrigger asChild>
-                                                <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !generateStartDate && "text-muted-foreground")}>
+                                                <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !addStartDate && "text-muted-foreground")}>
                                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {generateStartDate ? format(generateStartDate, "PPP") : <span>Pick a date</span>}
+                                                    {addStartDate ? format(addStartDate, "PPP") : <span>Pick a date</span>}
                                                 </Button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={generateStartDate} onSelect={setGenerateStartDate} initialFocus /></PopoverContent>
+                                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={addStartDate} onSelect={setAddStartDate} initialFocus /></PopoverContent>
                                             </Popover>
                                         </div>
                                         <div className="grid grid-cols-4 items-center gap-4">
                                             <Label htmlFor="end-date" className="text-right">End Date</Label>
                                             <Popover>
                                                 <PopoverTrigger asChild>
-                                                <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !generateEndDate && "text-muted-foreground")}>
+                                                <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !addEndDate && "text-muted-foreground")}>
                                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {generateEndDate ? format(generateEndDate, "PPP") : <span>Pick a date</span>}
+                                                    {addEndDate ? format(addEndDate, "PPP") : <span>(Optional)</span>}
                                                 </Button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={generateEndDate} onSelect={setGenerateEndDate} disabled={(date) => generateStartDate ? date < generateStartDate : false} initialFocus /></PopoverContent>
+                                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={addEndDate} onSelect={setAddEndDate} disabled={(date) => addStartDate ? date < addStartDate : false} initialFocus /></PopoverContent>
                                             </Popover>
                                         </div>
                                         <div className="grid grid-cols-4 items-center gap-4">
                                             <Label htmlFor="frequency" className="text-right">Frequency</Label>
-                                            <Select value={generateFrequency} onValueChange={setGenerateFrequency}>
+                                            <Select value={addFrequency} onValueChange={setAddFrequency} disabled={!addEndDate}>
                                                 <SelectTrigger className="col-span-3"><SelectValue placeholder="Select frequency" /></SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="weekly">Weekly</SelectItem>
@@ -583,13 +594,13 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                                         </div>
                                         <div className="grid grid-cols-4 items-center gap-4">
                                             <Label htmlFor="note" className="text-right">Note</Label>
-                                            <Textarea id="note" value={generateNote} onChange={(e) => setGenerateNote(e.target.value)} className="col-span-3" placeholder="e.g. This week's box includes..." />
+                                            <Textarea id="note" value={addNote} onChange={(e) => setAddNote(e.target.value)} className="col-span-3" placeholder="e.g. This week's box includes..." />
                                         </div>
                                     </div>
                                     <DialogFooter>
-                                        <Button type="button" onClick={handleGenerateSchedule} disabled={isGenerating}>
-                                            {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            {isGenerating ? 'Generating...' : 'Generate'}
+                                        <Button type="button" onClick={handleAddPickups} disabled={isAddingPickup}>
+                                            {isAddingPickup && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            {isAddingPickup ? 'Adding...' : 'Add Pickup(s)'}
                                         </Button>
                                     </DialogFooter>
                                 </DialogContent>
