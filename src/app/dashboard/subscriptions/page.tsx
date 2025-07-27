@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -197,7 +196,36 @@ export default function SubscriptionsPage() {
     } finally {
         setIsActionLoading(null);
     }
-  }
+  };
+  
+  const handleCancelActiveSubscription = async (sub: Subscription) => {
+    setIsActionLoading(sub.id);
+    try {
+      const response = await fetch('/api/cancel-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscriptionId: sub.id }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to cancel subscription.');
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Your subscription has been cancelled.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message,
+      });
+    } finally {
+      setIsActionLoading(null);
+    }
+  };
 
 
   const renderSubscriptionActions = (sub: Subscription) => {
@@ -210,8 +238,30 @@ export default function SubscriptionsPage() {
                     <Link href={`/dashboard/schedule/${sub.boxId}`}>View Schedule</Link>
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => handleManageSubscription(sub.stripeCustomerId)} disabled={isManaging}>
-                    {isManaging ? 'Redirecting...' : 'Manage'}
+                    {isManaging ? 'Redirecting...' : 'Manage Billing'}
                 </Button>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" disabled={isLoadingThis}>
+                            {isLoadingThis ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                            Cancel
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will cancel your subscription for the {sub.boxName} at the end of your current billing period. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Back</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleCancelActiveSubscription(sub)}>
+                                Yes, cancel my subscription
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </>
         )
     }
