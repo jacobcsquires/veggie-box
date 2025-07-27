@@ -8,7 +8,7 @@ import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where,
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, FilePen } from 'lucide-react';
+import { PlusCircle, FilePen, Calendar as CalendarIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,12 +42,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { format } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 type BoxWithSchedule = Box & { nextPickup?: string; totalPickups: number };
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 export default function AdminBoxesPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [boxes, setBoxes] = useState<BoxWithSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -60,6 +64,8 @@ export default function AdminBoxesPage() {
   const [quantity, setQuantity] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'boxes'), async (snapshot) => {
@@ -102,6 +108,8 @@ export default function AdminBoxesPage() {
     setQuantity('');
     setImageFile(null);
     setImagePreview(null);
+    setStartDate(undefined);
+    setEndDate(undefined);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,6 +153,8 @@ export default function AdminBoxesPage() {
       description,
       quantity: parseInt(quantity, 10),
       image: imageUrlToSave || 'https://placehold.co/600x400.png',
+      startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+      endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
     };
 
     try {
@@ -258,6 +268,30 @@ export default function AdminBoxesPage() {
                       />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="start-date" className="text-right">Start Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !startDate && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {startDate ? format(startDate, "PPP") : <span>Pick a date (optional)</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus /></PopoverContent>
+                        </Popover>
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="end-date" className="text-right">End Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !endDate && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {endDate ? format(endDate, "PPP") : <span>Pick an end date (optional)</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={endDate} onSelect={setEndDate} disabled={(date) => startDate ? date < startDate : false} initialFocus /></PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="description" className="text-right">
                         Description
                       </Label>
@@ -292,6 +326,8 @@ export default function AdminBoxesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Start Date</TableHead>
+                <TableHead>End Date</TableHead>
                 <TableHead>Next Pickup</TableHead>
                 <TableHead>Total # of Pickups</TableHead>
                 <TableHead className="hidden md:table-cell">
@@ -299,7 +335,7 @@ export default function AdminBoxesPage() {
                 </TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">
-                  Edit
+                  Actions
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -309,6 +345,8 @@ export default function AdminBoxesPage() {
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-10" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
@@ -316,17 +354,19 @@ export default function AdminBoxesPage() {
                   </TableRow>
                 ))
               ) : boxes.map((box) => (
-                <TableRow key={box.id}>
+                <TableRow key={box.id} onClick={() => router.push(`/admin/boxes/${box.id}`)} className="cursor-pointer">
                   <TableCell className="font-medium">{box.name}</TableCell>
+                  <TableCell>{box.startDate ? format(new Date(box.startDate.replace(/-/g, '/')), 'PPP') : 'N/A'}</TableCell>
+                  <TableCell>{box.endDate ? format(new Date(box.endDate.replace(/-/g, '/')), 'PPP') : 'N/A'}</TableCell>
                   <TableCell>{box.nextPickup || "Not scheduled"}</TableCell>
                   <TableCell>{box.totalPickups}</TableCell>
                   <TableCell className="hidden md:table-cell">{box.subscribedCount} / {box.quantity}</TableCell>
                   <TableCell className="text-right">${box.price.toFixed(2)}</TableCell>
                   <TableCell className="text-right">
-                    <Button asChild size="icon" variant="ghost">
+                    <Button asChild size="sm" variant="outline" onClick={(e) => e.stopPropagation()}>
                         <Link href={`/admin/boxes/${box.id}`}>
-                            <FilePen className="h-4 w-4" />
-                            <span className="sr-only">Edit</span>
+                            <FilePen className="h-4 w-4 mr-2" />
+                            Edit Box
                         </Link>
                     </Button>
                   </TableCell>
