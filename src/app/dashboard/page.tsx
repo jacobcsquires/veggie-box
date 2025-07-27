@@ -3,14 +3,13 @@
 
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
-import { collection, doc, runTransaction, serverTimestamp, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, runTransaction, serverTimestamp, onSnapshot, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import * as Icons from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Card,
   CardContent,
@@ -29,12 +28,13 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Box } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type PickupInternal = {
   id: string;
-  pickupDate: string;
+  pickupDate: string; // YYYY-MM-DD
   note: string;
 };
 
@@ -44,13 +44,11 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [date, setDate] = useState<Date | undefined>(undefined);
   
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedBox, setSelectedBox] = useState<Box | null>(null);
-  const [availablePickups, setAvailablePickups] = useState<PickupInternal[]>([]);
-  const [selectedPickupNote, setSelectedPickupNote] = useState('');
+  const [upcomingPickups, setUpcomingPickups] = useState<PickupInternal[]>([]);
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
 
   useEffect(() => {
@@ -67,42 +65,20 @@ export default function Dashboard() {
   useEffect(() => {
     if (selectedBox && isDialogOpen) {
       setIsLoadingPickups(true);
+      const today = format(new Date(), 'yyyy-MM-dd');
       const pickupsRef = collection(db, 'boxes', selectedBox.id, 'pickups');
-      const unsubscribe = onSnapshot(pickupsRef, (snapshot) => {
-        const pickupsData = snapshot.docs
-          .map(doc => ({id: doc.id, ...doc.data()}) as PickupInternal)
-          .filter(p => new Date(p.pickupDate.replace(/-/g, '\/')) >= new Date(new Date().setHours(0,0,0,0)));
+      const q = query(pickupsRef, where('pickupDate', '>=', today), orderBy('pickupDate'));
 
-        pickupsData.sort((a,b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
-        setAvailablePickups(pickupsData);
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const pickupsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as PickupInternal);
+        setUpcomingPickups(pickupsData);
         setIsLoadingPickups(false);
-        
-        if (pickupsData.length > 0) {
-            const firstAvailableDate = new Date(pickupsData[0].pickupDate.replace(/-/g, '\/'));
-            setDate(firstAvailableDate);
-            setSelectedPickupNote(pickupsData[0].note);
-        } else {
-            setDate(undefined);
-            setSelectedPickupNote('');
-        }
       });
       return () => unsubscribe();
     } else {
-      setAvailablePickups([]);
-      setDate(undefined);
-      setSelectedPickupNote('');
+      setUpcomingPickups([]);
     }
   }, [selectedBox, isDialogOpen]);
-
-  useEffect(() => {
-    if (date) {
-        const dateString = format(date, 'yyyy-MM-dd');
-        const pickupForDate = availablePickups.find(p => p.pickupDate === dateString);
-        setSelectedPickupNote(pickupForDate?.note || '');
-    } else {
-        setSelectedPickupNote('');
-    }
-  }, [date, availablePickups]);
 
   const handleSubscribeClick = (box: Box) => {
     setSelectedBox(box);
@@ -118,11 +94,18 @@ export default function Dashboard() {
       });
       return;
     }
-    if (!selectedBox || !date) {
+    if (!selectedBox) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No box selected.' });
+        return;
+    }
+    
+    const firstPickup = upcomingPickups[0];
+
+    if (!firstPickup) {
         toast({
             variant: 'destructive',
-            title: 'Error',
-            description: 'Please select a box and a pick up date.',
+            title: 'No Pickups Available',
+            description: 'There are no upcoming pickups for this box.',
         });
         return;
     }
@@ -155,8 +138,8 @@ export default function Dashboard() {
                 boxName: selectedBox.name,
                 price: selectedBox.price,
                 status: 'Active',
-                startDate: date.toISOString().split('T')[0],
-                nextPickup: date.toISOString().split('T')[0],
+                startDate: firstPickup.pickupDate,
+                nextPickup: firstPickup.pickupDate,
                 createdAt: serverTimestamp(),
             };
             transaction.set(subscriptionRef, subscriptionData);
@@ -182,8 +165,6 @@ export default function Dashboard() {
     }
   };
   
-  const availablePickupDates = availablePickups.map(p => new Date(p.pickupDate.replace(/-/g, '\/')));
-
   return (
     <>
       <div className="flex items-center">
@@ -214,6 +195,7 @@ export default function Dashboard() {
             ))
           : boxes.map((box) => {
               const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
+              const hasSchedule = box.startDate && box.endDate;
 
               return (
                 <Card key={box.id}>
@@ -228,16 +210,16 @@ export default function Dashboard() {
                     />
                     <CardTitle className="pt-4 font-headline">{box.name}</CardTitle>
                     <CardDescription>{box.description}</CardDescription>
-                    {box.startDate && box.endDate && (
+                    {hasSchedule && (
                         <p className="text-xs text-muted-foreground pt-2">
-                            Available from {box.startDate} to {box.endDate}
+                           Available from {format(parseISO(box.startDate!), 'PPP')} to {format(parseISO(box.endDate!), 'PPP')}
                         </p>
                     )}
                   </CardHeader>
                   <CardContent>
                     <div className="flex justify-between items-center">
                       <p className="text-2xl font-bold">
-                        ${box.price}
+                        ${box.price.toFixed(2)}
                         <span className="text-sm font-normal text-muted-foreground">
                           /week
                         </span>
@@ -254,57 +236,48 @@ export default function Dashboard() {
             })}
       </div>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-xl">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Schedule Your First Pick Up</DialogTitle>
+              <DialogTitle>Subscribe to {selectedBox?.name}</DialogTitle>
               <DialogDescription>
-                Select an available start date for your '{selectedBox?.name}' subscription.
+                Confirm your subscription. Your first pickup will be on the next available date.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                <div className="flex justify-center">
-                    {isLoadingPickups ? (
-                        <div className="flex flex-col items-center justify-center h-[290px]">
-                            <Icons.Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-2" />
-                            <p className="text-muted-foreground">Loading available dates...</p>
-                        </div>
-                    ) : availablePickupDates.length > 0 ? (
-                        <Calendar
-                            mode="single"
-                            selected={date}
-                            onSelect={setDate}
-                            disabled={(currentDate) => {
-                                const today = new Date();
-                                today.setHours(0,0,0,0);
-                                if (currentDate < today) return true;
-                                return !availablePickupDates.some(
-                                    (pickupDate) => format(pickupDate, 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')
-                                );
-                            }}
-                            className="rounded-md border"
-                        />
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-[290px] text-center p-4">
-                            <Icons.CalendarX className="h-8 w-8 text-muted-foreground mb-2" />
-                            <p className="text-muted-foreground">No upcoming pickup dates have been scheduled for this box yet. Please check back later.</p>
-                        </div>
-                    )}
-                </div>
-                 <div className="space-y-4 ml-4">
-                    <h3 className="font-semibold">What's in the box?</h3>
-                    <div className="space-y-2 text-sm max-h-[220px] overflow-y-auto pr-2 text-muted-foreground">
-                        {selectedPickupNote ? (
-                           <p>{selectedPickupNote}</p>
-                        ) : (
-                            <p>Select a date to see the items.</p>
-                        )}
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-sm mb-2">Box Details</h3>
+                <p className="text-sm text-muted-foreground">{selectedBox?.description}</p>
+                <p className="text-lg font-bold mt-2">${selectedBox?.price.toFixed(2)} / week</p>
+              </div>
+              <Separator />
+               <div>
+                <h3 className="font-semibold text-sm mb-2">Upcoming Pickup Dates</h3>
+                {isLoadingPickups ? (
+                    <div className="flex items-center justify-center h-24">
+                        <Icons.Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
-                </div>
+                ) : upcomingPickups.length > 0 ? (
+                    <ScrollArea className="h-40 rounded-md border">
+                        <div className="p-4 text-sm">
+                           {upcomingPickups.map(pickup => (
+                            <div key={pickup.id} className="mb-2">
+                              <p className="font-medium">{format(parseISO(pickup.pickupDate), 'PPP')}</p>
+                              {pickup.note && <p className="text-muted-foreground text-xs pl-2">- {pickup.note}</p>}
+                            </div>
+                           ))}
+                        </div>
+                    </ScrollArea>
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-24 text-center p-4 rounded-md border">
+                        <Icons.CalendarX className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">No upcoming pickups scheduled.</p>
+                    </div>
+                )}
+               </div>
             </div>
-            <Separator />
-            <DialogFooter>
-              <Button onClick={handleConfirmSubscription} disabled={isSubscribing || !date || isLoadingPickups} className="w-full">
-                {isSubscribing ? 'Confirming...' : `Subscribe for $${selectedBox?.price}`}
+            <DialogFooter className="pt-4">
+              <Button onClick={handleConfirmSubscription} disabled={isSubscribing || isLoadingPickups || upcomingPickups.length === 0} className="w-full">
+                {isSubscribing ? 'Confirming...' : `Confirm Subscription`}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -312,5 +285,3 @@ export default function Dashboard() {
     </>
   );
 }
-
-    
