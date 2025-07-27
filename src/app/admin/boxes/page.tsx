@@ -43,14 +43,7 @@ type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
 
-const BoxGrid = ({ boxes, isLoading, onSync }: { boxes: BoxWithSchedule[], isLoading: boolean, onSync: (box: Box) => void }) => {
-    const [syncingBoxId, setSyncingBoxId] = useState<string | null>(null);
-
-    const handleSyncClick = async (box: Box) => {
-        setSyncingBoxId(box.id);
-        await onSync(box);
-        setSyncingBoxId(null);
-    }
+const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: boolean }) => {
     
     if (isLoading) {
         return (
@@ -94,7 +87,6 @@ const BoxGrid = ({ boxes, isLoading, onSync }: { boxes: BoxWithSchedule[], isLoa
                  const formattedStartDate = startDateObj && isValidDate(startDateObj) ? format(startDateObj, 'MM/dd/yy') : 'N/A';
                  const formattedEndDate = endDateObj && isValidDate(endDateObj) ? format(endDateObj, 'MM/dd/yy') : 'N/A';
                  const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
-                 const isSyncing = syncingBoxId === box.id;
                 return (
                      <Card key={box.id}>
                         <CardHeader className="p-0">
@@ -127,16 +119,6 @@ const BoxGrid = ({ boxes, isLoading, onSync }: { boxes: BoxWithSchedule[], isLoa
                                     <FilePen className="mr-2 h-4 w-4" /> Edit Box
                                 </Link>
                             </Button>
-                            {!box.stripePriceId && (
-                                <Button variant="outline" className="w-full" onClick={() => handleSyncClick(box)} disabled={isSyncing}>
-                                    {isSyncing ? (
-                                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <RefreshCw className="mr-2 h-4 w-4" />
-                                    )}
-                                    {isSyncing ? 'Syncing...' : 'Sync with Stripe'}
-                                </Button>
-                            )}
                         </CardFooter>
                      </Card>
                 )
@@ -306,38 +288,6 @@ export default function AdminBoxesPage() {
     }
   };
 
-  const handleSyncWithStripe = async (box: Box) => {
-    try {
-        const { name, description, price, frequency } = box;
-        const stripeResponse = await fetch('/api/create-stripe-product', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description, price, frequency: frequency || 'weekly' }),
-        });
-
-        if (!stripeResponse.ok) {
-            const error = await stripeResponse.json();
-            throw new Error(error.message || 'Failed to create Stripe product.');
-        }
-        
-        const { stripeProductId, stripePriceId } = await stripeResponse.json();
-
-        const boxRef = doc(db, 'boxes', box.id);
-        await updateDoc(boxRef, { stripeProductId, stripePriceId });
-
-        toast({ title: 'Success', description: `Box "${box.name}" has been synced with Stripe.` });
-
-    } catch (error: any) {
-        console.error('Error syncing box with Stripe: ', error);
-        toast({
-            variant: 'destructive',
-            title: 'Stripe Sync Failed',
-            description: error.message || 'Could not sync the box with Stripe. Please try again.',
-        });
-    }
-  };
-
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-2">
@@ -465,13 +415,14 @@ export default function AdminBoxesPage() {
             <TabsTrigger value="past"><Archive className="mr-2 h-4 w-4" />Past Boxes ({pastBoxes.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="active" className="mt-4">
-           <BoxGrid boxes={activeBoxes} isLoading={isLoading} onSync={handleSyncWithStripe} />
+           <BoxGrid boxes={activeBoxes} isLoading={isLoading} />
         </TabsContent>
         <TabsContent value="past" className="mt-4">
-            <BoxGrid boxes={pastBoxes} isLoading={isLoading} onSync={handleSyncWithStripe} />
+            <BoxGrid boxes={pastBoxes} isLoading={isLoading} />
         </TabsContent>
       </Tabs>
     </div>
   );
 
     
+

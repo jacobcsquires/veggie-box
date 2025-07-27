@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useEffect, useState, useMemo } from "react";
@@ -27,7 +28,6 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     const unsubSubscriptions = onSnapshot(collection(db, 'subscriptions'), (snapshot) => {
@@ -47,31 +47,6 @@ export default function AdminDashboard() {
       unsubBoxes();
     }
   }, []);
-  
-  const handleBackfill = async () => {
-    setIsSyncing(true);
-    try {
-        const response = await fetch('/api/backfill-stripe-customers', {
-            method: 'POST',
-        });
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.message || 'Failed to sync subscriptions.');
-        }
-        toast({
-            title: 'Sync Complete',
-            description: `${result.updatedCount} subscriptions have been updated with Stripe Customer IDs.`
-        });
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Sync Failed',
-            description: error.message,
-        });
-    } finally {
-        setIsSyncing(false);
-    }
-  };
 
   const totalRevenue = useMemo(() => subscriptions.reduce((sum, sub) => sum + sub.price, 0), [subscriptions]);
   const subscriptionsCount = useMemo(() => subscriptions.length, [subscriptions]);
@@ -115,10 +90,6 @@ export default function AdminDashboard() {
     <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
             <h1 className="text-lg font-semibold md:text-2xl font-headline">Admin Dashboard</h1>
-            <Button onClick={handleBackfill} disabled={isSyncing}>
-                {isSyncing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                {isSyncing ? 'Syncing...' : 'Sync Stripe Customer IDs'}
-            </Button>
         </div>
         <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
           <Card>
