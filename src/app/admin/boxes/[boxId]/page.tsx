@@ -617,13 +617,16 @@ export default function AdminBoxDetailPage() {
                                         <p className="text-sm text-muted-foreground truncate">{pickup.note || 'No note for this date.'}</p>
                                     </CardContent>
                                     <CardFooter className="gap-2">
-                                        <Button variant="outline" size="sm" onClick={() => openNoteDialog(pickupDateObj)}>
-                                            <FilePen className="h-4 w-4 mr-2"/> Edit Note
+                                        <Button variant="outline" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
+                                            <FilePen className="h-4 w-4"/>
+                                            <span className="sr-only">Edit Note</span>
                                         </Button>
-                                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup);}} disabled={!canDelete}>
-                                            <Trash2 className="h-4 w-4" />
-                                            <span className="sr-only">Delete</span>
-                                        </Button>
+                                        {canDelete && (
+                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup);}}>
+                                                <Trash2 className="h-4 w-4" />
+                                                <span className="sr-only">Delete</span>
+                                            </Button>
+                                        )}
                                     </CardFooter>
                                 </Card>
                             )
@@ -654,14 +657,17 @@ export default function AdminBoxDetailPage() {
                                     <TableRow key={pickup.id}>
                                         <TableCell>{format(pickupDateObj, 'PPP')}</TableCell>
                                         <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="outline" size="sm" onClick={() => openNoteDialog(pickupDateObj)}>
-                                                <FilePen className="h-4 w-4 mr-2" /> Edit Note
+                                        <TableCell className="text-right space-x-2">
+                                            <Button variant="outline" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
+                                                <FilePen className="h-4 w-4" />
+                                                <span className="sr-only">Edit Note</span>
                                             </Button>
-                                            <Button variant="ghost" size="icon" className="ml-2" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup)}} disabled={!canDelete}>
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                                <span className="sr-only">Delete</span>
-                                            </Button>
+                                            {canDelete && (
+                                                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup)}}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                    <span className="sr-only">Delete</span>
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 )
