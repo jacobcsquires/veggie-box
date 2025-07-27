@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, Bot } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Bot, Trash2 } from 'lucide-react';
 import type { Box, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addDays } from 'date-fns';
@@ -36,7 +36,26 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
 
 export default function AdminSchedulePage({ params }: { params: { boxId: string } }) {
   const { toast } = useToast();
@@ -58,6 +77,10 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
   const [generateFrequency, setGenerateFrequency] = useState('weekly');
   const [generateNote, setGenerateNote] = useState('');
 
+  // State for delete confirmation dialog
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [pickupToDelete, setPickupToDelete] = useState<Pickup | null>(null);
+
   useEffect(() => {
     if (!boxId) return;
 
@@ -75,6 +98,8 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     const pickupsQuery = query(collection(db, 'pickups'), where('boxId', '==', boxId));
     const unsubscribe = onSnapshot(pickupsQuery, (snapshot) => {
       const pickupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pickup));
+      // Sort pickups by date
+      pickupsData.sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
       setPickups(pickupsData);
     });
 
@@ -177,6 +202,32 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     } finally {
         setIsGenerating(false);
     }
+  };
+
+  const handleDeleteClick = (pickup: Pickup) => {
+    setPickupToDelete(pickup);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const confirmDeletePickup = async () => {
+      if (!pickupToDelete) return;
+      try {
+          await deleteDoc(doc(db, 'pickups', pickupToDelete.id));
+          toast({
+              title: 'Success',
+              description: `Pickup for ${pickupToDelete.pickupDate} has been deleted.`,
+          });
+      } catch (error) {
+          console.error('Error deleting pickup: ', error);
+          toast({
+              variant: 'destructive',
+              title: 'Error',
+              description: 'Could not delete the pickup. Please try again.',
+          });
+      } finally {
+          setIsDeleteDialogOpen(false);
+          setPickupToDelete(null);
+      }
   };
   
   const pickupDates = pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/')));
@@ -322,53 +373,108 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
                 </DialogContent>
             </Dialog>
         </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        <div className="md:col-span-2">
-          <Card>
-            <CardHeader>
-                <CardTitle>Pick Up Calendar</CardTitle>
-                <CardDescription>Select a date to plan the note for that pick up. Dates with scheduled pickups are highlighted.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex justify-center">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                modifiers={{ scheduled: pickupDates }}
-                modifiersClassNames={{ scheduled: 'bg-primary/20' }}
-                className="rounded-md border"
-              />
-            </CardContent>
-          </Card>
-        </div>
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
-              <CardDescription>Describe what's in the box for the selected date. Clear the note to remove the pickup.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                 <div className="space-y-2">
-                    <Label htmlFor="pickup-note">Weekly Box Note</Label>
-                    <Textarea 
-                        id="pickup-note"
-                        placeholder="e.g. This week's box includes fresh carrots, kale, and a special surprise from the farm!"
-                        value={pickupNote}
-                        onChange={(e) => setPickupNote(e.target.value)}
-                        rows={5}
-                        disabled={isSaving}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+            <div className="md:col-span-2 space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Pick Up Calendar</CardTitle>
+                        <CardDescription>Select a date to plan the note for that pick up. Dates with scheduled pickups are highlighted.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex justify-center">
+                    <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        modifiers={{ scheduled: pickupDates }}
+                        modifiersClassNames={{ scheduled: 'bg-primary/20' }}
+                        className="rounded-md border"
                     />
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Scheduled Pickups</CardTitle>
+                        <CardDescription>A list of all upcoming pickup dates for this box.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Note</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {pickups.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="text-center h-24">No pickups scheduled yet.</TableCell>
+                                    </TableRow>
+                                ) : (
+                                    pickups.map(pickup => (
+                                        <TableRow key={pickup.id}>
+                                            <TableCell>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
+                                            <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(pickup)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                    <span className="sr-only">Delete</span>
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </div>
+            <div>
+            <Card>
+                <CardHeader>
+                <CardTitle>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
+                <CardDescription>Describe what's in the box for the selected date. Clear the note to remove the pickup.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="pickup-note">Weekly Box Note</Label>
+                        <Textarea 
+                            id="pickup-note"
+                            placeholder="e.g. This week's box includes fresh carrots, kale, and a special surprise from the farm!"
+                            value={pickupNote}
+                            onChange={(e) => setPickupNote(e.target.value)}
+                            rows={5}
+                            disabled={isSaving}
+                        />
+                    </div>
+                    <Button onClick={handleSavePickup} disabled={isSaving || !selectedDate} className="w-full">
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        {isSaving ? 'Saving...' : 'Save Pick Up Plan'}
+                    </Button>
                 </div>
-                 <Button onClick={handleSavePickup} disabled={isSaving || !selectedDate} className="w-full">
-                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isSaving ? 'Saving...' : 'Save Pick Up Plan'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                </CardContent>
+            </Card>
+            </div>
       </div>
+      
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the pickup scheduled for
+              "{pickupToDelete?.pickupDate}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePickup} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete pickup
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
-}
+    
