@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen } from 'lucide-react';
 import type { Box, Pickup, Subscription } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addDays } from 'date-fns';
@@ -83,9 +83,10 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
   const [isSavingBox, setIsSavingBox] = useState(false);
 
   // States for the calendar and pickup notes
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [pickupNote, setPickupNote] = useState('');
   const [isSavingPickup, setIsSavingPickup] = useState(false);
+  const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
 
   // State for the generation dialog
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
@@ -156,6 +157,25 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
       setPickupNote('');
     }
   }, [selectedDate, pickups]);
+  
+  const openNoteDialog = (date: Date) => {
+    setSelectedDate(date);
+    const dateString = format(date, 'yyyy-MM-dd');
+    const pickupForDate = pickups.find(d => d.pickupDate === dateString);
+    setPickupNote(pickupForDate?.note || '');
+    setIsNoteDialogOpen(true);
+  }
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+    const dateString = format(date, 'yyyy-MM-dd');
+    const isScheduled = pickups.some(p => p.pickupDate === dateString);
+    // Open dialog only if a date is selected, and for calendar view, only if it's already scheduled
+    if (date) {
+        openNoteDialog(date);
+    }
+  };
+
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -238,6 +258,7 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
             await deleteDoc(pickupRef);
             toast({ title: 'Success', description: `Pickup for ${dateString} cleared.` });
         }
+        setIsNoteDialogOpen(false);
     } catch (error) {
         console.error("Error saving pickup: ", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not save pickup.' });
@@ -358,7 +379,7 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                     <Calendar
                         mode="single"
                         selected={selectedDate}
-                        onSelect={setSelectedDate}
+                        onSelect={handleDateSelect}
                         modifiers={{ scheduled: pickupDates }}
                         modifiersClassNames={{ scheduled: 'bg-primary/20' }}
                         className="rounded-md border"
@@ -372,14 +393,17 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                         <p className="text-muted-foreground col-span-full text-center">No pickups scheduled yet.</p>
                      ) : (
                         pickups.map(pickup => (
-                            <Card key={pickup.id} className={cn("cursor-pointer", selectedDate && format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd') && "border-primary ring-2 ring-primary") } onClick={() => setSelectedDate(new Date(pickup.pickupDate.replace(/-/g, '\/')))}>
+                            <Card key={pickup.id}>
                                 <CardHeader>
                                     <CardTitle>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <p className="text-sm text-muted-foreground truncate">{pickup.note || 'No note for this date.'}</p>
                                 </CardContent>
-                                <CardFooter>
+                                <CardFooter className="gap-2">
+                                    <Button variant="outline" size="sm" onClick={() => openNoteDialog(new Date(pickup.pickupDate.replace(/-/g, '\/')))}>
+                                        <FilePen className="h-4 w-4 mr-2"/> Edit Note
+                                    </Button>
                                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup);}}>
                                         <Trash2 className="h-4 w-4" />
                                         <span className="sr-only">Delete</span>
@@ -406,11 +430,14 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                             <TableRow><TableCell colSpan={3} className="text-center h-24">No pickups scheduled yet.</TableCell></TableRow>
                         ) : (
                             pickups.map(pickup => (
-                                <TableRow key={pickup.id} onClick={() => setSelectedDate(new Date(pickup.pickupDate.replace(/-/g, '\/')))} className={cn("cursor-pointer", selectedDate && format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd') && "bg-muted/50") }>
+                                <TableRow key={pickup.id}>
                                     <TableCell>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
                                     <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup)}}>
+                                        <Button variant="outline" size="sm" onClick={() => openNoteDialog(new Date(pickup.pickupDate.replace(/-/g, '\/')))}>
+                                            <FilePen className="h-4 w-4 mr-2" /> Edit Note
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="ml-2" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup)}}>
                                             <Trash2 className="h-4 w-4 text-destructive" />
                                             <span className="sr-only">Delete</span>
                                         </Button>
@@ -483,115 +510,90 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                 </Card>
             </TabsContent>
             <TabsContent value="schedule" className="mt-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 space-y-6">
-                        <Card>
-                            <CardHeader className="flex-row items-center justify-between">
-                                <div>
-                                    <CardTitle>Scheduled Pickup List</CardTitle>
-                                    <CardDescription>A list of all upcoming pickup dates for this box.</CardDescription>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                     <ToggleGroup type="single" value={scheduleView} onValueChange={(value) => { if (value) setScheduleView(value as any) }} aria-label="Schedule view">
-                                        <ToggleGroupItem value="list" aria-label="List view">
-                                            <List className="h-4 w-4" />
-                                        </ToggleGroupItem>
-                                        <ToggleGroupItem value="card" aria-label="Card view">
-                                            <LayoutGrid className="h-4 w-4" />
-                                        </ToggleGroupItem>
-                                        <ToggleGroupItem value="calendar" aria-label="Calendar view">
-                                            <CalendarIcon className="h-4 w-4" />
-                                        </ToggleGroupItem>
-                                    </ToggleGroup>
-                                    <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
-                                        <DialogTrigger asChild>
-                                            <Button>
-                                                <Bot className="mr-2 h-4 w-4" />
-                                                Generate
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="sm:max-w-[425px]">
-                                            <DialogHeader>
-                                                <DialogTitle>Generate Recurring Schedule</DialogTitle>
-                                                <DialogDescription>Automatically create pickup dates for this box.</DialogDescription>
-                                            </DialogHeader>
-                                            <div className="grid gap-4 py-4">
-                                                <div className="grid grid-cols-4 items-center gap-4">
-                                                    <Label htmlFor="start-date" className="text-right">Start Date</Label>
-                                                    <Popover>
-                                                        <PopoverTrigger asChild>
-                                                        <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !generateStartDate && "text-muted-foreground")}>
-                                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                                            {generateStartDate ? format(generateStartDate, "PPP") : <span>Pick a date</span>}
-                                                        </Button>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={generateStartDate} onSelect={setGenerateStartDate} initialFocus /></PopoverContent>
-                                                    </Popover>
-                                                </div>
-                                                <div className="grid grid-cols-4 items-center gap-4">
-                                                    <Label htmlFor="end-date" className="text-right">End Date</Label>
-                                                    <Popover>
-                                                        <PopoverTrigger asChild>
-                                                        <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !generateEndDate && "text-muted-foreground")}>
-                                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                                            {generateEndDate ? format(generateEndDate, "PPP") : <span>Pick a date</span>}
-                                                        </Button>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={generateEndDate} onSelect={setGenerateEndDate} disabled={(date) => generateStartDate ? date < generateStartDate : false} initialFocus /></PopoverContent>
-                                                    </Popover>
-                                                </div>
-                                                <div className="grid grid-cols-4 items-center gap-4">
-                                                    <Label htmlFor="frequency" className="text-right">Frequency</Label>
-                                                    <Select value={generateFrequency} onValueChange={setGenerateFrequency}>
-                                                        <SelectTrigger className="col-span-3"><SelectValue placeholder="Select frequency" /></SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="weekly">Weekly</SelectItem>
-                                                            <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="grid grid-cols-4 items-center gap-4">
-                                                    <Label htmlFor="note" className="text-right">Note</Label>
-                                                    <Textarea id="note" value={generateNote} onChange={(e) => setGenerateNote(e.target.value)} className="col-span-3" placeholder="e.g. This week's box includes..." />
-                                                </div>
-                                            </div>
-                                            <DialogFooter>
-                                                <Button type="button" onClick={handleGenerateSchedule} disabled={isGenerating}>
-                                                    {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                    {isGenerating ? 'Generating...' : 'Generate'}
+                 <Card>
+                    <CardHeader className="flex-row items-center justify-between">
+                        <div>
+                            <CardTitle>Scheduled Pickup List</CardTitle>
+                            <CardDescription>A list of all upcoming pickup dates for this box.</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                                <ToggleGroup type="single" value={scheduleView} onValueChange={(value) => { if (value) setScheduleView(value as any) }} aria-label="Schedule view">
+                                <ToggleGroupItem value="list" aria-label="List view">
+                                    <List className="h-4 w-4" />
+                                </ToggleGroupItem>
+                                <ToggleGroupItem value="card" aria-label="Card view">
+                                    <LayoutGrid className="h-4 w-4" />
+                                </ToggleGroupItem>
+                                <ToggleGroupItem value="calendar" aria-label="Calendar view">
+                                    <CalendarIcon className="h-4 w-4" />
+                                </ToggleGroupItem>
+                            </ToggleGroup>
+                            <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button>
+                                        <Bot className="mr-2 h-4 w-4" />
+                                        Generate
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Generate Recurring Schedule</DialogTitle>
+                                        <DialogDescription>Automatically create pickup dates for this box.</DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="start-date" className="text-right">Start Date</Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !generateStartDate && "text-muted-foreground")}>
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {generateStartDate ? format(generateStartDate, "PPP") : <span>Pick a date</span>}
                                                 </Button>
-                                            </DialogFooter>
-                                        </DialogContent>
-                                    </Dialog>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                               {renderScheduleView()}
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    <div className="lg:col-span-1">
-                      <Card className="sticky top-4">
-                          <CardHeader>
-                              <CardTitle>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
-                              <CardDescription>Describe what's in the box for the selected date. Clear note to remove pickup.</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                              <div className="space-y-4">
-                                  <div className="space-y-2">
-                                      <Label htmlFor="pickup-note">Weekly Box Note</Label>
-                                      <Textarea id="pickup-note" placeholder="e.g. Fresh carrots, kale, etc." value={pickupNote} onChange={(e) => setPickupNote(e.target.value)} rows={5} disabled={isSavingPickup} />
-                                  </div>
-                                  <Button onClick={handleSavePickup} disabled={isSavingPickup || !selectedDate} className="w-full">
-                                      {isSavingPickup ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                      {isSavingPickup ? 'Saving...' : 'Save Pick Up Plan'}
-                                  </Button>
-                              </div>
-                          </CardContent>
-                      </Card>
-                    </div>
-                </div>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={generateStartDate} onSelect={setGenerateStartDate} initialFocus /></PopoverContent>
+                                            </Popover>
+                                        </div>
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="end-date" className="text-right">End Date</Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !generateEndDate && "text-muted-foreground")}>
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {generateEndDate ? format(generateEndDate, "PPP") : <span>Pick a date</span>}
+                                                </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={generateEndDate} onSelect={setGenerateEndDate} disabled={(date) => generateStartDate ? date < generateStartDate : false} initialFocus /></PopoverContent>
+                                            </Popover>
+                                        </div>
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="frequency" className="text-right">Frequency</Label>
+                                            <Select value={generateFrequency} onValueChange={setGenerateFrequency}>
+                                                <SelectTrigger className="col-span-3"><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="weekly">Weekly</SelectItem>
+                                                    <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="note" className="text-right">Note</Label>
+                                            <Textarea id="note" value={generateNote} onChange={(e) => setGenerateNote(e.target.value)} className="col-span-3" placeholder="e.g. This week's box includes..." />
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button type="button" onClick={handleGenerateSchedule} disabled={isGenerating}>
+                                            {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            {isGenerating ? 'Generating...' : 'Generate'}
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        {renderScheduleView()}
+                    </CardContent>
+                </Card>
             </TabsContent>
              <TabsContent value="subscriptions" className="mt-6">
                 <Card>
@@ -632,6 +634,25 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                 </Card>
             </TabsContent>
         </Tabs>
+
+      <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</DialogTitle>
+                <DialogDescription>Describe what's in the box for this date. Clear note to remove pickup.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+                <Label htmlFor="pickup-note" className="sr-only">Weekly Box Note</Label>
+                <Textarea id="pickup-note" placeholder="e.g. Fresh carrots, kale, etc." value={pickupNote} onChange={(e) => setPickupNote(e.target.value)} rows={5} disabled={isSavingPickup} />
+            </div>
+            <DialogFooter>
+                <Button onClick={handleSavePickup} disabled={isSavingPickup || !selectedDate} className="w-full">
+                    {isSavingPickup ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {isSavingPickup ? 'Saving...' : 'Save Pick Up Plan'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <AlertDialog open={isPickupDeleteDialogOpen} onOpenChange={setIsPickupDeleteDialogOpen}>
         <AlertDialogContent>
@@ -666,5 +687,3 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
     </div>
   );
 }
-
-    
