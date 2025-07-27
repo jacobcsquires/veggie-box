@@ -8,10 +8,8 @@ import {
   Bell,
   Home,
   Package,
-  ShoppingCart,
   Users,
   Sprout,
-  LineChart,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -29,7 +27,6 @@ export default function AdminLayout({
     { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
     { href: "/admin/users", icon: Users, label: "Users" },
     { href: "/admin/boxes", icon: Package, label: "Boxes" },
-    { href: "#", icon: LineChart, label: "Analytics" },
   ];
 
   const { user, loading } = useAuth();
