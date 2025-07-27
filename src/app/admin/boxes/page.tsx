@@ -80,8 +80,6 @@ export default function AdminBoxesPage() {
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
@@ -103,8 +101,6 @@ export default function AdminBoxesPage() {
     setPrice('');
     setDescription('');
     setQuantity('');
-    setStartDate('');
-    setEndDate('');
     setImageFile(null);
     setImagePreview(null);
   };
@@ -225,8 +221,8 @@ export default function AdminBoxesPage() {
       price: parseFloat(price),
       description,
       quantity: parseInt(quantity, 10),
-      startDate,
-      endDate,
+      startDate: 'Schedule TBD',
+      endDate: 'Schedule TBD',
       image: imageUrlToSave || 'https://placehold.co/600x400.png',
     };
 
@@ -352,34 +348,6 @@ export default function AdminBoxesPage() {
                         disabled={isSaving}
                       />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="startDate" className="text-right">
-                        Start Date
-                      </Label>
-                      <Input
-                        id="startDate"
-                        type="text"
-                        placeholder="e.g. Mid-June"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="col-span-3"
-                        disabled={isSaving}
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="endDate" className="text-right">
-                        End Date
-                      </Label>
-                      <Input
-                        id="endDate"
-                        type="text"
-                        placeholder="e.g. Late August"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="col-span-3"
-                        disabled={isSaving}
-                      />
-                    </div>
                   </div>
                   <DialogFooter>
                     <Button type="submit" disabled={isSaving}>
@@ -498,5 +466,3 @@ export default function AdminBoxesPage() {
 
     </div>
   );
-
-    

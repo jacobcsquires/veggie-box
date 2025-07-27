@@ -72,8 +72,6 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSavingBox, setIsSavingBox] = useState(false);
@@ -111,8 +109,6 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
         setPrice(boxData.price.toString());
         setDescription(boxData.description);
         setQuantity(boxData.quantity.toString());
-        setStartDate(boxData.startDate || '');
-        setEndDate(boxData.endDate || '');
         setImagePreview(boxData.image);
       }
       setIsLoading(false);
@@ -178,8 +174,6 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
       price: parseFloat(price),
       description,
       quantity: parseInt(quantity, 10),
-      startDate,
-      endDate,
       image: imageUrlToSave,
     };
 
@@ -354,16 +348,6 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                         <Label htmlFor="quantity">Quantity</Label>
                         <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={isSavingBox} />
                       </div>
-                    </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="startDate">Start Date</Label>
-                            <Input id="startDate" type="text" placeholder="e.g. Mid-June" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={isSavingBox} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="endDate">End Date</Label>
-                            <Input id="endDate" type="text" placeholder="e.g. Late August" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={isSavingBox} />
-                        </div>
                     </div>
                   </CardContent>
                   <CardFooter>
