@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Box } from '@/lib/types';
@@ -10,9 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import {
   Table,
@@ -39,6 +37,7 @@ export default function AdminSubscriptionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBoxId, setSelectedBoxId] = useState('all');
+  const router = useRouter();
 
   useEffect(() => {
     const subsQuery = query(collection(db, 'subscriptions'), where('status', 'in', ['Active', 'Pending']));
@@ -131,7 +130,7 @@ export default function AdminSubscriptionsPage() {
                 </TableRow>
               ) : (
                 filteredSubscriptions.map((sub) => (
-                  <TableRow key={sub.id}>
+                  <TableRow key={sub.id} onClick={() => router.push(`/admin/subscriptions/${sub.id}`)} className="cursor-pointer">
                     <TableCell className="font-medium">{sub.customerName || 'N/A'}</TableCell>
                     <TableCell>{sub.boxName}</TableCell>
                     <TableCell>
