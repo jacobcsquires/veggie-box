@@ -31,6 +31,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -183,8 +184,6 @@ export default function AdminBoxesPage() {
       price: parseFloat(price),
       description,
       quantity: parseInt(quantity, 10),
-      startDate: 'Schedule TBD',
-      endDate: 'Schedule TBD',
       image: imageUrlToSave || 'https://placehold.co/600x400.png',
     };
 
