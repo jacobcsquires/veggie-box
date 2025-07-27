@@ -4,11 +4,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, getDocs, query, where } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { MoreHorizontal, PlusCircle, X, Calendar as CalendarIcon, Trash2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, X, Calendar as CalendarIcon, Trash2, Database, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -67,6 +67,8 @@ export default function AdminBoxesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [boxToDelete, setBoxToDelete] = useState<Box | null>(null);
 
@@ -112,11 +114,23 @@ export default function AdminBoxesPage() {
 
   const confirmDelete = async () => {
     if (!boxToDelete) return;
+    setIsDeleting(true);
     try {
+      // First, delete all pickups associated with the box
+      const pickupsCollectionRef = collection(db, 'boxes', boxToDelete.id, 'pickups');
+      const pickupsSnapshot = await getDocs(pickupsCollectionRef);
+      const deletePickupsBatch = writeBatch(db);
+      pickupsSnapshot.docs.forEach(doc => {
+        deletePickupsBatch.delete(doc.ref);
+      });
+      await deletePickupsBatch.commit();
+      
+      // Then, delete the box itself
       await deleteDoc(doc(db, 'boxes', boxToDelete.id));
+      
       toast({
         title: 'Success',
-        description: `Box "${boxToDelete.name}" has been deleted.`,
+        description: `Box "${boxToDelete.name}" and all its pickups have been deleted.`,
       });
     } catch (error) {
       console.error('Error deleting box: ', error);
@@ -126,6 +140,7 @@ export default function AdminBoxesPage() {
         description: 'Could not delete the box. Please try again.',
       });
     } finally {
+      setIsDeleting(false);
       setIsDeleteDialogOpen(false);
       setBoxToDelete(null);
     }
@@ -138,6 +153,50 @@ export default function AdminBoxesPage() {
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
     }
+  };
+  
+  const handleMigrateData = async () => {
+      setIsMigrating(true);
+      toast({ title: "Starting Migration", description: "Please do not close this window." });
+
+      try {
+          const batch = writeBatch(db);
+          
+          // Get all old pickups
+          const oldPickupsQuery = query(collection(db, 'pickups'));
+          const oldPickupsSnapshot = await getDocs(oldPickupsQuery);
+
+          if (oldPickupsSnapshot.empty) {
+              toast({ variant: 'destructive', title: "Migration Not Needed", description: "No old pickups found to migrate." });
+              setIsMigrating(false);
+              return;
+          }
+
+          oldPickupsSnapshot.forEach(pickupDoc => {
+              const pickupData = pickupDoc.data();
+              const boxId = pickupData.boxId;
+              
+              // New ref inside the subcollection
+              const newPickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
+              
+              // Create a new pickup document in the subcollection
+              batch.set(newPickupRef, {
+                  note: pickupData.note,
+                  pickupDate: pickupData.pickupDate,
+              });
+
+              // Delete the old pickup document
+              batch.delete(pickupDoc.ref);
+          });
+          
+          await batch.commit();
+          toast({ title: "Migration Successful", description: "All pickups have been moved to sub-collections." });
+      } catch (error) {
+          console.error("Migration failed:", error);
+          toast({ variant: 'destructive', title: "Migration Failed", description: "An error occurred during data migration." });
+      } finally {
+          setIsMigrating(false);
+      }
   };
 
   const handleSaveBox = async (e: React.FormEvent) => {
@@ -339,11 +398,17 @@ export default function AdminBoxesPage() {
         </div>
       </div>
       <Card>
-        <CardHeader>
-          <CardTitle>Veggie Boxes</CardTitle>
-          <CardDescription>
-            A list of all available veggie boxes.
-          </CardDescription>
+        <CardHeader className="flex-row items-center justify-between">
+          <div>
+            <CardTitle>Veggie Boxes</CardTitle>
+            <CardDescription>
+              A list of all available veggie boxes.
+            </CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleMigrateData} disabled={isMigrating}>
+            {isMigrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+            {isMigrating ? 'Migrating...' : 'Migrate Data'}
+          </Button>
         </CardHeader>
         <CardContent>
           <Table>
@@ -430,8 +495,8 @@ export default function AdminBoxesPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
-              Yes, delete box
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+              {isDeleting ? 'Deleting...' : 'Yes, delete box'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

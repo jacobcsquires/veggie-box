@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { doc, getDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,11 +10,15 @@ import type { Box, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
-export default function UserSchedulePage({ params: {boxId} }: { params: { boxId: string } }) {
+type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
+
+
+export default function UserSchedulePage({ params }: { params: { boxId: string } }) {
+  const { boxId } = params;
 
   const [box, setBox] = useState<Box | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [pickups, setPickups] = useState<Pickup[]>([]);
+  const [pickups, setPickups] = useState<PickupInternal[]>([]);
   const [selectedPickupNote, setSelectedPickupNote] = useState('');
 
   const [isLoading, setIsLoading] = useState(true);
@@ -32,9 +36,10 @@ export default function UserSchedulePage({ params: {boxId} }: { params: { boxId:
     });
 
     // Listen for pickup updates
-    const q = query(collection(db, 'pickups'), where('boxId', '==', boxId));
+    const pickupsRef = collection(db, 'boxes', boxId, 'pickups');
+    const q = query(pickupsRef);
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const pickupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pickup));
+      const pickupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PickupInternal));
       setPickups(pickupsData);
     });
 
@@ -137,5 +142,3 @@ export default function UserSchedulePage({ params: {boxId} }: { params: { boxId:
     </div>
   );
 }
-
-    

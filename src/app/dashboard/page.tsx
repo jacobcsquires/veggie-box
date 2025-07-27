@@ -28,9 +28,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Box, Pickup } from '@/lib/types';
+import type { Box } from '@/lib/types';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
+
+type PickupInternal = {
+  id: string;
+  pickupDate: string;
+  note: string;
+};
 
 
 export default function Dashboard() {
@@ -43,7 +49,7 @@ export default function Dashboard() {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedBox, setSelectedBox] = useState<Box | null>(null);
-  const [availablePickups, setAvailablePickups] = useState<Pickup[]>([]);
+  const [availablePickups, setAvailablePickups] = useState<PickupInternal[]>([]);
   const [selectedPickupNote, setSelectedPickupNote] = useState('');
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
 
@@ -61,12 +67,13 @@ export default function Dashboard() {
   useEffect(() => {
     if (selectedBox && isDialogOpen) {
       setIsLoadingPickups(true);
-      const pickupsQuery = query(collection(db, 'pickups'), where('boxId', '==', selectedBox.id));
-      const unsubscribe = onSnapshot(pickupsQuery, (snapshot) => {
+      const pickupsRef = collection(db, 'boxes', selectedBox.id, 'pickups');
+      const unsubscribe = onSnapshot(pickupsRef, (snapshot) => {
         const pickupsData = snapshot.docs
-          .map(doc => doc.data() as Pickup)
+          .map(doc => ({id: doc.id, ...doc.data()}) as PickupInternal)
           .filter(p => new Date(p.pickupDate.replace(/-/g, '\/')) >= new Date(new Date().setHours(0,0,0,0)));
 
+        pickupsData.sort((a,b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
         setAvailablePickups(pickupsData);
         setIsLoadingPickups(false);
         

@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Pickup } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -27,10 +27,11 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
+type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
+
 export default function SubscriptionsPage() {
   const { user } = useAuth();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [pickups, setPickups] = useState<Pickup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [scheduleRanges, setScheduleRanges] = useState<{[boxId: string]: {start: string, end: string} | null}>({});
 
@@ -45,52 +46,38 @@ export default function SubscriptionsPage() {
       where('userId', '==', user.uid)
     );
 
-    const unsubscribeSubs = onSnapshot(q, (snapshot) => {
+    const unsubscribeSubs = onSnapshot(q, async (snapshot) => {
       const subsData = snapshot.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() } as Subscription)
       );
       setSubscriptions(subsData);
-      if (pickups.length > 0 || snapshot.docs.length === 0) {
-        setIsLoading(false);
-      }
-    });
 
-    const unsubscribePickups = onSnapshot(collection(db, 'pickups'), (snapshot) => {
-        const pickupsData = snapshot.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() } as Pickup)
-        );
-        setPickups(pickupsData);
-        if (subscriptions.length > 0 || snapshot.docs.length === 0) {
-          setIsLoading(false);
+      if (subsData.length > 0) {
+        const ranges: {[boxId: string]: {start: string, end: string} | null} = {};
+        for (const sub of subsData) {
+          const pickupsRef = collection(db, 'boxes', sub.boxId, 'pickups');
+          const pickupsSnapshot = await getDocs(pickupsRef);
+          const relevantPickups = pickupsSnapshot.docs
+            .map(doc => doc.data() as PickupInternal)
+            .sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
+          
+          if (relevantPickups.length > 0) {
+            const startDate = format(new Date(relevantPickups[0].pickupDate.replace(/-/g, '\/')), 'PPP');
+            const endDate = format(new Date(relevantPickups[relevantPickups.length - 1].pickupDate.replace(/-/g, '\/')), 'PPP');
+            ranges[sub.boxId] = { start: startDate, end: endDate };
+          } else {
+            ranges[sub.boxId] = null;
+          }
         }
+        setScheduleRanges(ranges);
+      }
+      setIsLoading(false);
     });
 
     return () => {
         unsubscribeSubs();
-        unsubscribePickups();
     };
   }, [user]);
-
-  useEffect(() => {
-    if (subscriptions.length > 0 && pickups.length > 0) {
-      const ranges: {[boxId: string]: {start: string, end: string} | null} = {};
-      subscriptions.forEach(sub => {
-        const relevantPickups = pickups
-          .filter(p => p.boxId === sub.boxId)
-          .sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
-        
-        if (relevantPickups.length > 0) {
-          const startDate = format(new Date(relevantPickups[0].pickupDate.replace(/-/g, '\/')), 'PPP');
-          const endDate = format(new Date(relevantPickups[relevantPickups.length - 1].pickupDate.replace(/-/g, '\/')), 'PPP');
-          ranges[sub.boxId] = { start: startDate, end: endDate };
-        } else {
-          ranges[sub.boxId] = null;
-        }
-      });
-      setScheduleRanges(ranges);
-    }
-  }, [subscriptions, pickups]);
-
 
   return (
     <div>

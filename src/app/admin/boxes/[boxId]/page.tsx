@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { doc, getDoc, collection, onSnapshot, setDoc, query, where, deleteDoc, writeBatch, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Calendar } from '@/components/ui/calendar';
@@ -23,6 +23,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
@@ -57,11 +58,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-export default function AdminBoxDetailPage({ params: { boxId } }: { params: { boxId: string } }) {
+type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
+
+export default function AdminBoxDetailPage({ params }: { params: { boxId: string } }) {
+  const { boxId } = params;
   const { toast } = useToast();
 
   const [box, setBox] = useState<Box | null>(null);
-  const [pickups, setPickups] = useState<Pickup[]>([]);
+  const [pickups, setPickups] = useState<PickupInternal[]>([]);
   
   // States for editing the box
   const [name, setName] = useState('');
@@ -89,7 +93,7 @@ export default function AdminBoxDetailPage({ params: { boxId } }: { params: { bo
 
   // State for delete confirmation dialog
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [pickupToDelete, setPickupToDelete] = useState<Pickup | null>(null);
+  const [pickupToDelete, setPickupToDelete] = useState<PickupInternal | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -115,9 +119,9 @@ export default function AdminBoxDetailPage({ params: { boxId } }: { params: { bo
     });
 
     // Listen for real-time pickup updates from Firestore
-    const pickupsQuery = query(collection(db, 'pickups'), where('boxId', '==', boxId));
-    const unsubPickups = onSnapshot(pickupsQuery, (snapshot) => {
-      const pickupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pickup));
+    const pickupsRef = collection(db, 'boxes', boxId, 'pickups');
+    const unsubPickups = onSnapshot(pickupsRef, (snapshot) => {
+      const pickupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PickupInternal));
       pickupsData.sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
       setPickups(pickupsData);
     });
@@ -199,26 +203,27 @@ export default function AdminBoxDetailPage({ params: { boxId } }: { params: { bo
     
     setIsSavingPickup(true);
     const dateString = format(selectedDate, 'yyyy-MM-dd');
-    const docId = `${boxId}_${dateString}`;
-    const pickupRef = doc(db, 'pickups', docId);
+    const existingPickup = pickups.find(p => p.pickupDate === dateString);
 
     try {
         if (pickupNote.trim()) {
-            const pickupData: Pickup = {
-                id: docId,
-                boxId,
-                boxName: box.name,
+            const pickupData = {
                 pickupDate: dateString,
                 note: pickupNote,
             };
-            await setDoc(pickupRef, pickupData, { merge: true });
-            toast({ title: 'Success', description: `Pickup note for ${dateString} saved.` });
-        } else {
-            const docSnap = await getDoc(pickupRef);
-            if (docSnap.exists()) {
-                await deleteDoc(pickupRef);
-                toast({ title: 'Success', description: `Pickup for ${dateString} cleared.` });
+            
+            if (existingPickup) {
+                const pickupRef = doc(db, 'boxes', boxId, 'pickups', existingPickup.id);
+                await setDoc(pickupRef, pickupData, { merge: true });
+            } else {
+                await addDoc(collection(db, 'boxes', boxId, 'pickups'), pickupData);
             }
+            toast({ title: 'Success', description: `Pickup note for ${dateString} saved.` });
+
+        } else if (existingPickup) {
+            const pickupRef = doc(db, 'boxes', boxId, 'pickups', existingPickup.id);
+            await deleteDoc(pickupRef);
+            toast({ title: 'Success', description: `Pickup for ${dateString} cleared.` });
         }
     } catch (error) {
         console.error("Error saving pickup: ", error);
@@ -245,9 +250,8 @@ export default function AdminBoxDetailPage({ params: { boxId } }: { params: { bo
 
     while (currentDate <= generateEndDate) {
         const dateString = format(currentDate, 'yyyy-MM-dd');
-        const docId = `${boxId}_${dateString}`;
-        const pickupRef = doc(db, 'pickups', docId);
-        const pickupData: Pickup = { id: docId, boxId, boxName: box.name, pickupDate: dateString, note: generateNote };
+        const pickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
+        const pickupData = { pickupDate: dateString, note: generateNote };
         batch.set(pickupRef, pickupData);
         currentDate = addDays(currentDate, daysIncrement);
     }
@@ -267,7 +271,7 @@ export default function AdminBoxDetailPage({ params: { boxId } }: { params: { bo
     }
   };
 
-  const handleDeleteClick = (pickup: Pickup) => {
+  const handleDeleteClick = (pickup: PickupInternal) => {
     setPickupToDelete(pickup);
     setIsDeleteDialogOpen(true);
   };
@@ -275,7 +279,7 @@ export default function AdminBoxDetailPage({ params: { boxId } }: { params: { bo
   const confirmDeletePickup = async () => {
       if (!pickupToDelete) return;
       try {
-          await deleteDoc(doc(db, 'pickups', pickupToDelete.id));
+          await deleteDoc(doc(db, 'boxes', boxId, 'pickups', pickupToDelete.id));
           toast({ title: 'Success', description: `Pickup for ${pickupToDelete.pickupDate} has been deleted.` });
       } catch (error) {
           console.error('Error deleting pickup: ', error);
@@ -522,5 +526,4 @@ export default function AdminBoxDetailPage({ params: { boxId } }: { params: { bo
       </AlertDialog>
     </div>
   );
-
-    
+}
