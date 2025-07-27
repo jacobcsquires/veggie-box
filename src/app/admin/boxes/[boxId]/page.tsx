@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
-import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Calendar } from '@/components/ui/calendar';
@@ -191,6 +191,21 @@ export default function AdminBoxDetailPage() {
     }
   };
 
+  const updateBoxDates = async () => {
+        if (!boxId) return;
+        const pickupsRef = collection(db, 'boxes', boxId, 'pickups');
+        const firstPickupQuery = query(pickupsRef, orderBy('pickupDate', 'asc'), limit(1));
+        const lastPickupQuery = query(pickupsRef, orderBy('pickupDate', 'desc'), limit(1));
+
+        const [firstSnapshot, lastSnapshot] = await Promise.all([getDocs(firstPickupQuery), getDocs(lastPickupQuery)]);
+        
+        const startDate = firstSnapshot.docs.length > 0 ? firstSnapshot.docs[0].data().pickupDate : null;
+        const endDate = lastSnapshot.docs.length > 0 ? lastSnapshot.docs[0].data().pickupDate : null;
+
+        const boxRef = doc(db, 'boxes', boxId);
+        await updateDoc(boxRef, { startDate, endDate });
+    };
+
   const handleSaveBox = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !price || !description || !quantity || !box) {
@@ -257,6 +272,8 @@ export default function AdminBoxDetailPage() {
         await addDoc(collection(db, 'boxes', boxId, 'pickups'), pickupData);
       }
       toast({ title: 'Success', description: `Pickup note for ${dateString} saved.` });
+      
+      await updateBoxDates();
 
       setIsNoteDialogOpen(false);
     } catch (error) {
@@ -309,6 +326,9 @@ export default function AdminBoxDetailPage() {
     try {
         await batch.commit();
         toast({ title: 'Success', description: 'Pickup(s) added successfully.' });
+        
+        await updateBoxDates();
+
         setIsAddPickupDialogOpen(false);
         setAddStartDate(undefined);
         setAddEndDate(undefined);
@@ -332,6 +352,8 @@ export default function AdminBoxDetailPage() {
       try {
           await deleteDoc(doc(db, 'boxes', boxId, 'pickups', pickupToDelete.id));
           toast({ title: 'Success', description: `Pickup for ${pickupToDelete.pickupDate} has been deleted.` });
+
+          await updateBoxDates();
       } catch (error) {
           console.error('Error deleting pickup: ', error);
           toast({ variant: 'destructive', title: 'Error', description: 'Could not delete pickup.' });

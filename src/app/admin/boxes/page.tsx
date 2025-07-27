@@ -41,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -67,8 +67,6 @@ export default function AdminBoxesPage() {
   const [quantity, setQuantity] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState<Date | undefined>();
-  const [endDate, setEndDate] = useState<Date | undefined>();
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'boxes'), async (snapshot) => {
@@ -87,7 +85,10 @@ export default function AdminBoxesPage() {
         let nextPickup;
         if (!nextPickupSnapshot.empty) {
           const nextPickupDoc = nextPickupSnapshot.docs[0].data() as PickupInternal;
-          nextPickup = format(new Date(nextPickupDoc.pickupDate.replace(/-/g, '\/')), 'PPP');
+          const pickupDate = new Date(nextPickupDoc.pickupDate.replace(/-/g, '\/'));
+          if (isValidDate(pickupDate)) {
+            nextPickup = format(pickupDate, 'PPP');
+          }
         }
 
         // Query for total pickups count
@@ -111,8 +112,6 @@ export default function AdminBoxesPage() {
     setQuantity('');
     setImageFile(null);
     setImagePreview(null);
-    setStartDate(undefined);
-    setEndDate(undefined);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,8 +155,8 @@ export default function AdminBoxesPage() {
       description,
       quantity: parseInt(quantity, 10),
       image: imageUrlToSave || 'https://placehold.co/600x400.png',
-      startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
-      endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
+      startDate: null,
+      endDate: null,
     };
 
     try {
@@ -269,30 +268,6 @@ export default function AdminBoxesPage() {
                         className="col-span-3"
                         disabled={isSaving}
                       />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="start-date" className="text-right">Start Date</Label>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                            <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !startDate && "text-muted-foreground")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {startDate ? format(startDate, "PPP") : <span>Pick a date (optional)</span>}
-                            </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus /></PopoverContent>
-                        </Popover>
-                    </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="end-date" className="text-right">End Date</Label>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                            <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !endDate && "text-muted-foreground")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {endDate ? format(endDate, "PPP") : <span>Pick an end date (optional)</span>}
-                            </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={endDate} onSelect={setEndDate} disabled={(date) => startDate ? date < startDate : false} initialFocus /></PopoverContent>
-                        </Popover>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="description" className="text-right">
