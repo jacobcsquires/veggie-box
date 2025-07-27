@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { doc, runTransaction, serverTimestamp, collection, getDoc, setDoc } from 'firebase/firestore';
+import { doc, runTransaction, serverTimestamp, collection, getDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Box, Subscription } from '@/lib/types';
 
@@ -11,14 +11,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 export async function POST(request: Request) {
-  const { boxId, userId, customerName, email, startDate } = await request.json();
+  const { boxId, userId, customerName, email, startDate, subscriptionId } = await request.json();
 
   if (!boxId || !userId || !email || !startDate) {
     return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
   }
 
   const boxRef = doc(db, 'boxes', boxId);
-  const subscriptionRef = doc(collection(db, 'subscriptions'));
+  const subscriptionRef = subscriptionId ? doc(db, 'subscriptions', subscriptionId) : doc(collection(db, 'subscriptions'));
   
   try {
     const boxDoc = await getDoc(boxRef);
@@ -42,36 +42,44 @@ export async function POST(request: Request) {
         customer = await stripe.customers.create({ email: email, name: customerName });
     }
 
-    // Pre-create the subscription document with a 'pending' status
-    await runTransaction(db, async (transaction) => {
-        const freshBoxDoc = await transaction.get(boxRef);
-        if (!freshBoxDoc.exists()) {
-            throw new Error("Box does not exist!");
-        }
+    if (!subscriptionId) {
+        // Pre-create the subscription document with a 'pending' status only for new subscriptions
+        await runTransaction(db, async (transaction) => {
+            const freshBoxDoc = await transaction.get(boxRef);
+            if (!freshBoxDoc.exists()) {
+                throw new Error("Box does not exist!");
+            }
 
-        const currentBoxData = freshBoxDoc.data() as Omit<Box, 'id'>;
-        const newSubscribedCount = (currentBoxData.subscribedCount || 0) + 1;
+            const currentBoxData = freshBoxDoc.data() as Omit<Box, 'id'>;
+            const newSubscribedCount = (currentBoxData.subscribedCount || 0) + 1;
 
-        if (newSubscribedCount > currentBoxData.quantity) {
-            throw new Error("Sorry, this box is now sold out.");
-        }
+            if (newSubscribedCount > currentBoxData.quantity) {
+                throw new Error("Sorry, this box is now sold out.");
+            }
 
-        transaction.update(boxRef, { subscribedCount: newSubscribedCount });
-        
-        const subscriptionData: Omit<Subscription, 'id'> = {
-            userId,
-            customerName,
-            boxId,
-            boxName,
-            price,
-            status: 'Pending', // Will be updated by webhook
-            startDate,
-            nextPickup: startDate,
-            createdAt: serverTimestamp(),
-            stripeCustomerId: customer.id,
-        };
-        transaction.set(subscriptionRef, subscriptionData);
-    });
+            transaction.update(boxRef, { subscribedCount: newSubscribedCount });
+            
+            const subscriptionData: Omit<Subscription, 'id'> = {
+                userId,
+                customerName,
+                boxId,
+                boxName,
+                price,
+                status: 'Pending', // Will be updated by webhook
+                startDate,
+                nextPickup: startDate,
+                createdAt: serverTimestamp(),
+                stripeCustomerId: customer.id,
+            };
+            transaction.set(subscriptionRef, subscriptionData);
+        });
+    } else {
+        // For retries, just ensure the customer ID is up to date in Firestore.
+        const batch = writeBatch(db);
+        batch.update(subscriptionRef, { stripeCustomerId: customer.id });
+        await batch.commit();
+    }
+
 
     // We need to parse the date as UTC to avoid timezone issues.
     // '2024-08-15' becomes '2024-08-15T00:00:00.000Z'
@@ -92,7 +100,7 @@ export async function POST(request: Request) {
         proration_behavior: 'none',
       },
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/subscriptions?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/subscriptions`,
       customer: customer.id,
       metadata: {
         subscriptionId: subscriptionRef.id,

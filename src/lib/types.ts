@@ -24,7 +24,7 @@ export type Subscription = {
     boxId: string;
     boxName:string;
     startDate: string;
-    status: 'Active' | 'Cancelled' | 'Pending';
+    status: 'Active' | 'Cancelled' | 'Pending' | 'Past Due';
     nextPickup: string;
     price: number;
     createdAt: any; // Firestore timestamp

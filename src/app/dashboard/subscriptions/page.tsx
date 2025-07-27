@@ -27,6 +27,19 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
@@ -37,7 +50,7 @@ export default function SubscriptionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [scheduleRanges, setScheduleRanges] = useState<{[boxId: string]: {start: string, end: string} | null}>({});
   const [isManaging, setIsManaging] = useState(false);
-
+  const [isActionLoading, setIsActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -53,7 +66,8 @@ export default function SubscriptionsPage() {
     const unsubscribeSubs = onSnapshot(q, async (snapshot) => {
       const subsData = snapshot.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() } as Subscription)
-      );
+      ).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+
       setSubscriptions(subsData);
 
       if (subsData.length > 0) {
@@ -81,7 +95,7 @@ export default function SubscriptionsPage() {
     return () => {
         unsubscribeSubs();
     };
-  }, [user]);
+  }, [user, toast]);
   
   const handleManageSubscription = async (customerId?: string) => {
     if (!customerId) {
@@ -118,6 +132,123 @@ export default function SubscriptionsPage() {
     }
   };
 
+   const handleCompletePayment = async (sub: Subscription) => {
+    if (!user) return;
+    setIsActionLoading(sub.id);
+    try {
+        // This is a simplified retry. A more robust implementation might re-verify box availability.
+        const response = await fetch('/api/checkout_sessions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                boxId: sub.boxId,
+                userId: user.uid,
+                customerName: user.displayName,
+                email: user.email,
+                startDate: sub.startDate,
+                subscriptionId: sub.id, // Pass existing subscription ID to reuse it
+            }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to create checkout session');
+        }
+
+        const { url } = await response.json();
+        window.location.href = url;
+
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: error.message,
+        });
+    } finally {
+        setIsActionLoading(null);
+    }
+  };
+
+  const handleCancelPending = async (sub: Subscription) => {
+    setIsActionLoading(sub.id);
+    try {
+        const response = await fetch('/api/cancel-pending-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscriptionId: sub.id, boxId: sub.boxId }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to cancel subscription.');
+        }
+        
+        toast({
+            title: 'Success',
+            description: 'Your pending subscription has been cancelled.',
+        });
+
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: error.message,
+        });
+    } finally {
+        setIsActionLoading(null);
+    }
+  }
+
+
+  const renderSubscriptionActions = (sub: Subscription) => {
+    const isLoadingThis = isActionLoading === sub.id;
+
+    if (sub.status === 'Active') {
+        return (
+            <>
+                <Button asChild variant="outline" size="sm">
+                    <Link href={`/dashboard/schedule/${sub.boxId}`}>View Schedule</Link>
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleManageSubscription(sub.stripeCustomerId)} disabled={isManaging}>
+                    {isManaging ? 'Redirecting...' : 'Manage'}
+                </Button>
+            </>
+        )
+    }
+    if (sub.status === 'Pending') {
+        return (
+             <>
+                <Button variant="default" size="sm" onClick={() => handleCompletePayment(sub)} disabled={isLoadingThis}>
+                    {isLoadingThis ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                    Complete Payment
+                </Button>
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" disabled={isLoadingThis}>
+                            Cancel
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will cancel your pending subscription for the {sub.boxName}. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Back</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleCancelPending(sub)}>
+                                Yes, cancel
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </>
+        )
+    }
+    return null;
+  }
+
   return (
     <div>
       <h1 className="text-lg font-semibold md:text-2xl font-headline mb-4">
@@ -138,8 +269,8 @@ export default function SubscriptionsPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Schedule Dates</TableHead>
                 <TableHead className="text-right">Price</TableHead>
-                <TableHead>
-                    <span className="sr-only">Actions</span>
+                <TableHead className="text-right">
+                    Actions
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -166,7 +297,7 @@ export default function SubscriptionsPage() {
                     <TableCell className="font-medium">{sub.boxName}</TableCell>
                     <TableCell>
                       <Badge
-                        variant={sub.status === 'Active' ? 'default' : 'secondary'}
+                        variant={sub.status === 'Active' ? 'default' : sub.status === 'Pending' ? 'secondary' : 'outline'}
                       >
                         {sub.status}
                       </Badge>
@@ -181,12 +312,7 @@ export default function SubscriptionsPage() {
                       ${sub.price.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right space-x-2">
-                        <Button asChild variant="outline" size="sm">
-                            <Link href={`/dashboard/schedule/${sub.boxId}`}>View Schedule</Link>
-                        </Button>
-                         <Button variant="outline" size="sm" onClick={() => handleManageSubscription(sub.stripeCustomerId)} disabled={isManaging || sub.status !== 'Active'}>
-                            {isManaging ? 'Redirecting...' : 'Manage'}
-                        </Button>
+                        {renderSubscriptionActions(sub)}
                     </TableCell>
                   </TableRow>
                 ))
