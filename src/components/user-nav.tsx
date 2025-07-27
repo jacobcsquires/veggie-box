@@ -45,6 +45,8 @@ export function UserNav() {
     return name.charAt(0).toUpperCase();
   }
 
+  const profilePath = user?.isAdmin ? '/admin/profile' : '/dashboard/profile';
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -65,6 +67,15 @@ export function UserNav() {
                 </p>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+             <DropdownMenuGroup>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href={profilePath}>
+                        <UserIcon className="mr-2 h-4 w-4" />
+                        <span>Profile</span>
+                    </Link>
+                </DropdownMenuItem>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
           </>
         )}
