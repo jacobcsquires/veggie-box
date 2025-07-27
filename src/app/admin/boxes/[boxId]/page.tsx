@@ -657,7 +657,7 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</DialogTitle>
-                <DialogDescription>Describe what's in the box for this date. An empty note is allowed.</DialogDescription>
+                <DialogDescription>Describe what's in the box for this date.</DialogDescription>
             </DialogHeader>
             <div className="py-4">
                 <Label htmlFor="pickup-note" className="sr-only">Weekly Box Note</Label>
@@ -705,5 +705,3 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
     </div>
   );
 }
-
-    
