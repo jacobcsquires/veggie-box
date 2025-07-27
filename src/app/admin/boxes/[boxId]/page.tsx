@@ -364,8 +364,8 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                 </Card>
             </TabsContent>
             <TabsContent value="schedule" className="mt-6">
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                    <div className="lg:col-span-2 space-y-6">
+                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+                    <div className="lg:col-span-3 space-y-6">
                         <Card>
                             <CardHeader className="flex-row items-center justify-between">
                                 <div>
@@ -481,7 +481,7 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                         </Card>
                     </div>
 
-                    <div className="sticky top-4">
+                    <div className="sticky top-4 lg:col-span-2">
                       <Card>
                           <CardHeader>
                               <CardTitle>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
