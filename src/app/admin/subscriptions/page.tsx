@@ -2,9 +2,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,10 +32,26 @@ import {
 } from '@/components/ui/table';
 import type { Subscription } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
 
 export default function AdminSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showCleanupButton, setShowCleanupButton] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const q = query(collection(db, 'subscriptions'), orderBy('createdAt', 'desc'));
@@ -46,9 +62,49 @@ export default function AdminSubscriptionsPage() {
       setSubscriptions(subscriptionsData);
       setIsLoading(false);
     });
+    
+    // Check if orders collection exists to determine if cleanup button should be shown
+    const checkOrdersCollection = async () => {
+        const ordersSnapshot = await getDocs(collection(db, 'orders'));
+        if (!ordersSnapshot.empty) {
+            setShowCleanupButton(true);
+        }
+    };
+    checkOrdersCollection();
+
 
     return () => unsubscribe();
   }, []);
+  
+  const handleCleanup = async () => {
+    setIsCleaning(true);
+    try {
+        const ordersCollectionRef = collection(db, 'orders');
+        const ordersSnapshot = await getDocs(ordersCollectionRef);
+        
+        if (ordersSnapshot.empty) {
+            toast({ title: "Already Clean", description: "The orders collection is already empty." });
+            setShowCleanupButton(false);
+            return;
+        }
+
+        const batch = writeBatch(db);
+        ordersSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        
+        await batch.commit();
+
+        toast({ title: 'Success', description: 'The redundant "orders" collection has been deleted.' });
+        setShowCleanupButton(false);
+    } catch (error) {
+        console.error("Error during cleanup: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not perform cleanup.' });
+    } finally {
+        setIsCleaning(false);
+    }
+  };
+
 
   const getStatusVariant = (
     status: string
@@ -65,9 +121,36 @@ export default function AdminSubscriptionsPage() {
 
   return (
     <div>
-      <h1 className="text-lg font-semibold md:text-2xl font-headline mb-4">
-        Manage Subscriptions
-      </h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-lg font-semibold md:text-2xl font-headline">
+            Manage Subscriptions
+        </h1>
+        {showCleanupButton && (
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Cleanup Orders
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete the entire 'orders' collection from your database.
+                            This action is recommended as 'orders' are redundant. This cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleCleanup} disabled={isCleaning}>
+                            {isCleaning ? 'Cleaning...' : 'Yes, cleanup'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        )}
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>All Subscriptions</CardTitle>
