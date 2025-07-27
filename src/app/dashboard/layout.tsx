@@ -53,7 +53,7 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
         { href: "/dashboard/profile", icon: User, label: "Profile" },
     ];
     return (
-        <SidebarProvider>
+        <>
             <Sidebar collapsible="icon">
                 <SidebarHeader>
                 <Link href="/" className="flex items-center gap-2 font-semibold">
@@ -90,7 +90,7 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
                 {children}
                 </main>
             </SidebarInset>
-        </SidebarProvider>
+        </>
     )
 }
 
@@ -146,5 +146,5 @@ export default function DashboardLayout({
     );
   }
 
-  return <DashboardPageContent>{children}</DashboardPageContent>
+  return <SidebarProvider><DashboardPageContent>{children}</DashboardPageContent></SidebarProvider>
 }
