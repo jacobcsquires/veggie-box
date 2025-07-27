@@ -10,8 +10,7 @@ import type { Box, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
-export default function UserSchedulePage({ params }: { params: { boxId: string } }) {
-  const boxId = params.boxId;
+export default function UserSchedulePage({ params: {boxId} }: { params: { boxId: string } }) {
 
   const [box, setBox] = useState<Box | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -138,3 +137,5 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
     </div>
   );
 }
+
+    

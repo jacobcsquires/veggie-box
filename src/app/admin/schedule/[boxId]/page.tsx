@@ -57,9 +57,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-export default function AdminSchedulePage({ params }: { params: { boxId: string } }) {
+export default function AdminSchedulePage({ params: {boxId} }: { params: { boxId: string } }) {
   const { toast } = useToast();
-  const boxId = params.boxId;
 
   const [box, setBox] = useState<Box | null>(null);
   const [pickups, setPickups] = useState<Pickup[]>([]);
@@ -524,3 +523,5 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     </div>
   );
 }
+
+    
