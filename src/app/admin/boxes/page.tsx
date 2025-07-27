@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, writeBatch, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
@@ -31,7 +31,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { Box } from '@/lib/types';
+import type { Box, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -41,10 +41,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { format } from 'date-fns';
+
+type BoxWithSchedule = Box & { nextPickup?: string };
+type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 export default function AdminBoxesPage() {
   const { toast } = useToast();
-  const [boxes, setBoxes] = useState<Box[]>([]);
+  const [boxes, setBoxes] = useState<BoxWithSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -58,11 +62,27 @@ export default function AdminBoxesPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'boxes'), (snapshot) => {
+    const unsubscribe = onSnapshot(collection(db, 'boxes'), async (snapshot) => {
       const boxesData = snapshot.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() } as Box)
       );
-      setBoxes(boxesData);
+      
+      const boxesWithSchedule: BoxWithSchedule[] = await Promise.all(boxesData.map(async (box) => {
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const pickupsRef = collection(db, 'boxes', box.id, 'pickups');
+        const q = query(pickupsRef, where('pickupDate', '>=', today), orderBy('pickupDate'), limit(1));
+        const pickupsSnapshot = await getDocs(q);
+        
+        let nextPickup;
+        if (!pickupsSnapshot.empty) {
+          const nextPickupDoc = pickupsSnapshot.docs[0].data() as PickupInternal;
+          nextPickup = format(new Date(nextPickupDoc.pickupDate.replace(/-/g, '\/')), 'PPP');
+        }
+        
+        return { ...box, nextPickup };
+      }));
+      
+      setBoxes(boxesWithSchedule);
       setIsLoading(false);
     });
 
@@ -266,7 +286,7 @@ export default function AdminBoxesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Next Pickup</TableHead>
                 <TableHead className="hidden md:table-cell">
                   Inventory
                 </TableHead>
@@ -281,7 +301,7 @@ export default function AdminBoxesPage() {
                 Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-10" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
@@ -290,11 +310,9 @@ export default function AdminBoxesPage() {
               ) : boxes.map((box) => (
                 <TableRow key={box.id}>
                   <TableCell className="font-medium">{box.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">Active</Badge>
-                  </TableCell>
+                  <TableCell>{box.nextPickup || "Not scheduled"}</TableCell>
                   <TableCell className="hidden md:table-cell">{box.subscribedCount} / {box.quantity}</TableCell>
-                  <TableCell className="text-right">${box.price}</TableCell>
+                  <TableCell className="text-right">${box.price.toFixed(2)}</TableCell>
                   <TableCell className="text-right">
                     <Button asChild size="icon" variant="ghost">
                         <Link href={`/admin/boxes/${box.id}`}>
