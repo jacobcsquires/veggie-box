@@ -50,7 +50,6 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
     const navItems = [
         { href: "/dashboard", icon: Home, label: "Dashboard" },
         { href: "/dashboard/subscriptions", icon: ShoppingCart, label: "Subscriptions", badge: subscriptionsCount > 0 ? subscriptionsCount : undefined },
-        { href: "/dashboard/profile", icon: User, label: "Profile" },
     ];
     return (
         <>
