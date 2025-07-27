@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { collection, getDocs, query, where, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, query, where, writeBatch, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription } from '@/lib/types';
 
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
             });
 
             // Also update the subscription in Firestore
-            const subDocRef = collection(db, 'subscriptions').doc(sub.id);
+            const subDocRef = doc(db, 'subscriptions', sub.id);
             batch.update(subDocRef, { 
                 startDate: newStartDate,
                 nextPickup: newStartDate 
