@@ -367,6 +367,20 @@ export default function AdminBoxDetailPage() {
     if (!box) return;
     setIsDeleting(true);
     try {
+      // 1. Archive Stripe Product if it exists
+      if (box.stripeProductId) {
+        const response = await fetch('/api/archive-stripe-product', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stripeProductId: box.stripeProductId }),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to archive Stripe product.');
+        }
+      }
+
+      // 2. Delete all pickups in a batch
       const pickupsCollectionRef = collection(db, 'boxes', box.id, 'pickups');
       const pickupsSnapshot = await getDocs(pickupsCollectionRef);
       const deletePickupsBatch = writeBatch(db);
@@ -375,19 +389,20 @@ export default function AdminBoxDetailPage() {
       });
       await deletePickupsBatch.commit();
       
+      // 3. Delete the box itself
       await deleteDoc(doc(db, 'boxes', box.id));
       
       toast({
         title: 'Success',
-        description: `Box "${box.name}" and all its pickups have been deleted.`,
+        description: `Box "${box.name}" and all its data have been deleted.`,
       });
       router.push('/admin/boxes');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting box: ', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Could not delete the box. Please try again.',
+        description: error.message || 'Could not delete the box. Please try again.',
       });
     } finally {
       setIsDeleting(false);
@@ -763,7 +778,7 @@ export default function AdminBoxDetailPage() {
             <AlertDialogTitle>Are you sure you want to delete this box?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the 
-              "{box?.name}" box and all associated data, including pickups and subscriptions.
+              "{box?.name}" box and all associated data, including its Stripe product.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
