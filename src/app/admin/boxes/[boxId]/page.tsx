@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle } from 'lucide-react';
 import type { Box, Pickup, Subscription } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, addDays } from 'date-fns';
+import { format, addDays, isBefore, startOfToday } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -464,6 +464,9 @@ export default function AdminBoxDetailPage() {
   }
 
   const renderScheduleView = () => {
+    const today = startOfToday();
+    const lastPickup = pickups.length > 0 ? pickups[pickups.length - 1] : null;
+
     switch (scheduleView) {
         case 'calendar':
             return (
@@ -484,25 +487,30 @@ export default function AdminBoxDetailPage() {
                      {pickups.length === 0 ? (
                         <p className="text-muted-foreground col-span-full text-center">No pickups scheduled yet.</p>
                      ) : (
-                        pickups.map(pickup => (
-                            <Card key={pickup.id}>
-                                <CardHeader>
-                                    <CardTitle>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-sm text-muted-foreground truncate">{pickup.note || 'No note for this date.'}</p>
-                                </CardContent>
-                                <CardFooter className="gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => openNoteDialog(new Date(pickup.pickupDate.replace(/-/g, '\/')))}>
-                                        <FilePen className="h-4 w-4 mr-2"/> Edit Note
-                                    </Button>
-                                     <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup);}}>
-                                        <Trash2 className="h-4 w-4" />
-                                        <span className="sr-only">Delete</span>
-                                    </Button>
-                                </CardFooter>
-                            </Card>
-                        ))
+                        pickups.map(pickup => {
+                            const isLastPickup = lastPickup?.id === pickup.id;
+                            const isFuturePickup = isBefore(today, new Date(pickup.pickupDate.replace(/-/g, '\/')));
+                            const canDelete = isLastPickup && isFuturePickup;
+                            return (
+                                <Card key={pickup.id}>
+                                    <CardHeader>
+                                        <CardTitle>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-sm text-muted-foreground truncate">{pickup.note || 'No note for this date.'}</p>
+                                    </CardContent>
+                                    <CardFooter className="gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => openNoteDialog(new Date(pickup.pickupDate.replace(/-/g, '\/')))}>
+                                            <FilePen className="h-4 w-4 mr-2"/> Edit Note
+                                        </Button>
+                                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup);}} disabled={!canDelete}>
+                                            <Trash2 className="h-4 w-4" />
+                                            <span className="sr-only">Delete</span>
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
+                            )
+                        })
                      )}
                 </div>
             )
@@ -521,21 +529,26 @@ export default function AdminBoxDetailPage() {
                         {pickups.length === 0 ? (
                             <TableRow><TableCell colSpan={3} className="text-center h-24">No pickups scheduled yet.</TableCell></TableRow>
                         ) : (
-                            pickups.map(pickup => (
-                                <TableRow key={pickup.id}>
-                                    <TableCell>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
-                                    <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="outline" size="sm" onClick={() => openNoteDialog(new Date(pickup.pickupDate.replace(/-/g, '\/')))}>
-                                            <FilePen className="h-4 w-4 mr-2" /> Edit Note
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="ml-2" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup)}}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                            <span className="sr-only">Delete</span>
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))
+                            pickups.map(pickup => {
+                                const isLastPickup = lastPickup?.id === pickup.id;
+                                const isFuturePickup = isBefore(today, new Date(pickup.pickupDate.replace(/-/g, '\/')));
+                                const canDelete = isLastPickup && isFuturePickup;
+                                return (
+                                    <TableRow key={pickup.id}>
+                                        <TableCell>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
+                                        <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="outline" size="sm" onClick={() => openNoteDialog(new Date(pickup.pickupDate.replace(/-/g, '\/')))}>
+                                                <FilePen className="h-4 w-4 mr-2" /> Edit Note
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="ml-2" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup)}} disabled={!canDelete}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                <span className="sr-only">Delete</span>
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })
                         )}
                     </TableBody>
                 </Table>
