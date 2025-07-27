@@ -10,6 +10,7 @@ import {
   Package,
   Users,
   Sprout,
+  ShoppingCart,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -34,6 +35,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
     { href: "/admin/boxes", icon: Package, label: "Boxes" },
+    { href: "/admin/subscriptions", icon: ShoppingCart, label: "Subscriptions" },
     { href: "/admin/users", icon: Users, label: "Users" },
   ];
   return (
