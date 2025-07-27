@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -64,8 +64,9 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
-export default function AdminBoxDetailPage({ params }: { params: { boxId: string } }) {
-  const { boxId } = params;
+export default function AdminBoxDetailPage() {
+  const params = useParams();
+  const boxId = params.boxId as string;
   const { toast } = useToast();
   const router = useRouter();
 
@@ -716,3 +717,5 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
     </div>
   );
 }
+
+    

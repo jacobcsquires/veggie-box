@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { doc, getDoc, collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Calendar } from '@/components/ui/calendar';
@@ -13,8 +14,9 @@ import { format } from 'date-fns';
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 
-export default function UserSchedulePage({ params }: { params: { boxId: string } }) {
-  const { boxId } = params;
+export default function UserSchedulePage() {
+  const params = useParams();
+  const boxId = params.boxId as string;
 
   const [box, setBox] = useState<Box | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -142,3 +144,5 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
     </div>
   );
 }
+
+    
