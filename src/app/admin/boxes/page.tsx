@@ -4,11 +4,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays } from 'lucide-react';
+import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,7 +42,15 @@ type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
 
-const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: boolean }) => {
+const BoxGrid = ({ boxes, isLoading, onSync }: { boxes: BoxWithSchedule[], isLoading: boolean, onSync: (box: Box) => void }) => {
+    const [syncingBoxId, setSyncingBoxId] = useState<string | null>(null);
+
+    const handleSyncClick = async (box: Box) => {
+        setSyncingBoxId(box.id);
+        await onSync(box);
+        setSyncingBoxId(null);
+    }
+    
     if (isLoading) {
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -85,6 +93,7 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                  const formattedStartDate = startDateObj && isValidDate(startDateObj) ? format(startDateObj, 'MM/dd/yy') : 'N/A';
                  const formattedEndDate = endDateObj && isValidDate(endDateObj) ? format(endDateObj, 'MM/dd/yy') : 'N/A';
                  const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
+                 const isSyncing = syncingBoxId === box.id;
                 return (
                      <Card key={box.id}>
                         <CardHeader className="p-0">
@@ -110,12 +119,22 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                                 </div>
                             </div>
                         </CardContent>
-                        <CardFooter>
+                        <CardFooter className="flex-col gap-2 items-stretch">
                             <Button asChild className="w-full">
                                 <Link href={`/admin/boxes/${box.id}`}>
                                     <FilePen className="mr-2 h-4 w-4" /> Edit Box
                                 </Link>
                             </Button>
+                            {!box.stripePriceId && (
+                                <Button variant="outline" className="w-full" onClick={() => handleSyncClick(box)} disabled={isSyncing}>
+                                    {isSyncing ? (
+                                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                    )}
+                                    {isSyncing ? 'Syncing...' : 'Sync with Stripe'}
+                                </Button>
+                            )}
                         </CardFooter>
                      </Card>
                 )
@@ -282,6 +301,37 @@ export default function AdminBoxesPage() {
     }
   };
 
+  const handleSyncWithStripe = async (box: Box) => {
+    try {
+        const { name, description, price } = box;
+        const stripeResponse = await fetch('/api/create-stripe-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description, price }),
+        });
+
+        if (!stripeResponse.ok) {
+            const error = await stripeResponse.json();
+            throw new Error(error.message || 'Failed to create Stripe product.');
+        }
+        
+        const { stripeProductId, stripePriceId } = await stripeResponse.json();
+
+        const boxRef = doc(db, 'boxes', box.id);
+        await updateDoc(boxRef, { stripeProductId, stripePriceId });
+
+        toast({ title: 'Success', description: `Box "${box.name}" has been synced with Stripe.` });
+
+    } catch (error: any) {
+        console.error('Error syncing box with Stripe: ', error);
+        toast({
+            variant: 'destructive',
+            title: 'Stripe Sync Failed',
+            description: error.message || 'Could not sync the box with Stripe. Please try again.',
+        });
+    }
+  };
+
 
   return (
     <div>
@@ -397,14 +447,13 @@ export default function AdminBoxesPage() {
             <TabsTrigger value="past"><Archive className="mr-2 h-4 w-4" />Past Boxes ({pastBoxes.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="active" className="mt-4">
-           <BoxGrid boxes={activeBoxes} isLoading={isLoading} />
+           <BoxGrid boxes={activeBoxes} isLoading={isLoading} onSync={handleSyncWithStripe} />
         </TabsContent>
         <TabsContent value="past" className="mt-4">
-            <BoxGrid boxes={pastBoxes} isLoading={isLoading} />
+            <BoxGrid boxes={pastBoxes} isLoading={isLoading} onSync={handleSyncWithStripe} />
         </TabsContent>
       </Tabs>
     </div>
   );
-}
 
     
