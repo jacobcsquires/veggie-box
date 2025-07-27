@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from "next/link";
@@ -28,6 +29,7 @@ import {
   SidebarMenuButton,
   SidebarMenuBadge,
   SidebarInset,
+  SidebarRail,
 } from "@/components/ui/sidebar";
 
 export default function DashboardLayout({
@@ -100,7 +102,8 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar collapsible="icon">
+        <SidebarRail />
         <SidebarHeader>
           <Link href="/" className="flex items-center gap-2 font-semibold">
             <Sprout className="h-6 w-6 text-primary" />
@@ -111,7 +114,7 @@ export default function DashboardLayout({
           <SidebarMenu>
             {navItems.map(item => (
               <SidebarMenuItem key={item.label}>
-                 <SidebarMenuButton asChild>
+                 <SidebarMenuButton asChild tooltip={item.label}>
                   <Link href={item.href}>
                     <item.icon />
                     <span>{item.label}</span>
@@ -138,3 +141,5 @@ export default function DashboardLayout({
     </SidebarProvider>
   )
 }
+
+    
