@@ -4,11 +4,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { MoreHorizontal, PlusCircle, X, Calendar as CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, X, Calendar as CalendarIcon, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,16 +24,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +36,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -56,6 +59,9 @@ export default function AdminBoxesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [boxToDelete, setBoxToDelete] = useState<Box | null>(null);
+
 
   // Form state
   const [isEditMode, setIsEditMode] = useState(false);
@@ -108,6 +114,33 @@ export default function AdminBoxesPage() {
     setImageFile(null);
     setIsDialogOpen(true);
   };
+  
+  const handleDeleteClick = (box: Box) => {
+    setBoxToDelete(box);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!boxToDelete) return;
+    try {
+      await deleteDoc(doc(db, 'boxes', boxToDelete.id));
+      toast({
+        title: 'Success',
+        description: `Box "${boxToDelete.name}" has been deleted.`,
+      });
+    } catch (error) {
+      console.error('Error deleting box: ', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not delete the box. Please try again.',
+      });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setBoxToDelete(null);
+    }
+  };
+
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -387,7 +420,11 @@ export default function AdminBoxesPage() {
                                 <span>Schedule</span>
                             </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem>Delete</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => handleDeleteClick(box)} className="text-destructive">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Delete</span>
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -403,6 +440,27 @@ export default function AdminBoxesPage() {
           </div>
         </CardFooter>
       </Card>
+      
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the 
+              "{boxToDelete?.name}" box and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete box
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
+
+    
