@@ -296,18 +296,12 @@ export default function AdminBoxDetailPage() {
 
     setIsAddingPickup(true);
     const batch = writeBatch(db);
-    const existingPickupDates = new Set(pickups.map(p => p.pickupDate));
-    let duplicatesFound = false;
-
+    
     if (addPickupType === 'single') {
         const dateString = format(addStartDate, 'yyyy-MM-dd');
-        if (existingPickupDates.has(dateString)) {
-            duplicatesFound = true;
-        } else {
-            const pickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
-            const pickupData = { pickupDate: dateString, note: addNote };
-            batch.set(pickupRef, pickupData);
-        }
+        const pickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
+        const pickupData = { pickupDate: dateString, note: addNote };
+        batch.set(pickupRef, pickupData);
     } else {
         if (!addEndDate) {
             toast({ variant: 'destructive', title: 'Error', description: 'Please provide an end date for multiple pickups.' });
@@ -316,24 +310,17 @@ export default function AdminBoxDetailPage() {
         }
         const daysIncrement = addFrequency === 'weekly' ? 7 : 14;
         let currentDate = addStartDate;
+        const existingPickupDatesStrings = new Set(pickups.map(p => p.pickupDate));
 
         while (currentDate <= addEndDate) {
             const dateString = format(currentDate, 'yyyy-MM-dd');
-            if (existingPickupDates.has(dateString)) {
-                duplicatesFound = true;
-            } else {
+            if (!existingPickupDatesStrings.has(dateString)) {
                 const pickupRef = doc(collection(db, 'boxes', boxId, 'pickups'));
                 const pickupData = { pickupDate: dateString, note: addNote };
                 batch.set(pickupRef, pickupData);
             }
             currentDate = addDays(currentDate, daysIncrement);
         }
-    }
-
-    if (duplicatesFound) {
-        toast({ variant: 'destructive', title: 'Error', description: 'One or more of the selected dates already has a pickup scheduled. No new pickups were added.' });
-        setIsAddingPickup(false);
-        return;
     }
 
     try {
@@ -408,7 +395,8 @@ export default function AdminBoxDetailPage() {
     }
   };
   
-  const pickupDates = pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/')));
+  const pickupDates = useMemo(() => pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/'))), [pickups]);
+  const existingPickupDateStrings = useMemo(() => new Set(pickups.map(p => p.pickupDate)), [pickups]);
 
   const filteredAndSortedSubscriptions = useMemo(() => {
     return subscriptions
@@ -626,7 +614,15 @@ export default function AdminBoxDetailPage() {
                                                     {addStartDate ? format(addStartDate, "PPP") : <span>Pick a date</span>}
                                                 </Button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={addStartDate} onSelect={setAddStartDate} initialFocus /></PopoverContent>
+                                                <PopoverContent className="w-auto p-0">
+                                                    <Calendar 
+                                                        mode="single" 
+                                                        selected={addStartDate} 
+                                                        onSelect={setAddStartDate} 
+                                                        disabled={(date) => existingPickupDateStrings.has(format(date, 'yyyy-MM-dd'))}
+                                                        initialFocus 
+                                                    />
+                                                </PopoverContent>
                                             </Popover>
                                         </div>
                                         
