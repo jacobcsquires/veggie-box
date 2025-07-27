@@ -126,7 +126,7 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
                     ) : (
                         <p className="text-sm text-muted-foreground text-center py-8">
                             {selectedDate && pickupDates.some(d => format(d, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'))
-                                ? "The note for this pickup haven't been announced yet. Check back soon!"
+                                ? "The note for this pickup hasn't been announced yet. Check back soon!"
                                 : "No pick up scheduled for this date."
                             }
                         </p>

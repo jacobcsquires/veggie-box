@@ -167,7 +167,7 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
           <Card>
             <CardHeader>
               <CardTitle>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
-              <CardDescription>Describe what's in the box for the selected date.</CardDescription>
+              <CardDescription>Describe what's in the box for the selected date. Clear the note to remove the pickup.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
