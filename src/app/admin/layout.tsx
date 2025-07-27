@@ -29,7 +29,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-function AdminPageContent({ children }: { children: React.ReactNode }) {
+function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const { state } = useSidebar();
   const navItems = [
     { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
@@ -40,9 +40,9 @@ function AdminPageContent({ children }: { children: React.ReactNode }) {
       <>
         <Sidebar collapsible="icon">
             <SidebarHeader>
-            <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+            <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
                 <Sprout className="h-6 w-6 text-primary" />
-                <span className="font-headline">Veggie Box Admin</span>
+                <span className="font-headline group-data-[collapsible=icon]:hidden">Veggie Box Admin</span>
             </Link>
             </SidebarHeader>
             <SidebarContent>
@@ -52,7 +52,7 @@ function AdminPageContent({ children }: { children: React.ReactNode }) {
                     <SidebarMenuButton asChild tooltip={item.label}>
                     <Link href={item.href}>
                         <item.icon />
-                        <span>{item.label}</span>
+                        <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                     </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -131,5 +131,5 @@ export default function AdminLayout({
     );
   }
 
-  return <SidebarProvider><AdminPageContent>{children}</AdminPageContent></SidebarProvider>
+  return <SidebarProvider><AdminLayoutContent>{children}</AdminLayoutContent></SidebarProvider>
 }

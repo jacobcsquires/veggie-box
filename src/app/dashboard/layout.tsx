@@ -58,7 +58,7 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
                 <SidebarHeader>
                 <Link href="/" className="flex items-center gap-2 font-semibold">
                     <Sprout className="h-6 w-6 text-primary" />
-                    <span className="font-headline">Veggie Box</span>
+                    <span className="font-headline group-data-[collapsible=icon]:hidden">Veggie Box</span>
                 </Link>
                 </SidebarHeader>
                 <SidebarContent>
@@ -68,7 +68,7 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
                         <SidebarMenuButton asChild tooltip={item.label}>
                         <Link href={item.href}>
                             <item.icon />
-                            <span>{item.label}</span>
+                            <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                             {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
                         </Link>
                         </SidebarMenuButton>
