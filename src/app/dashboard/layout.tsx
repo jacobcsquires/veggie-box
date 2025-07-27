@@ -55,14 +55,14 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
     return (
         <>
             <Sidebar collapsible="icon">
-                <SidebarHeader>
+                <SidebarHeader className="group-data-[collapsible=icon]:justify-center">
                 <Link href="/" className="flex items-center gap-2 font-semibold">
                     <Sprout className="h-6 w-6 text-primary" />
                     <span className="font-headline group-data-[collapsible=icon]:hidden">Veggie Box</span>
                 </Link>
                 </SidebarHeader>
                 <SidebarContent>
-                <SidebarMenu>
+                <SidebarMenu className="pl-2">
                     {navItems.map(item => (
                     <SidebarMenuItem key={item.label}>
                         <SidebarMenuButton asChild tooltip={item.label}>
