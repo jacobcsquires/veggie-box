@@ -50,6 +50,8 @@ import { useRouter } from 'next/navigation';
 type BoxWithSchedule = Box & { nextPickup?: string; totalPickups: number };
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
+const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
+
 export default function AdminBoxesPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -354,11 +356,17 @@ export default function AdminBoxesPage() {
                     <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                   </TableRow>
                 ))
-              ) : boxes.map((box) => (
+              ) : boxes.map((box) => {
+                const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
+                const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
+                const formattedStartDate = startDateObj && isValidDate(startDateObj) ? format(startDateObj, 'PPP') : 'N/A';
+                const formattedEndDate = endDateObj && isValidDate(endDateObj) ? format(endDateObj, 'PPP') : 'N/A';
+                
+                return (
                 <TableRow key={box.id} onClick={() => router.push(`/admin/boxes/${box.id}`)} className="cursor-pointer">
                   <TableCell className="font-medium">{box.name}</TableCell>
-                  <TableCell>{box.startDate && typeof box.startDate === 'string' ? format(parseISO(box.startDate), 'PPP') : 'N/A'}</TableCell>
-                  <TableCell>{box.endDate && typeof box.endDate === 'string' ? format(parseISO(box.endDate), 'PPP') : 'N/A'}</TableCell>
+                  <TableCell>{formattedStartDate}</TableCell>
+                  <TableCell>{formattedEndDate}</TableCell>
                   <TableCell>{box.nextPickup || "Not scheduled"}</TableCell>
                   <TableCell>{box.totalPickups}</TableCell>
                   <TableCell className="hidden md:table-cell">{box.subscribedCount} / {box.quantity}</TableCell>
@@ -372,7 +380,7 @@ export default function AdminBoxesPage() {
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </CardContent>
@@ -386,3 +394,5 @@ export default function AdminBoxesPage() {
     </div>
   );
 }
+
+    
