@@ -41,8 +41,8 @@ export default function AdminSubscriptionsPage() {
   const [selectedBoxId, setSelectedBoxId] = useState('all');
 
   useEffect(() => {
-    const activeSubsQuery = query(collection(db, 'subscriptions'), where('status', '==', 'Active'));
-    const unsubscribeSubs = onSnapshot(activeSubsQuery, (snapshot) => {
+    const subsQuery = query(collection(db, 'subscriptions'), where('status', 'in', ['Active', 'Pending']));
+    const unsubscribeSubs = onSnapshot(subsQuery, (snapshot) => {
       const subsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
       setSubscriptions(subsData);
       setIsLoading(false);
@@ -72,13 +72,13 @@ export default function AdminSubscriptionsPage() {
   return (
     <div>
       <h1 className="text-lg font-semibold md:text-2xl font-headline mb-4">
-        Active Subscriptions
+        Subscriptions
       </h1>
       <Card>
         <CardHeader>
           <CardTitle>Subscriptions</CardTitle>
           <CardDescription>
-            A list of all active subscriptions.
+            A list of all active and pending subscriptions.
           </CardDescription>
           <div className="flex flex-col md:flex-row gap-2 mt-2">
             <div className="relative flex-1">
@@ -138,7 +138,7 @@ export default function AdminSubscriptionsPage() {
                     <TableCell className="font-medium">{sub.customerName || 'N/A'}</TableCell>
                     <TableCell>{sub.boxName}</TableCell>
                     <TableCell>
-                      <Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>
+                      <Badge variant={sub.status === 'Active' ? 'default' : sub.status === 'Pending' ? 'secondary' : 'outline'}>
                         {sub.status}
                       </Badge>
                     </TableCell>
