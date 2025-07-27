@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc, query, where } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
+import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Calendar } from '@/components/ui/calendar';
@@ -65,6 +66,7 @@ type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 export default function AdminBoxDetailPage({ params }: { params: { boxId: string } }) {
   const { boxId } = params;
   const { toast } = useToast();
+  const router = useRouter();
 
   const [box, setBox] = useState<Box | null>(null);
   const [pickups, setPickups] = useState<PickupInternal[]>([]);
@@ -93,8 +95,11 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
   const [generateNote, setGenerateNote] = useState('');
 
   // State for delete confirmation dialog
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isPickupDeleteDialogOpen, setIsPickupDeleteDialogOpen] = useState(false);
   const [pickupToDelete, setPickupToDelete] = useState<PickupInternal | null>(null);
+  const [isBoxDeleteDialogOpen, setIsBoxDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -275,9 +280,9 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
     }
   };
 
-  const handleDeleteClick = (pickup: PickupInternal) => {
+  const handleDeletePickupClick = (pickup: PickupInternal) => {
     setPickupToDelete(pickup);
-    setIsDeleteDialogOpen(true);
+    setIsPickupDeleteDialogOpen(true);
   };
   
   const confirmDeletePickup = async () => {
@@ -289,9 +294,41 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
           console.error('Error deleting pickup: ', error);
           toast({ variant: 'destructive', title: 'Error', description: 'Could not delete pickup.' });
       } finally {
-          setIsDeleteDialogOpen(false);
+          setIsPickupDeleteDialogOpen(false);
           setPickupToDelete(null);
       }
+  };
+  
+  const confirmDeleteBox = async () => {
+    if (!box) return;
+    setIsDeleting(true);
+    try {
+      const pickupsCollectionRef = collection(db, 'boxes', box.id, 'pickups');
+      const pickupsSnapshot = await getDocs(pickupsCollectionRef);
+      const deletePickupsBatch = writeBatch(db);
+      pickupsSnapshot.docs.forEach(doc => {
+        deletePickupsBatch.delete(doc.ref);
+      });
+      await deletePickupsBatch.commit();
+      
+      await deleteDoc(doc(db, 'boxes', box.id));
+      
+      toast({
+        title: 'Success',
+        description: `Box "${box.name}" and all its pickups have been deleted.`,
+      });
+      router.push('/admin/boxes');
+    } catch (error) {
+      console.error('Error deleting box: ', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not delete the box. Please try again.',
+      });
+    } finally {
+      setIsDeleting(false);
+      setIsBoxDeleteDialogOpen(false);
+    }
   };
   
   const pickupDates = pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/')));
@@ -355,9 +392,12 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                         </div>
                         </div>
                     </CardContent>
-                    <CardFooter>
+                    <CardFooter className="justify-between">
                         <Button type="submit" disabled={isSavingBox}>
                             {isSavingBox ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Box Details'}
+                        </Button>
+                        <Button variant="destructive" type="button" onClick={() => setIsBoxDeleteDialogOpen(true)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Box
                         </Button>
                     </CardFooter>
                     </form>
@@ -467,7 +507,7 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                                                     <TableCell>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
                                                     <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
                                                     <TableCell className="text-right">
-                                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(pickup)}>
+                                                        <Button variant="ghost" size="icon" onClick={() => handleDeletePickupClick(pickup)}>
                                                             <Trash2 className="h-4 w-4 text-destructive" />
                                                             <span className="sr-only">Delete</span>
                                                         </Button>
@@ -543,7 +583,7 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
             </TabsContent>
         </Tabs>
       
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isPickupDeleteDialogOpen} onOpenChange={setIsPickupDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -555,8 +595,24 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={isBoxDeleteDialogOpen} onOpenChange={setIsBoxDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this box?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the 
+              "{box?.name}" box and all associated data, including pickups and subscriptions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsBoxDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteBox} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+              {isDeleting ? 'Deleting...' : 'Yes, delete box'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
-
-    

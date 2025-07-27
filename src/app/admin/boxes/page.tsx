@@ -4,11 +4,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, writeBatch, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { MoreHorizontal, PlusCircle, X, Calendar as CalendarIcon, Trash2, Database, Loader2 } from 'lucide-react';
+import { PlusCircle, FilePen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,14 +20,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,20 +28,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { Box, Pickup } from '@/lib/types';
+import type { Box } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -59,9 +41,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { format } from 'date-fns';
-
-type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 export default function AdminBoxesPage() {
   const { toast } = useToast();
@@ -69,10 +48,6 @@ export default function AdminBoxesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [boxToDelete, setBoxToDelete] = useState<Box | null>(null);
-
 
   // Form state
   const [name, setName] = useState('');
@@ -81,7 +56,6 @@ export default function AdminBoxesPage() {
   const [quantity, setQuantity] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'boxes'), (snapshot) => {
@@ -103,46 +77,6 @@ export default function AdminBoxesPage() {
     setImageFile(null);
     setImagePreview(null);
   };
-  
-  const handleDeleteClick = (box: Box) => {
-    setBoxToDelete(box);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!boxToDelete) return;
-    setIsDeleting(true);
-    try {
-      // First, delete all pickups associated with the box
-      const pickupsCollectionRef = collection(db, 'boxes', boxToDelete.id, 'pickups');
-      const pickupsSnapshot = await getDocs(pickupsCollectionRef);
-      const deletePickupsBatch = writeBatch(db);
-      pickupsSnapshot.docs.forEach(doc => {
-        deletePickupsBatch.delete(doc.ref);
-      });
-      await deletePickupsBatch.commit();
-      
-      // Then, delete the box itself
-      await deleteDoc(doc(db, 'boxes', boxToDelete.id));
-      
-      toast({
-        title: 'Success',
-        description: `Box "${boxToDelete.name}" and all its pickups have been deleted.`,
-      });
-    } catch (error) {
-      console.error('Error deleting box: ', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Could not delete the box. Please try again.',
-      });
-    } finally {
-      setIsDeleting(false);
-      setIsDeleteDialogOpen(false);
-      setBoxToDelete(null);
-    }
-  };
-
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -337,8 +271,8 @@ export default function AdminBoxesPage() {
                   Inventory
                 </TableHead>
                 <TableHead className="text-right">Price</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
+                <TableHead className="text-right">
+                  Actions
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -361,32 +295,13 @@ export default function AdminBoxesPage() {
                   </TableCell>
                   <TableCell className="hidden md:table-cell">{box.subscribedCount} / {box.quantity}</TableCell>
                   <TableCell className="text-right">${box.price}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-haspopup="true"
-                          size="icon"
-                          variant="ghost"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem asChild>
-                            <Link href={`/admin/boxes/${box.id}`} className="cursor-pointer">
-                                Edit
-                            </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={() => handleDeleteClick(box)} className="text-destructive">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Delete</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <TableCell className="text-right">
+                    <Button asChild size="icon" variant="ghost">
+                        <Link href={`/admin/boxes/${box.id}`}>
+                            <FilePen className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                        </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -400,26 +315,6 @@ export default function AdminBoxesPage() {
           </div>
         </CardFooter>
       </Card>
-      
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the 
-              "{boxToDelete?.name}" box and all associated data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
-              {isDeleting ? 'Deleting...' : 'Yes, delete box'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
     </div>
   );
 }
-    
