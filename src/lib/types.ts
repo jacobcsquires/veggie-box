@@ -39,3 +39,12 @@ export type Pickup = {
     pickupDate: string; // YYYY-MM-DD
     note: string;
 }
+
+export type AppUser = {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  isAdmin?: boolean;
+}
+
+    

@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Subscription, Box } from '@/lib/types';
-import { DollarSign, Package, ShoppingCart, Users } from "lucide-react"
+import { DollarSign, Package, ShoppingCart, Users, RefreshCw } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import {
   Card,
@@ -18,12 +18,16 @@ import {
 } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AppUser } from "@/contexts/auth-context";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminDashboard() {
+  const { toast } = useToast();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     const unsubSubscriptions = onSnapshot(collection(db, 'subscriptions'), (snapshot) => {
@@ -43,6 +47,31 @@ export default function AdminDashboard() {
       unsubBoxes();
     }
   }, []);
+  
+  const handleBackfill = async () => {
+    setIsSyncing(true);
+    try {
+        const response = await fetch('/api/backfill-stripe-customers', {
+            method: 'POST',
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to sync subscriptions.');
+        }
+        toast({
+            title: 'Sync Complete',
+            description: `${result.updatedCount} subscriptions have been updated with Stripe Customer IDs.`
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Sync Failed',
+            description: error.message,
+        });
+    } finally {
+        setIsSyncing(false);
+    }
+  };
 
   const totalRevenue = useMemo(() => subscriptions.reduce((sum, sub) => sum + sub.price, 0), [subscriptions]);
   const subscriptionsCount = useMemo(() => subscriptions.length, [subscriptions]);
@@ -84,7 +113,13 @@ export default function AdminDashboard() {
   
   return (
     <div className="flex flex-col gap-4">
-        <h1 className="text-lg font-semibold md:text-2xl font-headline">Admin Dashboard</h1>
+        <div className="flex justify-between items-center">
+            <h1 className="text-lg font-semibold md:text-2xl font-headline">Admin Dashboard</h1>
+            <Button onClick={handleBackfill} disabled={isSyncing}>
+                {isSyncing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                {isSyncing ? 'Syncing...' : 'Sync Stripe Customer IDs'}
+            </Button>
+        </div>
         <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
           <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -179,3 +214,5 @@ export default function AdminDashboard() {
     </div>
   )
 }
+
+    
