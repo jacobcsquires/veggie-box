@@ -314,7 +314,7 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
         <h1 className="text-2xl font-headline">Edit Box: {box.name}</h1>
         
         <Tabs defaultValue="edit" className="w-full">
-            <TabsList>
+            <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="edit">Edit</TabsTrigger>
                 <TabsTrigger value="schedule">Schedule</TabsTrigger>
                 <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
@@ -558,3 +558,5 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
     </div>
   );
 }
+
+    
