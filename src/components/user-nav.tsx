@@ -68,14 +68,7 @@ export function UserNav() {
           </>
         )}
         <DropdownMenuGroup>
-           {user?.isAdmin ? (
-            <DropdownMenuItem asChild>
-              <Link href="/admin/dashboard">
-                <LayoutDashboard className="mr-2 h-4 w-4" />
-                <span>Admin Dashboard</span>
-              </Link>
-            </DropdownMenuItem>
-          ) : (
+           {!user?.isAdmin && (
             <DropdownMenuItem asChild>
               <Link href="/dashboard/profile">
                 <UserIcon className="mr-2 h-4 w-4" />
