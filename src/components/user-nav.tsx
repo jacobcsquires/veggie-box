@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from "next/navigation";
@@ -67,17 +68,6 @@ export function UserNav() {
             <DropdownMenuSeparator />
           </>
         )}
-        <DropdownMenuGroup>
-           {!user?.isAdmin && (
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard/profile">
-                <UserIcon className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </Link>
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={handleLogout} className="cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
