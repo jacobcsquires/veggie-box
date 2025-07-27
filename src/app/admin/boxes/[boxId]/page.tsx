@@ -57,8 +57,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-export default function AdminBoxDetailPage({ params }: { params: { boxId: string } }) {
-  const { boxId } = params;
+export default function AdminBoxDetailPage({ params: { boxId } }: { params: { boxId: string } }) {
   const { toast } = useToast();
 
   const [box, setBox] = useState<Box | null>(null);
@@ -523,4 +522,5 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
       </AlertDialog>
     </div>
   );
-}
+
+    
