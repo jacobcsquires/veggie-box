@@ -184,15 +184,15 @@ export default function Dashboard() {
 
               return (
                 <Card key={box.id}>
-                  <CardHeader>
                     <Image
                       src={box.image}
                       alt={box.name}
                       width={600}
                       height={400}
                       data-ai-hint={box.hint}
-                      className="rounded-lg aspect-video object-cover"
+                      className="rounded-t-lg aspect-video object-cover"
                     />
+                  <CardHeader>
                     <CardTitle className="pt-4 font-headline">{box.name}</CardTitle>
                     <CardDescription>{box.description}</CardDescription>
                     {hasSchedule && startDateObj && endDateObj && (
