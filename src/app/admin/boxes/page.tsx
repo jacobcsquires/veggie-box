@@ -49,21 +49,24 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {Array.from({ length: 3 }).map((_, i) => (
-                    <Card key={i}>
-                        <CardHeader>
-                            <Skeleton className="rounded-lg aspect-video" />
-                            <Skeleton className="h-7 w-48 mt-4" />
+                    <Card key={i} className="flex flex-col">
+                        <CardHeader className="p-0">
+                            <Skeleton className="rounded-t-lg aspect-video" />
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-4 space-y-3 flex-1">
+                             <Skeleton className="h-7 w-48 mt-4" />
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center"><Skeleton className="h-4 w-20" /><Skeleton className="h-4 w-16" /></div>
                                 <div className="flex justify-between items-center"><Skeleton className="h-4 w-24" /><Skeleton className="h-4 w-12" /></div>
                                 <div className="flex justify-between items-center"><Skeleton className="h-4 w-28" /><Skeleton className="h-4 w-10" /></div>
-                                <div className="flex justify-between items-center"><Skeleton className="h-4 w-20" /><Skeleton className="h-4 w-16" /></div>
                             </div>
                         </CardContent>
-                         <CardFooter>
-                            <Skeleton className="h-9 w-full" />
+                         <CardFooter className="flex-col gap-2 items-stretch p-4">
+                            <div className="flex items-center justify-between pt-2">
+                                <Skeleton className="h-7 w-20" />
+                                <Skeleton className="h-6 w-20" />
+                            </div>
+                            <Skeleton className="h-9 w-full mt-2" />
                         </CardFooter>
                     </Card>
                 ))}
@@ -88,10 +91,12 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                  const formattedEndDate = endDateObj && isValidDate(endDateObj) ? format(endDateObj, 'MM/dd/yy') : 'N/A';
                  const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
                 return (
-                     <Card key={box.id}>
-                        <Image src={box.image} alt={box.name} width={400} height={200} className="rounded-t-lg object-cover aspect-video w-full" />
-                        <CardContent className="p-4 space-y-3">
-                            <CardTitle className="text-xl font-headline">{box.name}</CardTitle>
+                     <Card key={box.id} className="flex flex-col">
+                        <CardHeader className="p-0">
+                          <Image src={box.image} alt={box.name} width={400} height={200} className="rounded-t-lg object-cover aspect-video w-full" />
+                        </CardHeader>
+                        <CardContent className="p-4 space-y-3 flex-1">
+                            <CardTitle className="text-xl font-headline pt-0">{box.name}</CardTitle>
                             <div className="text-sm text-muted-foreground space-y-2">
                                 <div className="flex items-center justify-between">
                                     <span className="font-medium flex items-center"><CalendarDays className="mr-2 h-4 w-4"/>Schedule</span>
@@ -105,14 +110,14 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                                     <span className="font-medium flex items-center"><Users className="mr-2 h-4 w-4" />Subscribers</span>
                                     <Badge variant={isSoldOut ? 'destructive' : 'secondary'}>{box.subscribedCount} / {box.quantity}</Badge>
                                 </div>
-                                <div className="flex items-center justify-between pt-2">
-                                    <span className="text-lg font-bold">${box.price.toFixed(2)}</span>
-                                     <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
-                                </div>
                             </div>
                         </CardContent>
-                        <CardFooter className="flex-col gap-2 items-stretch">
-                            <Button asChild className="w-full">
+                        <CardFooter className="flex-col gap-2 items-stretch p-4">
+                             <div className="flex items-center justify-between pt-2">
+                                <span className="text-lg font-bold">${box.price.toFixed(2)}</span>
+                                <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
+                            </div>
+                            <Button asChild className="w-full mt-2">
                                 <Link href={`/admin/boxes/${box.id}`}>
                                     <FilePen className="mr-2 h-4 w-4" /> Edit Box
                                 </Link>
@@ -423,5 +428,6 @@ export default function AdminBoxesPage() {
   );
 
     
+
 
 

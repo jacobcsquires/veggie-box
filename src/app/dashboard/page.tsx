@@ -157,21 +157,21 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {isLoading
           ? Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="rounded-lg aspect-video" />
-                  <Skeleton className="h-7 w-48 mt-4" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3 w-3/4 mt-2" />
+              <Card key={i} className="flex flex-col">
+                <CardHeader className="p-0">
+                  <Skeleton className="rounded-t-lg aspect-video" />
                 </CardHeader>
-                <CardContent>
-                  <div className="flex justify-between items-center">
-                    <Skeleton className="h-8 w-24" />
-                  </div>
+                <CardContent className="p-6 flex-1">
+                  <Skeleton className="h-7 w-48" />
+                  <Skeleton className="h-4 w-full mt-2" />
+                  <Skeleton className="h-4 w-2/3 mt-2" />
                 </CardContent>
-                <CardFooter>
-                  <Skeleton className="h-10 w-full" />
+                <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
+                    <div className="flex justify-between items-center">
+                        <Skeleton className="h-8 w-24" />
+                        <Skeleton className="h-6 w-20" />
+                    </div>
+                    <Skeleton className="h-10 w-full mt-2" />
                 </CardFooter>
               </Card>
             ))
@@ -183,34 +183,34 @@ export default function Dashboard() {
 
 
               return (
-                <Card key={box.id}>
-                    <Image
-                      src={box.image}
-                      alt={box.name}
-                      width={600}
-                      height={400}
-                      data-ai-hint={box.hint}
-                      className="rounded-t-lg aspect-video object-cover"
-                    />
-                  <CardHeader>
-                    <CardTitle className="pt-4 font-headline">{box.name}</CardTitle>
-                    <CardDescription>{box.description}</CardDescription>
+                <Card key={box.id} className="flex flex-col">
+                    <CardHeader className="p-0">
+                        <Image
+                        src={box.image}
+                        alt={box.name}
+                        width={600}
+                        height={400}
+                        data-ai-hint={box.hint}
+                        className="rounded-t-lg aspect-video object-cover"
+                        />
+                    </CardHeader>
+                  <CardContent className="p-6 flex-1">
+                    <CardTitle className="font-headline">{box.name}</CardTitle>
+                    <CardDescription className="mt-2">{box.description}</CardDescription>
                     {hasSchedule && startDateObj && endDateObj && (
                         <p className="text-xs text-muted-foreground pt-2">
                            Available from {format(startDateObj, 'PPP')} to {format(endDateObj, 'PPP')}
                         </p>
                     )}
-                  </CardHeader>
-                  <CardContent>
+                  </CardContent>
+                  <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
                     <div className="flex justify-between items-center">
                       <p className="text-2xl font-bold">
                         ${box.price.toFixed(2)}
                       </p>
                       <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                     </div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button className="w-full" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.stripePriceId}>
+                    <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.stripePriceId}>
                         {isSoldOut ? 'Sold Out' : !box.stripePriceId ? 'Not Available' : 'Subscribe'}
                     </Button>
                   </CardFooter>
