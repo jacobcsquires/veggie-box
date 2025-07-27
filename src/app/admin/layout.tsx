@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/sidebar";
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
   const navItems = [
     { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
     { href: "/admin/boxes", icon: Package, label: "Boxes" },
@@ -65,7 +65,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
         </Sidebar>
         <SidebarInset>
             <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-            {state === 'collapsed' && <SidebarTrigger />}
+            <SidebarTrigger className="md:hidden" />
             <div className="w-full flex-1">
                 {/* Can add a search bar here if needed */}
             </div>
