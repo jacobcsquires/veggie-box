@@ -395,7 +395,7 @@ export default function AdminBoxesPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem asChild>
                             <Link href={`/admin/schedule/${box.id}`} className="cursor-pointer">
-                                Edit & Schedule
+                                Edit
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
