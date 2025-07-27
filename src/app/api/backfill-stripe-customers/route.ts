@@ -14,18 +14,22 @@ export async function POST(request: Request) {
     const subscriptionsRef = collection(db, 'subscriptions');
     const querySnapshot = await getDocs(subscriptionsRef);
     
-    const subscriptionsToUpdate = querySnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as Subscription))
-        .filter(sub => !sub.stripeCustomerId);
+    // Fetch all subscriptions from Firestore, not just those missing a customer ID
+    const allFirestoreSubs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
 
-    if (subscriptionsToUpdate.length === 0) {
-      return NextResponse.json({ message: 'All subscriptions are already up-to-date.', updatedCount: 0 });
+    if (allFirestoreSubs.length === 0) {
+      return NextResponse.json({ message: 'No subscriptions found in Firestore to sync.', updatedCount: 0 });
     }
 
     const batch = writeBatch(db);
     let updatedCount = 0;
 
-    for (const sub of subscriptionsToUpdate) {
+    for (const sub of allFirestoreSubs) {
+       // Only process subscriptions that don't have a Stripe Customer ID yet.
+      if (sub.stripeCustomerId) {
+        continue;
+      }
+      
       const userRef = doc(db, 'users', sub.userId);
       const userSnap = await getDoc(userRef);
       
@@ -45,21 +49,25 @@ export async function POST(request: Request) {
       if (customerSearch.data.length > 0) {
         const customer = customerSearch.data[0];
         const subDocRef = doc(db, 'subscriptions', sub.id);
-        batch.update(subDocRef, { stripeCustomerId: customer.id });
-        updatedCount++;
+        
+        // Check if the customer ID is actually different before writing to avoid unnecessary writes
+        if (sub.stripeCustomerId !== customer.id) {
+            batch.update(subDocRef, { stripeCustomerId: customer.id });
+            updatedCount++;
+        }
       } else {
          console.warn(`No Stripe customer found for email ${user.email} (subscription ${sub.id}).`);
       }
     }
 
-    await batch.commit();
+    if (updatedCount > 0) {
+        await batch.commit();
+    }
 
-    return NextResponse.json({ message: 'Successfully updated subscriptions.', updatedCount });
+    return NextResponse.json({ message: `Sync complete. ${updatedCount} subscription(s) updated.`, updatedCount });
 
   } catch (error: any) {
     console.error('Failed to backfill Stripe Customer IDs:', error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
-
-    
