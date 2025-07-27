@@ -25,8 +25,8 @@ export default function AdminLayout({
 }) {
   const navItems = [
     { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
-    { href: "/admin/users", icon: Users, label: "Users" },
     { href: "/admin/boxes", icon: Package, label: "Boxes" },
+    { href: "/admin/users", icon: Users, label: "Users" },
   ];
 
   const { user, loading } = useAuth();
