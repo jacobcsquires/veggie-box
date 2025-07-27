@@ -51,6 +51,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { Box } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 
 export default function AdminBoxesPage() {
@@ -462,5 +470,3 @@ export default function AdminBoxesPage() {
     </div>
   );
 }
-
-    
