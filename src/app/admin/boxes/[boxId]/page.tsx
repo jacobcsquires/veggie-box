@@ -558,5 +558,3 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
     </div>
   );
 }
-
-    
