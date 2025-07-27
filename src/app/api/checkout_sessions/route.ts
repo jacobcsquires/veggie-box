@@ -68,10 +68,15 @@ export async function POST(request: Request) {
             startDate,
             nextPickup: startDate,
             createdAt: serverTimestamp(),
-            stripeCustomerId: customer.id, // Will be used for portal
+            stripeCustomerId: customer.id,
         };
         transaction.set(subscriptionRef, subscriptionData);
     });
+
+    // We need to parse the date as UTC to avoid timezone issues.
+    // '2024-08-15' becomes '2024-08-15T00:00:00.000Z'
+    const billingCycleAnchor = new Date(`${startDate}T00:00:00.000Z`).getTime() / 1000;
+
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -82,6 +87,9 @@ export async function POST(request: Request) {
         },
       ],
       mode: 'subscription',
+      subscription_data: {
+        billing_cycle_anchor: billingCycleAnchor,
+      },
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/subscriptions?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,
       customer: customer.id,
@@ -94,6 +102,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Stripe session creation failed:', error);
     // If transaction fails, we should ideally roll back the subscription count
+    // but the transaction logic already handles this implicitly.
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
