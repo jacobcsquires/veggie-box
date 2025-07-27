@@ -29,7 +29,7 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.8rem;
-    --sidebar-background: 60 50% 94%;
+    --sidebar-background: hsl(var(--muted) / 0.4);
     --sidebar-foreground: 222.2 47.4% 11.2%;
     --sidebar-primary: 120 25% 65%;
     --sidebar-primary-foreground: 120 25% 10%;

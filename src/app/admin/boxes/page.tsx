@@ -299,7 +299,7 @@ export default function AdminBoxesPage() {
                 </TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">
-                  Actions
+                  Edit
                 </TableHead>
               </TableRow>
             </TableHeader>
