@@ -357,8 +357,8 @@ export default function AdminBoxesPage() {
               ) : boxes.map((box) => (
                 <TableRow key={box.id} onClick={() => router.push(`/admin/boxes/${box.id}`)} className="cursor-pointer">
                   <TableCell className="font-medium">{box.name}</TableCell>
-                  <TableCell>{box.startDate ? format(parseISO(box.startDate), 'PPP') : 'N/A'}</TableCell>
-                  <TableCell>{box.endDate ? format(parseISO(box.endDate), 'PPP') : 'N/A'}</TableCell>
+                  <TableCell>{box.startDate && typeof box.startDate === 'string' ? format(parseISO(box.startDate), 'PPP') : 'N/A'}</TableCell>
+                  <TableCell>{box.endDate && typeof box.endDate === 'string' ? format(parseISO(box.endDate), 'PPP') : 'N/A'}</TableCell>
                   <TableCell>{box.nextPickup || "Not scheduled"}</TableCell>
                   <TableCell>{box.totalPickups}</TableCell>
                   <TableCell className="hidden md:table-cell">{box.subscribedCount} / {box.quantity}</TableCell>
