@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -580,6 +581,7 @@ export default function AdminBoxDetailPage() {
 
   const renderScheduleView = () => {
     const today = startOfToday();
+    const firstPickup = pickups.length > 0 ? pickups[0] : null;
     const lastPickup = pickups.length > 0 ? pickups[pickups.length - 1] : null;
 
     switch (scheduleView) {
@@ -605,7 +607,7 @@ export default function AdminBoxDetailPage() {
                         pickups.map(pickup => {
                             const pickupDateObj = new Date(pickup.pickupDate.replace(/-/g, '\/'));
                             const isPast = isBefore(pickupDateObj, today);
-                            const canDelete = lastPickup?.id === pickup.id && !isPast;
+                            const canDelete = !isPast && (lastPickup?.id === pickup.id || firstPickup?.id === pickup.id);
                             return (
                                 <Card key={pickup.id}>
                                     <CardHeader>
@@ -647,7 +649,7 @@ export default function AdminBoxDetailPage() {
                             pickups.map(pickup => {
                                 const pickupDateObj = new Date(pickup.pickupDate.replace(/-/g, '\/'));
                                 const isPast = isBefore(pickupDateObj, today);
-                                const canDelete = lastPickup?.id === pickup.id && !isPast;
+                                const canDelete = !isPast && (lastPickup?.id === pickup.id || firstPickup?.id === pickup.id);
                                 return (
                                     <TableRow key={pickup.id}>
                                         <TableCell>{format(pickupDateObj, 'PPP')}</TableCell>
@@ -872,3 +874,5 @@ export default function AdminBoxDetailPage() {
     </div>
   );
 }
+
+    
