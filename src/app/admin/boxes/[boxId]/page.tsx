@@ -130,6 +130,7 @@ export default function AdminBoxDetailPage() {
   const [pickupToDelete, setPickupToDelete] = useState<PickupInternal | null>(null);
   const [isBoxDeleteDialogOpen, setIsBoxDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdatingStripe, setIsUpdatingStripe] = useState(false);
 
   // State for schedule view
   const [scheduleView, setScheduleView] = useState<'list' | 'calendar' | 'card'>('list');
@@ -337,7 +338,7 @@ export default function AdminBoxDetailPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Please provide a start and end date.' });
         return;
     }
-    if (addEndDate < addStartDate) {
+    if (isBefore(addEndDate, addStartDate)) {
         toast({ variant: 'destructive', title: 'Error', description: 'End date cannot be before start date.' });
         return;
     }
@@ -401,18 +402,46 @@ export default function AdminBoxDetailPage() {
   };
   
   const confirmDeletePickup = async () => {
-      if (!pickupToDelete) return;
+      if (!pickupToDelete || !box) return;
+
+      const isFirstPickup = pickups.length > 0 && pickups[0].id === pickupToDelete.id;
+
       try {
           await deleteDoc(doc(db, 'boxes', boxId, 'pickups', pickupToDelete.id));
           toast({ title: 'Success', description: `Pickup for ${pickupToDelete.pickupDate} has been deleted.` });
 
+          const remainingPickups = pickups.filter(p => p.id !== pickupToDelete.id);
+          
+          if (isFirstPickup && remainingPickups.length > 0) {
+            setIsUpdatingStripe(true);
+            const newFirstPickup = remainingPickups[0];
+            
+            const response = await fetch('/api/update-billing-anchor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ boxId: box.id, newStartDate: newFirstPickup.pickupDate }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to update billing dates in Stripe.');
+            }
+
+            const { updatedCount } = await response.json();
+            toast({
+                title: 'Stripe Updated',
+                description: `Billing anchor updated for ${updatedCount} subscription(s).`
+            });
+          }
+
           await updateBoxDates();
-      } catch (error) {
-          console.error('Error deleting pickup: ', error);
-          toast({ variant: 'destructive', title: 'Error', description: 'Could not delete pickup.' });
+      } catch (error: any) {
+          console.error('Error during pickup deletion process: ', error);
+          toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not complete the deletion process.' });
       } finally {
           setIsPickupDeleteDialogOpen(false);
           setPickupToDelete(null);
+          setIsUpdatingStripe(false);
       }
   };
   
@@ -491,6 +520,7 @@ export default function AdminBoxDetailPage() {
     const firstDate = new Date(firstPickupDateStr.replace(/-/g, '\/'));
     const prevDate = getPreviousPickupDate(firstDate, box.frequency);
     
+    // Only allow adding a previous date if it's today or in the future
     if (isBefore(prevDate, startOfToday())) {
         return null;
     }
@@ -559,7 +589,15 @@ export default function AdminBoxDetailPage() {
                                     {addEndDate ? format(addEndDate, "PPP") : <span>Pick an end date</span>}
                                 </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={addEndDate} onSelect={setAddEndDate} disabled={(date) => addStartDate ? date < addStartDate : false} initialFocus /></PopoverContent>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar 
+                                        mode="single" 
+                                        selected={addEndDate} 
+                                        onSelect={setAddEndDate} 
+                                        disabled={(date) => addStartDate ? isBefore(date, addStartDate) : isBefore(date, startOfToday())} 
+                                        initialFocus 
+                                    />
+                                </PopoverContent>
                             </Popover>
                         </div>
                         
@@ -697,12 +735,10 @@ export default function AdminBoxDetailPage() {
                                         <TableCell className="text-right space-x-2">
                                             <Button variant="ghost" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
                                                 <FilePen className="h-4 w-4" />
-                                                <span className="sr-only">Edit Note</span>
                                             </Button>
                                             {canDelete && (
                                                 <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup)}}>
                                                     <Trash2 className="h-4 w-4 text-destructive" />
-                                                    <span className="sr-only">Delete</span>
                                                 </Button>
                                             )}
                                         </TableCell>
@@ -888,11 +924,17 @@ export default function AdminBoxDetailPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone. This will permanently delete the pickup scheduled for "{pickupToDelete?.pickupDate}".</AlertDialogDescription>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the pickup scheduled for "{pickupToDelete?.pickupDate}".
+                {isUpdatingStripe && " We're updating Stripe billing, please don't close this dialog."}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeletePickup} className="bg-destructive hover:bg-destructive/90">Yes, delete pickup</AlertDialogAction>
+            <AlertDialogCancel disabled={isUpdatingStripe}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePickup} className="bg-destructive hover:bg-destructive/90" disabled={isUpdatingStripe}>
+                {isUpdatingStripe && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isUpdatingStripe ? "Updating Stripe..." : "Yes, delete pickup"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
