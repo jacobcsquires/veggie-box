@@ -72,8 +72,6 @@ export default function AdminBoxesPage() {
 
 
   // Form state
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [currentBoxId, setCurrentBoxId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
@@ -105,22 +103,6 @@ export default function AdminBoxesPage() {
     setEndDate('');
     setImageFile(null);
     setImagePreview(null);
-    setIsEditMode(false);
-    setCurrentBoxId(null);
-  };
-
-  const handleEditClick = (box: Box) => {
-    setIsEditMode(true);
-    setCurrentBoxId(box.id);
-    setName(box.name);
-    setPrice(box.price.toString());
-    setDescription(box.description);
-    setQuantity(box.quantity.toString());
-    setStartDate(box.startDate || '');
-    setEndDate(box.endDate || '');
-    setImagePreview(box.image);
-    setImageFile(null);
-    setIsDialogOpen(true);
   };
   
   const handleDeleteClick = (box: Box) => {
@@ -171,11 +153,6 @@ export default function AdminBoxesPage() {
     setIsSaving(true);
 
     let imageUrlToSave: string | undefined;
-
-    if (isEditMode) {
-      const currentBox = boxes.find(b => b.id === currentBoxId);
-      imageUrlToSave = currentBox?.image;
-    }
     
     if (imageFile) {
         try {
@@ -201,11 +178,6 @@ export default function AdminBoxesPage() {
     };
 
     try {
-      if (isEditMode && currentBoxId) {
-        const boxRef = doc(db, 'boxes', currentBoxId);
-        await updateDoc(boxRef, boxData);
-        toast({ title: 'Success', description: 'Box updated successfully.' });
-      } else {
         const fullData = {
           ...boxData,
           subscribedCount: 0,
@@ -214,7 +186,7 @@ export default function AdminBoxesPage() {
         }
         await addDoc(collection(db, 'boxes'), fullData);
         toast({ title: 'Success', description: 'New box added successfully.' });
-      }
+      
       resetForm();
       setIsDialogOpen(false);
     } catch (error) {
@@ -254,9 +226,9 @@ export default function AdminBoxesPage() {
               <DialogContent className="sm:max-w-[600px]">
                 <form onSubmit={handleSaveBox}>
                   <DialogHeader>
-                    <DialogTitle>{isEditMode ? 'Edit Box' : 'Add New Box'}</DialogTitle>
+                    <DialogTitle>Add New Box</DialogTitle>
                     <DialogDescription>
-                      {isEditMode ? 'Update the details of the veggie box.' : 'Fill out the details for the new veggie box.'}
+                      Fill out the details for the new veggie box.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
@@ -421,11 +393,9 @@ export default function AdminBoxesPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onSelect={() => handleEditClick(box)}>Edit</DropdownMenuItem>
-                         <DropdownMenuItem asChild>
-                            <Link href={`/admin/schedule/${box.id}`} className="flex items-center cursor-pointer">
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                <span>Schedule</span>
+                        <DropdownMenuItem asChild>
+                            <Link href={`/admin/schedule/${box.id}`} className="cursor-pointer">
+                                Edit & Schedule
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
