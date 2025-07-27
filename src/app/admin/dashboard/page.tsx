@@ -28,6 +28,8 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isAdjustingProration, setIsAdjustingProration] = useState(false);
 
   useEffect(() => {
     const unsubSubscriptions = onSnapshot(collection(db, 'subscriptions'), (snapshot) => {
@@ -85,11 +87,65 @@ export default function AdminDashboard() {
       fill: chartColors[index % chartColors.length]
     }));
   }, [subscriptions]);
+
+  const handleBackfill = async () => {
+    setIsSyncing(true);
+    try {
+        const response = await fetch('/api/backfill-stripe-customers', { method: 'POST' });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to sync.');
+        }
+        toast({
+            title: 'Sync Complete',
+            description: `${data.updatedCount} subscription(s) were updated with a Stripe Customer ID.`
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Sync Failed',
+            description: error.message
+        });
+    } finally {
+        setIsSyncing(false);
+    }
+  };
+
+  const handleAdjustProration = async () => {
+    setIsAdjustingProration(true);
+    try {
+      const response = await fetch('/api/adjust-proration', { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to adjust proration.');
+      }
+      toast({
+        title: 'Proration Adjustment Complete',
+        description: `${data.updatedCount} subscription(s) were updated.`
+      });
+    } catch (error: any) {
+       toast({
+        variant: 'destructive',
+        title: 'Adjustment Failed',
+        description: error.message
+      });
+    } finally {
+        setIsAdjustingProration(false);
+    }
+  };
   
   return (
     <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
             <h1 className="text-lg font-semibold md:text-2xl font-headline">Admin Dashboard</h1>
+            <div className="flex gap-2">
+                <Button onClick={handleAdjustProration} variant="outline" size="sm" disabled={isAdjustingProration}>
+                    {isAdjustingProration ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin"/>Adjusting...</> : 'Adjust Proration'}
+                </Button>
+                <Button onClick={handleBackfill} variant="outline" size="sm" disabled={isSyncing}>
+                    {isSyncing ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin"/>Syncing...</> : 'Sync Stripe IDs'}
+                </Button>
+            </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
           <Card>
@@ -185,5 +241,3 @@ export default function AdminDashboard() {
     </div>
   )
 }
-
-    

@@ -89,6 +89,7 @@ export async function POST(request: Request) {
       mode: 'subscription',
       subscription_data: {
         billing_cycle_anchor: billingCycleAnchor,
+        proration_behavior: 'none',
       },
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/subscriptions?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,

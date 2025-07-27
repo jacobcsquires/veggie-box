@@ -30,6 +30,7 @@ export type Subscription = {
     createdAt: any; // Firestore timestamp
     stripeSessionId?: string;
     stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
 }
 
 export type Pickup = {
@@ -46,5 +47,3 @@ export type AppUser = {
   displayName: string | null;
   isAdmin?: boolean;
 }
-
-    
