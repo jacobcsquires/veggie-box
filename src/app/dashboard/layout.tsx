@@ -102,8 +102,7 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon">
-        <SidebarRail />
+      <Sidebar collapsible="offcanvas">
         <SidebarHeader>
           <Link href="/" className="flex items-center gap-2 font-semibold">
             <Sprout className="h-6 w-6 text-primary" />
@@ -128,7 +127,7 @@ export default function DashboardLayout({
       </Sidebar>
       <SidebarInset>
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <SidebarTrigger className="md:hidden"/>
+          <SidebarTrigger />
           <div className="w-full flex-1">
             {/* Can add a search bar here if needed */}
           </div>
@@ -141,5 +140,3 @@ export default function DashboardLayout({
     </SidebarProvider>
   )
 }
-
-    
