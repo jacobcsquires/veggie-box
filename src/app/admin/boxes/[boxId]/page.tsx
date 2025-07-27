@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search } from 'lucide-react';
 import type { Box, Pickup, Subscription } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addDays } from 'date-fns';
@@ -104,6 +104,9 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
 
   // State for schedule view
   const [scheduleView, setScheduleView] = useState<'list' | 'calendar' | 'card'>('list');
+
+  // State for subscription filtering
+  const [subscriptionSearch, setSubscriptionSearch] = useState('');
 
 
   const [isLoading, setIsLoading] = useState(true);
@@ -352,6 +355,15 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
   
   const pickupDates = pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/')));
 
+  const filteredAndSortedSubscriptions = useMemo(() => {
+    return subscriptions
+      .filter(sub => 
+        sub.customerName?.toLowerCase().includes(subscriptionSearch.toLowerCase()) ||
+        sub.userId.toLowerCase().includes(subscriptionSearch.toLowerCase())
+      )
+      .sort((a, b) => (a.customerName || '').localeCompare(b.customerName || ''));
+  }, [subscriptions, subscriptionSearch]);
+
   if (isLoading) {
     return (
         <div>
@@ -594,6 +606,16 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                     <CardHeader>
                         <CardTitle>Subscribers</CardTitle>
                         <CardDescription>A list of all users subscribed to this box.</CardDescription>
+                         <div className="relative mt-2">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                type="search"
+                                placeholder="Search by name..."
+                                className="pl-8"
+                                value={subscriptionSearch}
+                                onChange={(e) => setSubscriptionSearch(e.target.value)}
+                            />
+                        </div>
                     </CardHeader>
                     <CardContent>
                          <Table>
@@ -606,12 +628,14 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {subscriptions.length === 0 ? (
+                                {filteredAndSortedSubscriptions.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center h-24">No one has subscribed to this box yet.</TableCell>
+                                        <TableCell colSpan={4} className="text-center h-24">
+                                            {subscriptionSearch ? "No matching subscribers found." : "No one has subscribed to this box yet."}
+                                        </TableCell>
                                     </TableRow>
                                 ) : (
-                                    subscriptions.map(sub => (
+                                    filteredAndSortedSubscriptions.map(sub => (
                                         <TableRow key={sub.id}>
                                             <TableCell>{sub.customerName || sub.userId}</TableCell>
                                             <TableCell>
@@ -633,7 +657,7 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</DialogTitle>
-                <DialogDescription>Describe what's in the box for this date. Clear note to remove pickup.</DialogDescription>
+                <DialogDescription>Describe what's in the box for this date. An empty note is allowed.</DialogDescription>
             </DialogHeader>
             <div className="py-4">
                 <Label htmlFor="pickup-note" className="sr-only">Weekly Box Note</Label>
@@ -681,3 +705,5 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
     </div>
   );
 }
+
+    
