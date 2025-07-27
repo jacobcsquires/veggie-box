@@ -26,14 +26,18 @@ import {
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 export default function SubscriptionsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [scheduleRanges, setScheduleRanges] = useState<{[boxId: string]: {start: string, end: string} | null}>({});
+  const [isManaging, setIsManaging] = useState(false);
+
 
   useEffect(() => {
     if (!user) {
@@ -78,6 +82,41 @@ export default function SubscriptionsPage() {
         unsubscribeSubs();
     };
   }, [user]);
+  
+  const handleManageSubscription = async (customerId?: string) => {
+    if (!customerId) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Stripe Customer ID not found for this subscription.'
+        });
+        return;
+    }
+    setIsManaging(true);
+    try {
+        const response = await fetch('/api/create-portal-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customerId }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to create portal session');
+        }
+        
+        const { url } = await response.json();
+        window.location.href = url;
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Could not redirect to Stripe. Please try again later.'
+        });
+    } finally {
+        setIsManaging(false);
+    }
+  };
 
   return (
     <div>
@@ -141,9 +180,12 @@ export default function SubscriptionsPage() {
                     <TableCell className="text-right">
                       ${sub.price.toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-2">
                         <Button asChild variant="outline" size="sm">
                             <Link href={`/dashboard/schedule/${sub.boxId}`}>View Schedule</Link>
+                        </Button>
+                         <Button variant="outline" size="sm" onClick={() => handleManageSubscription(sub.stripeCustomerId)} disabled={isManaging || sub.status !== 'Active'}>
+                            {isManaging ? 'Redirecting...' : 'Manage'}
                         </Button>
                     </TableCell>
                   </TableRow>

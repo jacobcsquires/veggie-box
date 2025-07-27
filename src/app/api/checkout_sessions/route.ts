@@ -34,6 +34,15 @@ export async function POST(request: Request) {
     // Create a new subscription document ID in advance
     const subscriptionRef = doc(collection(db, 'subscriptions'));
 
+    // Check if a customer already exists in Stripe
+    const customerSearch = await stripe.customers.list({ email: email, limit: 1 });
+    let customer;
+    if (customerSearch.data.length > 0) {
+        customer = customerSearch.data[0];
+    } else {
+        customer = await stripe.customers.create({ email: email, name: customerName });
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -45,7 +54,7 @@ export async function POST(request: Request) {
       mode: 'subscription',
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/subscriptions?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,
-      customer_email: email,
+      customer: customer.id,
       metadata: {
         userId,
         boxId,
@@ -85,6 +94,7 @@ export async function POST(request: Request) {
             nextPickup: startDate,
             createdAt: serverTimestamp(),
             stripeSessionId: session.id,
+            stripeCustomerId: customer.id,
         };
         transaction.set(subscriptionRef, subscriptionData);
     });

@@ -29,6 +29,7 @@ export type Subscription = {
     price: number;
     createdAt: any; // Firestore timestamp
     stripeSessionId?: string;
+    stripeCustomerId?: string;
 }
 
 export type Pickup = {
