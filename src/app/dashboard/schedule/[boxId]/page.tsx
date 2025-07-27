@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { doc, getDoc, collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -10,6 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { Box, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Calendar as CalendarIcon, LayoutGrid, List } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
@@ -21,9 +27,10 @@ export default function UserSchedulePage() {
   const [box, setBox] = useState<Box | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [pickups, setPickups] = useState<PickupInternal[]>([]);
-  const [selectedPickupNote, setSelectedPickupNote] = useState('');
-
+  
   const [isLoading, setIsLoading] = useState(true);
+  const [scheduleView, setScheduleView] = useState<'list' | 'calendar' | 'card'>('calendar');
+
   
   useEffect(() => {
     if (!boxId) return;
@@ -42,23 +49,109 @@ export default function UserSchedulePage() {
     const q = query(pickupsRef);
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const pickupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PickupInternal));
+      pickupsData.sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
       setPickups(pickupsData);
     });
 
     return () => unsubscribe();
   }, [boxId]);
 
-  useEffect(() => {
+  const selectedPickupNote = useMemo(() => {
     if (selectedDate) {
       const dateString = format(selectedDate, 'yyyy-MM-dd');
       const pickupForDate = pickups.find(d => d.pickupDate === dateString);
-      setSelectedPickupNote(pickupForDate?.note || '');
-    } else {
-        setSelectedPickupNote('');
+      return pickupForDate?.note || '';
     }
+    return '';
   }, [selectedDate, pickups]);
 
-  const pickupDates = pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/')));
+  const pickupDates = useMemo(() => pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/'))), [pickups]);
+  
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+  };
+  
+  const renderScheduleView = () => {
+    switch (scheduleView) {
+        case 'calendar':
+            return (
+                <div className="flex justify-center">
+                    <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={handleDateSelect}
+                        modifiers={{ scheduled: pickupDates }}
+                        modifiersClassNames={{ scheduled: 'bg-primary/20' }}
+                        className="rounded-md border"
+                    />
+                </div>
+            );
+        case 'card':
+            return (
+                 <ScrollArea className="h-[400px] w-full">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-4">
+                        {pickups.length === 0 ? (
+                            <p className="text-muted-foreground col-span-full text-center py-10">No pickups scheduled yet.</p>
+                        ) : (
+                            pickups.map(pickup => {
+                                const pickupDateObj = new Date(pickup.pickupDate.replace(/-/g, '\/'));
+                                const isSelected = selectedDate && format(pickupDateObj, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+                                return (
+                                    <Card 
+                                        key={pickup.id} 
+                                        onClick={() => handleDateSelect(pickupDateObj)}
+                                        className={cn("cursor-pointer hover:bg-muted/50", isSelected && "border-primary")}
+                                    >
+                                        <CardHeader>
+                                            <CardTitle className="text-base">{format(pickupDateObj, 'PPP')}</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-sm text-muted-foreground truncate h-10">{pickup.note || 'No note for this date.'}</p>
+                                        </CardContent>
+                                    </Card>
+                                )
+                            })
+                        )}
+                    </div>
+                </ScrollArea>
+            )
+        case 'list':
+        default:
+            return (
+                 <ScrollArea className="h-[400px] w-full">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Note</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {pickups.length === 0 ? (
+                                <TableRow><TableCell colSpan={2} className="text-center h-24">No pickups scheduled yet.</TableCell></TableRow>
+                            ) : (
+                                pickups.map(pickup => {
+                                     const pickupDateObj = new Date(pickup.pickupDate.replace(/-/g, '\/'));
+                                     const isSelected = selectedDate && format(pickupDateObj, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+                                     return (
+                                        <TableRow 
+                                            key={pickup.id} 
+                                            onClick={() => handleDateSelect(pickupDateObj)}
+                                            className={cn("cursor-pointer", isSelected && "bg-muted")}
+                                        >
+                                            <TableCell>{format(pickupDateObj, 'PPP')}</TableCell>
+                                            <TableCell className="max-w-[300px] truncate">{pickup.note || 'No note yet.'}</TableCell>
+                                        </TableRow>
+                                    )
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
+            );
+    }
+  }
+
 
   if (isLoading) {
     return (
@@ -99,26 +192,26 @@ export default function UserSchedulePage() {
   return (
     <div>
       <h1 className="text-2xl font-headline mb-4">Pick Up Schedule for {box.name}</h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        <div className="md:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <div className="lg:col-span-2">
           <Card>
-             <CardHeader>
-                <CardTitle>Pick Up Calendar</CardTitle>
-                <CardDescription>Select a date to see what's planned for your pick up. Dates with scheduled pickups are highlighted.</CardDescription>
+             <CardHeader className="flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Pick Up Calendar</CardTitle>
+                    <CardDescription>Select a date to see what's planned for your pick up.</CardDescription>
+                </div>
+                 <ToggleGroup type="single" value={scheduleView} onValueChange={(value) => { if (value) setScheduleView(value as any) }} aria-label="Schedule view">
+                    <ToggleGroupItem value="list" aria-label="List view"><List className="h-4 w-4" /></ToggleGroupItem>
+                    <ToggleGroupItem value="card" aria-label="Card view"><LayoutGrid className="h-4 w-4" /></ToggleGroupItem>
+                    <ToggleGroupItem value="calendar" aria-label="Calendar view"><CalendarIcon className="h-4 w-4" /></ToggleGroupItem>
+                </ToggleGroup>
             </CardHeader>
             <CardContent className="flex justify-center">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                modifiers={{ scheduled: pickupDates }}
-                modifiersClassNames={{ scheduled: 'bg-primary/20' }}
-                className="rounded-md border"
-              />
+                {renderScheduleView()}
             </CardContent>
           </Card>
         </div>
-        <div>
+        <div className="lg:sticky lg:top-20">
           <Card>
             <CardHeader>
               <CardTitle>What's in the box?</CardTitle>
@@ -144,5 +237,3 @@ export default function UserSchedulePage() {
     </div>
   );
 }
-
-    
