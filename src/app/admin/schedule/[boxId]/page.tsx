@@ -40,7 +40,7 @@ import { cn } from '@/lib/utils';
 
 export default function AdminSchedulePage({ params }: { params: { boxId: string } }) {
   const { toast } = useToast();
-  const { boxId } = params;
+  const boxId = params.boxId;
 
   const [box, setBox] = useState<Box | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -372,6 +372,3 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     </div>
   );
 }
-
-
-    
