@@ -1,14 +1,14 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, FilePen, Calendar as CalendarIcon } from 'lucide-react';
+import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,15 +42,76 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { format } from 'date-fns';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type BoxWithSchedule = Box & { nextPickup?: string; totalPickups: number };
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
+
+const BoxTable = ({ boxes, isLoading, onRowClick }: { boxes: BoxWithSchedule[], isLoading: boolean, onRowClick: (boxId: string) => void }) => {
+    return (
+        <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Start Date</TableHead>
+                <TableHead>End Date</TableHead>
+                <TableHead>Next Pickup</TableHead>
+                <TableHead>Total # of Pickups</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  Subscribers
+                </TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-10" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : boxes.map((box) => {
+                const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
+                const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
+                const formattedStartDate = startDateObj && isValidDate(startDateObj) ? format(startDateObj, 'MM/dd/yy') : 'N/A';
+                const formattedEndDate = endDateObj && isValidDate(endDateObj) ? format(endDateObj, 'MM/dd/yy') : 'N/A';
+                
+                return (
+                <TableRow key={box.id} onClick={() => onRowClick(box.id)} className="cursor-pointer">
+                  <TableCell className="font-medium">{box.name}</TableCell>
+                  <TableCell>{formattedStartDate}</TableCell>
+                  <TableCell>{formattedEndDate}</TableCell>
+                  <TableCell>{box.nextPickup || "Not scheduled"}</TableCell>
+                  <TableCell>{box.totalPickups}</TableCell>
+                  <TableCell className="hidden md:table-cell">{box.subscribedCount} / {box.quantity}</TableCell>
+                  <TableCell className="text-right">${box.price.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button asChild size="sm" variant="outline" onClick={(e) => e.stopPropagation()}>
+                        <Link href={`/admin/boxes/${box.id}`}>
+                            <FilePen className="h-4 w-4 mr-2" />
+                            Edit Box
+                        </Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )})}
+            </TableBody>
+          </Table>
+    )
+}
 
 export default function AdminBoxesPage() {
   const { toast } = useToast();
@@ -104,6 +165,25 @@ export default function AdminBoxesPage() {
 
     return () => unsubscribe();
   }, []);
+  
+  const { activeBoxes, pastBoxes } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const active: BoxWithSchedule[] = [];
+    const past: BoxWithSchedule[] = [];
+
+    boxes.forEach(box => {
+        const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
+
+        if (endDateObj && isValidDate(endDateObj) && endDateObj < today) {
+            past.push(box);
+        } else {
+            active.push(box);
+        }
+    });
+    return { activeBoxes: active, pastBoxes: past };
+  }, [boxes]);
 
   const resetForm = () => {
     setName('');
@@ -210,7 +290,7 @@ export default function AdminBoxesPage() {
                   <DialogHeader>
                     <DialogTitle>Add New Box</DialogTitle>
                     <DialogDescription>
-                      Fill out the details for the new veggie box.
+                      Fill out the details for the new veggie box. Start and end dates will be populated automatically based on pickup dates.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
@@ -292,82 +372,51 @@ export default function AdminBoxesPage() {
             </Dialog>
         </div>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Veggie Boxes</CardTitle>
-          <CardDescription>
-            A list of all available veggie boxes.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>End Date</TableHead>
-                <TableHead>Next Pickup</TableHead>
-                <TableHead>Total # of Pickups</TableHead>
-                <TableHead className="hidden md:table-cell">
-                  Subscribers
-                </TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">
-                  Actions
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-10" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                  </TableRow>
-                ))
-              ) : boxes.map((box) => {
-                const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
-                const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
-                const formattedStartDate = startDateObj && isValidDate(startDateObj) ? format(startDateObj, 'PPP') : 'N/A';
-                const formattedEndDate = endDateObj && isValidDate(endDateObj) ? format(endDateObj, 'PPP') : 'N/A';
-                
-                return (
-                <TableRow key={box.id} onClick={() => router.push(`/admin/boxes/${box.id}`)} className="cursor-pointer">
-                  <TableCell className="font-medium">{box.name}</TableCell>
-                  <TableCell>{formattedStartDate}</TableCell>
-                  <TableCell>{formattedEndDate}</TableCell>
-                  <TableCell>{box.nextPickup || "Not scheduled"}</TableCell>
-                  <TableCell>{box.totalPickups}</TableCell>
-                  <TableCell className="hidden md:table-cell">{box.subscribedCount} / {box.quantity}</TableCell>
-                  <TableCell className="text-right">${box.price.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild size="sm" variant="outline" onClick={(e) => e.stopPropagation()}>
-                        <Link href={`/admin/boxes/${box.id}`}>
-                            <FilePen className="h-4 w-4 mr-2" />
-                            Edit Box
-                        </Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              )})}
-            </TableBody>
-          </Table>
-        </CardContent>
-        <CardFooter>
-          <div className="text-xs text-muted-foreground">
-            Showing <strong>1-{boxes.length}</strong> of{' '}
-            <strong>{boxes.length}</strong> boxes
-          </div>
-        </CardFooter>
-      </Card>
+      <Tabs defaultValue="active">
+        <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="active"><Package className="mr-2" />Active Boxes</TabsTrigger>
+            <TabsTrigger value="past"><Archive className="mr-2" />Past Boxes</TabsTrigger>
+        </TabsList>
+        <TabsContent value="active">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Active Boxes</CardTitle>
+                    <CardDescription>
+                        A list of all veggie boxes that are currently available or scheduled for the future.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <BoxTable boxes={activeBoxes} isLoading={isLoading} onRowClick={(boxId) => router.push(`/admin/boxes/${boxId}`)} />
+                </CardContent>
+                <CardFooter>
+                  <div className="text-xs text-muted-foreground">
+                    Showing <strong>{activeBoxes.length}</strong> active boxes.
+                  </div>
+                </CardFooter>
+            </Card>
+        </TabsContent>
+        <TabsContent value="past">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Past Boxes</CardTitle>
+                    <CardDescription>
+                       A list of all veggie boxes that have already ended.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <BoxTable boxes={pastBoxes} isLoading={isLoading} onRowClick={(boxId) => router.push(`/admin/boxes/${boxId}`)} />
+                </CardContent>
+                <CardFooter>
+                  <div className="text-xs text-muted-foreground">
+                    Showing <strong>{pastBoxes.length}</strong> past boxes.
+                  </div>
+                </CardFooter>
+            </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
     
+
