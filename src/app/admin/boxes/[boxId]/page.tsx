@@ -461,19 +461,13 @@ export default function AdminBoxDetailPage() {
       .sort((a, b) => (a.customerName || '').localeCompare(b.customerName || ''));
   }, [subscriptions, subscriptionSearch]);
   
-  const nextPossiblePickupDates = useMemo(() => {
-    if (!box || pickups.length === 0) return [];
-    
+  const nextPossiblePickupDate = useMemo(() => {
+    if (!box || pickups.length === 0) return null;
+
     const lastPickupDateStr = pickups[pickups.length - 1].pickupDate;
     const lastDate = new Date(lastPickupDateStr.replace(/-/g, '\/'));
     
-    const dates = [];
-    let currentDate = lastDate;
-    for (let i = 0; i < 3; i++) {
-        currentDate = getNextPickupDate(currentDate, box.frequency);
-        dates.push(currentDate);
-    }
-    return dates;
+    return getNextPickupDate(lastDate, box.frequency);
   }, [box, pickups]);
 
   if (isLoading) {
@@ -566,17 +560,17 @@ export default function AdminBoxDetailPage() {
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
                     <div className="flex flex-col gap-1 p-2">
-                        <p className="text-sm font-medium text-muted-foreground px-2 py-1">Next possible dates:</p>
-                        {nextPossiblePickupDates.map((date, index) => (
+                        {nextPossiblePickupDate ? (
                              <Button
-                                key={index}
                                 variant="ghost"
                                 className="justify-start"
-                                onClick={() => handleAddSinglePickup(date)}
+                                onClick={() => handleAddSinglePickup(nextPossiblePickupDate)}
                             >
-                                {format(date, 'PPP')}
+                                Add next: {format(nextPossiblePickupDate, 'PPP')}
                             </Button>
-                        ))}
+                        ) : (
+                            <p className="text-sm text-muted-foreground p-2">Cannot determine next date.</p>
+                        )}
                     </div>
                 </PopoverContent>
             </Popover>
