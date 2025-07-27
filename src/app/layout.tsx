@@ -7,6 +7,7 @@ import { AuthProvider } from '@/contexts/auth-context';
 export const metadata: Metadata = {
   title: 'Veggie Box',
   description: 'Fresh, local produce delivered to your door.',
+  icons: null,
 };
 
 export default function RootLayout({
