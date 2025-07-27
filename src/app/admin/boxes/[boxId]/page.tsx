@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle } from 'lucide-react';
 import type { Box, Pickup, Subscription } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, addDays, isBefore, startOfToday } from 'date-fns';
+import { format, addDays, isBefore, startOfToday, addMonths } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -64,6 +64,19 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
+
+function getNextPickupDate(lastDate: Date, frequency: Box['frequency']): Date {
+    switch (frequency) {
+        case 'weekly':
+            return addDays(lastDate, 7);
+        case 'bi-weekly':
+            return addDays(lastDate, 14);
+        case 'monthly':
+            return addMonths(lastDate, 1);
+        default:
+            return addDays(lastDate, 7);
+    }
+}
 
 export default function AdminBoxDetailPage() {
   const params = useParams();
@@ -318,21 +331,6 @@ export default function AdminBoxDetailPage() {
     setIsAddingPickup(true);
     const batch = writeBatch(db);
     
-    let daysIncrement: number;
-    switch (box.frequency) {
-        case 'weekly':
-            daysIncrement = 7;
-            break;
-        case 'bi-weekly':
-            daysIncrement = 14;
-            break;
-        case 'monthly':
-            daysIncrement = 0; // special handling
-            break;
-        default:
-            daysIncrement = 7;
-    }
-
     let currentDate = addStartDate;
     const existingPickupDatesStrings = new Set(pickups.map(p => p.pickupDate));
 
@@ -343,13 +341,7 @@ export default function AdminBoxDetailPage() {
             const pickupData = { pickupDate: dateString, note: addNote };
             batch.set(pickupRef, pickupData);
         }
-         if (daysIncrement > 0) {
-            currentDate = addDays(currentDate, daysIncrement);
-        } else { // monthly
-            const newDate = new Date(currentDate);
-            newDate.setMonth(newDate.getMonth() + 1);
-            currentDate = newDate;
-        }
+        currentDate = getNextPickupDate(currentDate, box.frequency);
     }
 
     try {
@@ -367,6 +359,25 @@ export default function AdminBoxDetailPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Could not add pickups.' });
     } finally {
         setIsAddingPickup(false);
+    }
+  };
+  
+  const handleAddSinglePickup = async (date: Date) => {
+    if (!box) return;
+    const lastPickup = pickups.length > 0 ? pickups[pickups.length - 1] : null;
+    const dateString = format(date, 'yyyy-MM-dd');
+    
+    try {
+      const pickupData = {
+        pickupDate: dateString,
+        note: lastPickup?.note || '', // Carry over the last note
+      };
+      await addDoc(collection(db, 'boxes', boxId, 'pickups'), pickupData);
+      toast({ title: 'Success', description: `Pickup for ${dateString} added.` });
+      await updateBoxDates();
+    } catch (error) {
+      console.error('Error adding single pickup:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not add the pickup.' });
     }
   };
 
@@ -449,6 +460,21 @@ export default function AdminBoxDetailPage() {
       )
       .sort((a, b) => (a.customerName || '').localeCompare(b.customerName || ''));
   }, [subscriptions, subscriptionSearch]);
+  
+  const nextPossiblePickupDates = useMemo(() => {
+    if (!box || pickups.length === 0) return [];
+    
+    const lastPickupDateStr = pickups[pickups.length - 1].pickupDate;
+    const lastDate = new Date(lastPickupDateStr.replace(/-/g, '\/'));
+    
+    const dates = [];
+    let currentDate = lastDate;
+    for (let i = 0; i < 3; i++) {
+        currentDate = getNextPickupDate(currentDate, box.frequency);
+        dates.push(currentDate);
+    }
+    return dates;
+  }, [box, pickups]);
 
   if (isLoading) {
     return (
@@ -461,6 +487,101 @@ export default function AdminBoxDetailPage() {
 
   if (!box) {
     return <div>Box not found.</div>;
+  }
+  
+  const renderAddButton = () => {
+    if (pickups.length === 0) {
+        return (
+             <Dialog open={isAddPickupDialogOpen} onOpenChange={setIsAddPickupDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Add
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Add Pickups</DialogTitle>
+                        <DialogDescription>
+                            Generate pickup dates based on the box's frequency ({box.frequency}).
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="start-date" className="text-right">Start Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !addStartDate && "text-muted-foreground")}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {addStartDate ? format(addStartDate, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar 
+                                        mode="single" 
+                                        selected={addStartDate} 
+                                        onSelect={setAddStartDate} 
+                                        disabled={(date) => existingPickupDateStrings.has(format(date, 'yyyy-MM-dd'))}
+                                        initialFocus 
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="end-date" className="text-right">End Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !addEndDate && "text-muted-foreground")}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {addEndDate ? format(addEndDate, "PPP") : <span>Pick an end date</span>}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={addEndDate} onSelect={setAddEndDate} disabled={(date) => addStartDate ? date < addStartDate : false} initialFocus /></PopoverContent>
+                            </Popover>
+                        </div>
+                        
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="note" className="text-right">Note</Label>
+                            <Textarea id="note" value={addNote} onChange={(e) => setAddNote(e.target.value)} className="col-span-3" placeholder="Optional: e.g. This week's box includes..." />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" onClick={handleAddPickups} disabled={isAddingPickup}>
+                            {isAddingPickup && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isAddingPickup ? 'Adding...' : 'Add Pickup(s)'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        );
+    } else {
+        return (
+             <Popover>
+                <PopoverTrigger asChild>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Add
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                    <div className="flex flex-col gap-1 p-2">
+                        <p className="text-sm font-medium text-muted-foreground px-2 py-1">Next possible dates:</p>
+                        {nextPossiblePickupDates.map((date, index) => (
+                             <Button
+                                key={index}
+                                variant="ghost"
+                                className="justify-start"
+                                onClick={() => handleAddSinglePickup(date)}
+                            >
+                                {format(date, 'PPP')}
+                            </Button>
+                        ))}
+                    </div>
+                </PopoverContent>
+            </Popover>
+        )
+    }
   }
 
   const renderScheduleView = () => {
@@ -488,19 +609,19 @@ export default function AdminBoxDetailPage() {
                         <p className="text-muted-foreground col-span-full text-center">No pickups scheduled yet.</p>
                      ) : (
                         pickups.map(pickup => {
-                            const isLastPickup = lastPickup?.id === pickup.id;
-                            const isFuturePickup = isBefore(today, new Date(pickup.pickupDate.replace(/-/g, '\/')));
-                            const canDelete = isLastPickup && isFuturePickup;
+                            const pickupDateObj = new Date(pickup.pickupDate.replace(/-/g, '\/'));
+                            const isPast = isBefore(pickupDateObj, today);
+                            const canDelete = lastPickup?.id === pickup.id && !isPast;
                             return (
                                 <Card key={pickup.id}>
                                     <CardHeader>
-                                        <CardTitle>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</CardTitle>
+                                        <CardTitle>{format(pickupDateObj, 'PPP')}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <p className="text-sm text-muted-foreground truncate">{pickup.note || 'No note for this date.'}</p>
                                     </CardContent>
                                     <CardFooter className="gap-2">
-                                        <Button variant="outline" size="sm" onClick={() => openNoteDialog(new Date(pickup.pickupDate.replace(/-/g, '\/')))}>
+                                        <Button variant="outline" size="sm" onClick={() => openNoteDialog(pickupDateObj)}>
                                             <FilePen className="h-4 w-4 mr-2"/> Edit Note
                                         </Button>
                                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup);}} disabled={!canDelete}>
@@ -530,15 +651,15 @@ export default function AdminBoxDetailPage() {
                             <TableRow><TableCell colSpan={3} className="text-center h-24">No pickups scheduled yet.</TableCell></TableRow>
                         ) : (
                             pickups.map(pickup => {
-                                const isLastPickup = lastPickup?.id === pickup.id;
-                                const isFuturePickup = isBefore(today, new Date(pickup.pickupDate.replace(/-/g, '\/')));
-                                const canDelete = isLastPickup && isFuturePickup;
+                                const pickupDateObj = new Date(pickup.pickupDate.replace(/-/g, '\/'));
+                                const isPast = isBefore(pickupDateObj, today);
+                                const canDelete = lastPickup?.id === pickup.id && !isPast;
                                 return (
                                     <TableRow key={pickup.id}>
-                                        <TableCell>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
+                                        <TableCell>{format(pickupDateObj, 'PPP')}</TableCell>
                                         <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="outline" size="sm" onClick={() => openNoteDialog(new Date(pickup.pickupDate.replace(/-/g, '\/')))}>
+                                            <Button variant="outline" size="sm" onClick={() => openNoteDialog(pickupDateObj)}>
                                                 <FilePen className="h-4 w-4 mr-2" /> Edit Note
                                             </Button>
                                             <Button variant="ghost" size="icon" className="ml-2" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup)}} disabled={!canDelete}>
@@ -645,68 +766,7 @@ export default function AdminBoxDetailPage() {
                                     <CalendarIcon className="h-4 w-4" />
                                 </ToggleGroupItem>
                             </ToggleGroup>
-                            <Dialog open={isAddPickupDialogOpen} onOpenChange={setIsAddPickupDialogOpen}>
-                                <DialogTrigger asChild>
-                                    <Button>
-                                        <PlusCircle className="mr-2 h-4 w-4" />
-                                        Add
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-[425px]">
-                                    <DialogHeader>
-                                        <DialogTitle>Add Pickups</DialogTitle>
-                                        <DialogDescription>
-                                            Generate pickup dates based on the box's frequency ({box.frequency}).
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="grid gap-4 py-4">
-                                        <div className="grid grid-cols-4 items-center gap-4">
-                                            <Label htmlFor="start-date" className="text-right">Start Date</Label>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !addStartDate && "text-muted-foreground")}>
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {addStartDate ? format(addStartDate, "PPP") : <span>Pick a date</span>}
-                                                </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0">
-                                                    <Calendar 
-                                                        mode="single" 
-                                                        selected={addStartDate} 
-                                                        onSelect={setAddStartDate} 
-                                                        disabled={(date) => existingPickupDateStrings.has(format(date, 'yyyy-MM-dd'))}
-                                                        initialFocus 
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-4 items-center gap-4">
-                                            <Label htmlFor="end-date" className="text-right">End Date</Label>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !addEndDate && "text-muted-foreground")}>
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {addEndDate ? format(addEndDate, "PPP") : <span>Pick an end date</span>}
-                                                </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={addEndDate} onSelect={setAddEndDate} disabled={(date) => addStartDate ? date < addStartDate : false} initialFocus /></PopoverContent>
-                                            </Popover>
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-4 items-center gap-4">
-                                            <Label htmlFor="note" className="text-right">Note</Label>
-                                            <Textarea id="note" value={addNote} onChange={(e) => setAddNote(e.target.value)} className="col-span-3" placeholder="Optional: e.g. This week's box includes..." />
-                                        </div>
-                                    </div>
-                                    <DialogFooter>
-                                        <Button type="button" onClick={handleAddPickups} disabled={isAddingPickup}>
-                                            {isAddingPickup && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            {isAddingPickup ? 'Adding...' : 'Add Pickup(s)'}
-                                        </Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
+                            {renderAddButton()}
                         </div>
                     </CardHeader>
                     <CardContent>
