@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -238,7 +239,7 @@ export default function SubscriptionsPage() {
                     <Link href={`/dashboard/schedule/${sub.boxId}`}>View Schedule</Link>
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => handleManageSubscription(sub.stripeCustomerId)} disabled={isManaging}>
-                    {isManaging ? 'Redirecting...' : 'Manage Billing'}
+                    {isManaging ? 'Redirecting...' : 'Manage'}
                 </Button>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -270,7 +271,7 @@ export default function SubscriptionsPage() {
              <>
                 <Button variant="default" size="sm" onClick={() => handleCompletePayment(sub)} disabled={isLoadingThis}>
                     {isLoadingThis ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                    Complete Payment
+                    Manage
                 </Button>
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -301,17 +302,14 @@ export default function SubscriptionsPage() {
 
   return (
     <div>
-      <h1 className="text-lg font-semibold md:text-2xl font-headline mb-4">
+      <h1 className="text-lg font-semibold md:text-2xl font-headline">
         My Subscriptions
       </h1>
+      <p className="text-muted-foreground mb-4">
+        Manage your active and view past subscriptions.
+      </p>
       <Card>
-        <CardHeader>
-          <CardTitle>Your Subscription History</CardTitle>
-          <CardDescription>
-            Manage your active and view past subscriptions.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <Table>
             <TableHeader>
               <TableRow>
