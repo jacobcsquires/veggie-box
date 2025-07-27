@@ -516,7 +516,7 @@ export default function AdminBoxDetailPage() {
                                         mode="single" 
                                         selected={addStartDate} 
                                         onSelect={setAddStartDate} 
-                                        disabled={(date) => existingPickupDateStrings.has(format(date, 'yyyy-MM-dd'))}
+                                        disabled={(date) => isBefore(date, startOfToday()) || existingPickupDateStrings.has(format(date, 'yyyy-MM-dd'))}
                                         initialFocus 
                                     />
                                 </PopoverContent>
@@ -617,7 +617,7 @@ export default function AdminBoxDetailPage() {
                                         <p className="text-sm text-muted-foreground truncate">{pickup.note || 'No note for this date.'}</p>
                                     </CardContent>
                                     <CardFooter className="gap-2">
-                                        <Button variant="outline" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
+                                        <Button variant="ghost" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
                                             <FilePen className="h-4 w-4"/>
                                             <span className="sr-only">Edit Note</span>
                                         </Button>
@@ -658,7 +658,7 @@ export default function AdminBoxDetailPage() {
                                         <TableCell>{format(pickupDateObj, 'PPP')}</TableCell>
                                         <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
                                         <TableCell className="text-right space-x-2">
-                                            <Button variant="outline" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
+                                            <Button variant="ghost" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
                                                 <FilePen className="h-4 w-4" />
                                                 <span className="sr-only">Edit Note</span>
                                             </Button>
@@ -880,5 +880,3 @@ export default function AdminBoxDetailPage() {
     </div>
   );
 }
-
-    
