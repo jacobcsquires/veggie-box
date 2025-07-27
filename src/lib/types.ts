@@ -21,10 +21,11 @@ export type Subscription = {
     boxId: string;
     boxName:string;
     startDate: string;
-    status: 'Active' | 'Cancelled';
+    status: 'Active' | 'Cancelled' | 'Pending';
     nextPickup: string;
     price: number;
     createdAt: any; // Firestore timestamp
+    stripeSessionId?: string;
 }
 
 export type Pickup = {
@@ -34,7 +35,3 @@ export type Pickup = {
     pickupDate: string; // YYYY-MM-DD
     note: string;
 }
-
-    
-
-    

@@ -112,46 +112,29 @@ export default function Dashboard() {
 
     setIsSubscribing(true);
     try {
-        const boxRef = doc(db, 'boxes', selectedBox.id);
-        
-        await runTransaction(db, async (transaction) => {
-            const boxDoc = await transaction.get(boxRef);
-            if (!boxDoc.exists()) {
-                throw new Error("Box does not exist!");
-            }
-
-            const boxData = boxDoc.data() as Omit<Box, 'id'>;
-            const newSubscribedCount = (boxData.subscribedCount || 0) + 1;
-
-            if (newSubscribedCount > boxData.quantity) {
-                throw new Error("Sorry, this box is now sold out.");
-            }
-
-            transaction.update(boxRef, { subscribedCount: newSubscribedCount });
-
-            // Create new subscription document
-            const subscriptionRef = doc(collection(db, 'subscriptions'));
-            const subscriptionData = {
-                userId: user.uid,
-                customerName: user.displayName,
+        const response = await fetch('/api/checkout_sessions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
                 boxId: selectedBox.id,
                 boxName: selectedBox.name,
                 price: selectedBox.price,
-                status: 'Active',
+                userId: user.uid,
+                customerName: user.displayName,
+                email: user.email,
                 startDate: firstPickup.pickupDate,
-                nextPickup: firstPickup.pickupDate,
-                createdAt: serverTimestamp(),
-            };
-            transaction.set(subscriptionRef, subscriptionData);
+            }),
         });
 
-        toast({
-            title: 'Subscribed!',
-            description: `You've successfully subscribed to the ${selectedBox.name}.`,
-        });
-        
-        setIsDialogOpen(false);
-        setSelectedBox(null);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to create checkout session');
+        }
+
+        const { url } = await response.json();
+        window.location.href = url;
 
     } catch (error: any) {
         console.error('Subscription failed:', error);
@@ -196,6 +179,9 @@ export default function Dashboard() {
           : boxes.map((box) => {
               const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
               const hasSchedule = box.startDate && box.endDate;
+              const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
+              const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
+
 
               return (
                 <Card key={box.id}>
@@ -210,9 +196,9 @@ export default function Dashboard() {
                     />
                     <CardTitle className="pt-4 font-headline">{box.name}</CardTitle>
                     <CardDescription>{box.description}</CardDescription>
-                    {hasSchedule && (
+                    {hasSchedule && startDateObj && endDateObj && (
                         <p className="text-xs text-muted-foreground pt-2">
-                           Available from {format(parseISO(box.startDate!), 'PPP')} to {format(parseISO(box.endDate!), 'PPP')}
+                           Available from {format(startDateObj, 'PPP')} to {format(endDateObj, 'PPP')}
                         </p>
                     )}
                   </CardHeader>
@@ -277,7 +263,7 @@ export default function Dashboard() {
             </div>
             <DialogFooter className="pt-4">
               <Button onClick={handleConfirmSubscription} disabled={isSubscribing || isLoadingPickups || upcomingPickups.length === 0} className="w-full">
-                {isSubscribing ? 'Confirming...' : `Confirm Subscription`}
+                {isSubscribing ? 'Redirecting to payment...' : `Confirm Subscription`}
               </Button>
             </DialogFooter>
           </DialogContent>
