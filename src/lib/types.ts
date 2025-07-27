@@ -12,6 +12,8 @@ export type Box = {
   startDate?: string | null;
   endDate?: string | null;
   createdAt?: any;
+  stripeProductId?: string;
+  stripePriceId?: string;
 };
 
 export type Subscription = {

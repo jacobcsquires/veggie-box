@@ -35,12 +35,17 @@ import type { Box, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Stripe from 'stripe';
 
 type BoxWithSchedule = Box & { nextPickup?: string; totalPickups: number };
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
 const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
+
+const stripe = new Stripe(process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY!, {
+  apiVersion: '2024-06-20',
+});
 
 const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: boolean }) => {
     if (isLoading) {
@@ -225,32 +230,41 @@ export default function AdminBoxesPage() {
     }
     setIsSaving(true);
 
-    let imageUrlToSave: string | undefined;
-    
-    if (imageFile) {
-        try {
+    try {
+        let imageUrlToSave: string | undefined;
+        
+        if (imageFile) {
             const storageRef = ref(storage, `boxes/${Date.now()}_${imageFile.name}`);
             await uploadBytes(storageRef, imageFile);
             imageUrlToSave = await getDownloadURL(storageRef);
-        } catch (error) {
-            console.error('Error uploading image: ', error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not upload the image. Please try again.' });
-            setIsSaving(false);
-            return;
         }
-    }
 
-    const boxData = {
-      name,
-      price: parseFloat(price),
-      description,
-      quantity: parseInt(quantity, 10),
-      image: imageUrlToSave || 'https://placehold.co/600x400.png',
-      startDate: null,
-      endDate: null,
-    };
+        // Create Stripe Product
+        const product = await stripe.products.create({
+            name: name,
+            description: description,
+        });
 
-    try {
+        // Create Stripe Price
+        const stripePrice = await stripe.prices.create({
+            product: product.id,
+            unit_amount: parseFloat(price) * 100,
+            currency: 'usd',
+            recurring: { interval: 'week' },
+        });
+
+        const boxData = {
+          name,
+          price: parseFloat(price),
+          description,
+          quantity: parseInt(quantity, 10),
+          image: imageUrlToSave || 'https://placehold.co/600x400.png',
+          startDate: null,
+          endDate: null,
+          stripeProductId: product.id,
+          stripePriceId: stripePrice.id,
+        };
+
         const fullData = {
           ...boxData,
           subscribedCount: 0,
@@ -258,16 +272,16 @@ export default function AdminBoxesPage() {
           createdAt: serverTimestamp(),
         }
         await addDoc(collection(db, 'boxes'), fullData);
-        toast({ title: 'Success', description: 'New box added successfully.' });
+        toast({ title: 'Success', description: 'New box added and Stripe product created.' });
       
-      resetForm();
-      setIsDialogOpen(false);
-    } catch (error) {
-      console.error('Error saving document: ', error);
+        resetForm();
+        setIsDialogOpen(false);
+    } catch (error: any) {
+      console.error('Error saving box: ', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Could not save the box. Please try again.',
+        description: error.message || 'Could not save the box. Please try again.',
       });
     } finally {
       setIsSaving(false);
@@ -301,7 +315,7 @@ export default function AdminBoxesPage() {
                   <DialogHeader>
                     <DialogTitle>Add New Box</DialogTitle>
                     <DialogDescription>
-                      Fill out the details for the new veggie box. Start and end dates will be populated automatically based on pickup dates.
+                      Fill out the details for the new veggie box. This will also create a new product and price in Stripe.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">

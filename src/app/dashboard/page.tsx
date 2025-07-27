@@ -3,7 +3,7 @@
 
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
-import { collection, doc, runTransaction, serverTimestamp, onSnapshot, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -119,8 +119,6 @@ export default function Dashboard() {
             },
             body: JSON.stringify({
                 boxId: selectedBox.id,
-                boxName: selectedBox.name,
-                price: selectedBox.price,
                 userId: user.uid,
                 customerName: user.displayName,
                 email: user.email,
@@ -213,8 +211,8 @@ export default function Dashboard() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button className="w-full" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut}>
-                        {isSoldOut ? 'Sold Out' : 'Subscribe'}
+                    <Button className="w-full" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.stripePriceId}>
+                        {isSoldOut ? 'Sold Out' : !box.stripePriceId ? 'Not Available' : 'Subscribe'}
                     </Button>
                   </CardFooter>
                 </Card>

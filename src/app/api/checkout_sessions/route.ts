@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { doc, runTransaction, serverTimestamp, collection } from 'firebase/firestore';
+import { doc, runTransaction, serverTimestamp, collection, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Box } from '@/lib/types';
 
@@ -12,10 +12,23 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(request: Request) {
   try {
-    const { boxId, boxName, price, userId, customerName, email, startDate } = await request.json();
+    const { boxId, userId, customerName, email, startDate } = await request.json();
 
-    if (!boxId || !boxName || !price || !userId || !email || !startDate) {
+    if (!boxId || !userId || !email || !startDate) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
+    }
+
+    const boxRef = doc(db, 'boxes', boxId);
+    const boxDoc = await getDoc(boxRef);
+
+    if (!boxDoc.exists()) {
+        throw new Error("Box does not exist!");
+    }
+    const boxData = boxDoc.data() as Box;
+    const { name: boxName, price, stripePriceId } = boxData;
+
+    if (!stripePriceId) {
+        throw new Error("This box is not configured for payments. Please contact support.");
     }
 
     // Create a new subscription document ID in advance
@@ -25,17 +38,7 @@ export async function POST(request: Request) {
       payment_method_types: ['card'],
       line_items: [
         {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: boxName,
-              description: `Subscription to ${boxName}`,
-            },
-            unit_amount: Math.round(price * 100), // Price in cents
-            recurring: {
-              interval: 'week',
-            },
-          },
+          price: stripePriceId,
           quantity: 1,
         },
       ],
@@ -55,17 +58,16 @@ export async function POST(request: Request) {
     });
     
     // Pre-create the subscription document with a 'pending' status
-    const boxRef = doc(db, 'boxes', boxId);
     await runTransaction(db, async (transaction) => {
-        const boxDoc = await transaction.get(boxRef);
-        if (!boxDoc.exists()) {
+        const freshBoxDoc = await transaction.get(boxRef);
+        if (!freshBoxDoc.exists()) {
             throw new Error("Box does not exist!");
         }
 
-        const boxData = boxDoc.data() as Omit<Box, 'id'>;
-        const newSubscribedCount = (boxData.subscribedCount || 0) + 1;
+        const currentBoxData = freshBoxDoc.data() as Omit<Box, 'id'>;
+        const newSubscribedCount = (currentBoxData.subscribedCount || 0) + 1;
 
-        if (newSubscribedCount > boxData.quantity) {
+        if (newSubscribedCount > currentBoxData.quantity) {
             throw new Error("Sorry, this box is now sold out.");
         }
 
