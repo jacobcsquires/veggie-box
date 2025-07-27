@@ -89,9 +89,7 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                  const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
                 return (
                      <Card key={box.id}>
-                        <CardHeader className="p-0">
-                            <Image src={box.image} alt={box.name} width={400} height={200} className="rounded-t-lg object-cover aspect-video" />
-                        </CardHeader>
+                        <Image src={box.image} alt={box.name} width={400} height={200} className="rounded-t-lg object-cover aspect-video w-full" />
                         <CardContent className="p-4 space-y-3">
                             <CardTitle className="text-xl font-headline">{box.name}</CardTitle>
                             <div className="text-sm text-muted-foreground space-y-2">
@@ -425,4 +423,5 @@ export default function AdminBoxesPage() {
   );
 
     
+
 
