@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Box } from '@/lib/types';
-import { Search } from 'lucide-react';
+import { Search, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -30,14 +30,18 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBoxId, setSelectedBoxId] = useState('all');
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     const subsQuery = query(collection(db, 'subscriptions'), where('status', 'in', ['Active', 'Pending']));
@@ -58,6 +62,31 @@ export default function AdminSubscriptionsPage() {
     };
   }, []);
 
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+        const response = await fetch('/api/backfill-stripe-customers', {
+            method: 'POST',
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to sync with Stripe.');
+        }
+        toast({
+            title: 'Sync Complete',
+            description: `${result.updatedCount} subscription(s) were updated.`,
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Sync Error',
+            description: error.message,
+        });
+    } finally {
+        setIsSyncing(false);
+    }
+  };
+
   const filteredSubscriptions = useMemo(() => {
     return subscriptions
       .filter(sub => {
@@ -70,35 +99,42 @@ export default function AdminSubscriptionsPage() {
 
   return (
     <div>
-      <h1 className="text-lg font-semibold md:text-2xl font-headline">
-        Subscriptions
-      </h1>
-      <p className="text-muted-foreground mb-4">
-        A list of all active and pending subscriptions.
-      </p>
-      <div className="flex flex-col md:flex-row gap-2 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search by name..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex items-center justify-between mb-2">
+            <h1 className="text-lg font-semibold md:text-2xl font-headline">
+                Subscriptions
+            </h1>
+            <Button onClick={handleSync} disabled={isSyncing} size="sm">
+                <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Refreshing...' : 'Refresh from Stripe'}
+            </Button>
         </div>
-        <Select value={selectedBoxId} onValueChange={setSelectedBoxId}>
-          <SelectTrigger className="w-full md:w-[200px]">
-            <SelectValue placeholder="Filter by box" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Boxes</SelectItem>
-            {boxes.map(box => (
-              <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+        <p className="text-muted-foreground mb-4">
+            A list of all active and pending subscriptions.
+        </p>
+
+        <div className="flex flex-col md:flex-row gap-2 mb-4">
+            <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder="Search by name..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <Select value={selectedBoxId} onValueChange={setSelectedBoxId}>
+                <SelectTrigger className="w-full md:w-[200px]">
+                    <SelectValue placeholder="Filter by box" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">All Boxes</SelectItem>
+                    {boxes.map(box => (
+                    <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
       <Card>
         <CardContent className="pt-6">
           <Table>
