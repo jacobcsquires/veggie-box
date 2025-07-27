@@ -6,14 +6,14 @@ import { doc, getDoc, collection, onSnapshot, setDoc, query, where, deleteDoc } 
 import { db } from '@/lib/firebase';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { X, Plus, Loader2 } from 'lucide-react';
-import type { Box, BoxItem, Pickup } from '@/lib/types';
+import { Loader2 } from 'lucide-react';
+import type { Box, Pickup } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function AdminSchedulePage({ params }: { params: { boxId: string } }) {
   const { toast } = useToast();
@@ -22,11 +22,8 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
   const [box, setBox] = useState<Box | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [pickups, setPickups] = useState<Pickup[]>([]);
-  const [selectedPickupItems, setSelectedPickupItems] = useState<BoxItem[]>([]);
+  const [pickupNote, setPickupNote] = useState('');
   
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemIcon, setNewItemIcon] = useState('');
-
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -55,37 +52,16 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
   }, [boxId]);
 
   // This effect runs when the user selects a new date or when the pickups data from Firestore changes.
-  // It ensures the local state for items (selectedPickupItems) is always in sync with what's in Firestore for the chosen date.
   useEffect(() => {
     if (selectedDate) {
       const dateString = format(selectedDate, 'yyyy-MM-dd');
       const pickupForDate = pickups.find(d => d.pickupDate === dateString);
-      // If a pickup is saved in Firestore for this date, use its items. Otherwise, start with an empty array.
-      setSelectedPickupItems(pickupForDate?.items || []);
+      setPickupNote(pickupForDate?.note || '');
     } else {
-      setSelectedPickupItems([]);
+      setPickupNote('');
     }
   }, [selectedDate, pickups]);
 
-  const handleAddItem = () => {
-    if (newItemName && newItemIcon) {
-      // Update local state. The changes will be sent to Firestore upon saving.
-      setSelectedPickupItems([...selectedPickupItems, { name: newItemName, icon: newItemIcon }]);
-      setNewItemName('');
-      setNewItemIcon('');
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please provide both an item name and an icon name.',
-      });
-    }
-  };
-
-  const handleRemoveItem = (index: number) => {
-    // Update local state. The changes will be sent to Firestore upon saving.
-    setSelectedPickupItems(selectedPickupItems.filter((_, i) => i !== index));
-  };
 
   // This function handles all interactions with Firestore for saving or deleting pickup data.
   const handleSavePickup = async () => {
@@ -101,21 +77,17 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
     const pickupRef = doc(db, 'pickups', docId);
 
     try {
-        // If there are items, we create or update the document in Firestore.
-        if (selectedPickupItems.length > 0) {
+        if (pickupNote.trim()) {
             const pickupData: Pickup = {
                 id: docId,
                 boxId,
                 boxName: box?.name || '',
                 pickupDate: dateString,
-                items: selectedPickupItems,
+                note: pickupNote,
             };
-            // setDoc with merge:true will create the document if it doesn't exist, or update it if it does.
             await setDoc(pickupRef, pickupData, { merge: true });
-            toast({ title: 'Success', description: `Pickup for ${dateString} saved to Firestore.` });
+            toast({ title: 'Success', description: `Pickup note for ${dateString} saved to Firestore.` });
         } else {
-            // If there are no items, it means we should remove the pickup plan for this date.
-            // We check if the document exists in Firestore before trying to delete it.
             const docSnap = await getDoc(pickupRef);
             if (docSnap.exists()) {
                 await deleteDoc(pickupRef);
@@ -157,7 +129,6 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
                         <CardContent>
                             <Skeleton className="h-24 w-full" />
                             <Skeleton className="h-10 w-full mt-4" />
-                            <Skeleton className="h-10 w-full mt-4" />
                         </CardContent>
                     </Card>
                 </div>
@@ -178,7 +149,7 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
           <Card>
             <CardHeader>
                 <CardTitle>Pick Up Calendar</CardTitle>
-                <CardDescription>Select a date to plan the items for that pick up. Dates with scheduled pickups are highlighted.</CardDescription>
+                <CardDescription>Select a date to plan the note for that pick up. Dates with scheduled pickups are highlighted.</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center">
               <Calendar
@@ -195,36 +166,21 @@ export default function AdminSchedulePage({ params }: { params: { boxId: string 
         <div>
           <Card>
             <CardHeader>
-              <CardTitle>Items for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
-              <CardDescription>Add or remove items for the selected date's box.</CardDescription>
+              <CardTitle>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
+              <CardDescription>Describe what's in the box for the selected date.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Current Items in Box</Label>
-                   {selectedPickupItems.length > 0 ? (
-                        <div className="space-y-2">
-                            {selectedPickupItems.map((item, index) => (
-                                <div key={index} className="flex items-center gap-2 p-2 rounded-md border text-sm">
-                                    <span className="flex-1 font-medium">{item.name}</span>
-                                    <span className="flex-1 text-muted-foreground">{item.icon}</span>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={isSaving}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-muted-foreground py-2 text-center">No items scheduled for this date.</p>
-                    )}
-                </div>
-                <div className="space-y-2">
-                    <Label>Add New Item</Label>
-                    <div className="flex items-center gap-2">
-                        <Input placeholder="Item Name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} disabled={isSaving} />
-                        <Input placeholder="Icon Name" value={newItemIcon} onChange={(e) => setNewItemIcon(e.target.value)} disabled={isSaving}/>
-                        <Button type="button" variant="outline" size="icon" onClick={handleAddItem} disabled={isSaving}><Plus className="h-4 w-4"/></Button>
-                    </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="pickup-note">Weekly Box Note</Label>
+                    <Textarea 
+                        id="pickup-note"
+                        placeholder="e.g. This week's box includes fresh carrots, kale, and a special surprise from the farm!"
+                        value={pickupNote}
+                        onChange={(e) => setPickupNote(e.target.value)}
+                        rows={5}
+                        disabled={isSaving}
+                    />
                 </div>
                  <Button onClick={handleSavePickup} disabled={isSaving || !selectedDate} className="w-full">
                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

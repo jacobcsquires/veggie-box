@@ -28,7 +28,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Box, Pickup, BoxItem } from '@/lib/types';
+import type { Box, Pickup } from '@/lib/types';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 
@@ -44,7 +44,7 @@ export default function Dashboard() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedBox, setSelectedBox] = useState<Box | null>(null);
   const [availablePickups, setAvailablePickups] = useState<Pickup[]>([]);
-  const [selectedPickupItems, setSelectedPickupItems] = useState<BoxItem[]>([]);
+  const [selectedPickupNote, setSelectedPickupNote] = useState('');
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
 
   useEffect(() => {
@@ -73,17 +73,17 @@ export default function Dashboard() {
         if (pickupsData.length > 0) {
             const firstAvailableDate = new Date(pickupsData[0].pickupDate.replace(/-/g, '\/'));
             setDate(firstAvailableDate);
-            setSelectedPickupItems(pickupsData[0].items);
+            setSelectedPickupNote(pickupsData[0].note);
         } else {
             setDate(undefined);
-            setSelectedPickupItems([]);
+            setSelectedPickupNote('');
         }
       });
       return () => unsubscribe();
     } else {
       setAvailablePickups([]);
       setDate(undefined);
-      setSelectedPickupItems([]);
+      setSelectedPickupNote('');
     }
   }, [selectedBox, isDialogOpen]);
 
@@ -91,9 +91,9 @@ export default function Dashboard() {
     if (date) {
         const dateString = format(date, 'yyyy-MM-dd');
         const pickupForDate = availablePickups.find(p => p.pickupDate === dateString);
-        setSelectedPickupItems(pickupForDate?.items || []);
+        setSelectedPickupNote(pickupForDate?.note || '');
     } else {
-        setSelectedPickupItems([]);
+        setSelectedPickupNote('');
     }
   }, [date, availablePickups]);
 
@@ -284,19 +284,11 @@ export default function Dashboard() {
                 </div>
                  <div className="space-y-4 ml-4">
                     <h3 className="font-semibold">What's in the box?</h3>
-                    <div className="space-y-2 text-sm max-h-[220px] overflow-y-auto pr-2">
-                        {selectedPickupItems.length > 0 ? (
-                            selectedPickupItems.map((item, index) => {
-                                const ItemIcon = Icons[item.icon as keyof typeof Icons] || Icons.HelpCircle;
-                                return (
-                                    <div key={index} className="flex items-center gap-2 text-muted-foreground">
-                                        <ItemIcon className="h-4 w-4" />
-                                        <span>{item.name}</span>
-                                    </div>
-                                )
-                            })
+                    <div className="space-y-2 text-sm max-h-[220px] overflow-y-auto pr-2 text-muted-foreground">
+                        {selectedPickupNote ? (
+                           <p>{selectedPickupNote}</p>
                         ) : (
-                            <p className="text-muted-foreground">Select a date to see the items.</p>
+                            <p>Select a date to see the items.</p>
                         )}
                     </div>
                 </div>

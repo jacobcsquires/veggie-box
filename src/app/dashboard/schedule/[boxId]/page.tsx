@@ -17,7 +17,7 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
   const [box, setBox] = useState<Box | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [pickups, setPickups] = useState<Pickup[]>([]);
-  const [selectedPickupItems, setSelectedPickupItems] = useState<any[]>([]);
+  const [selectedPickupNote, setSelectedPickupNote] = useState('');
 
   const [isLoading, setIsLoading] = useState(true);
   
@@ -47,9 +47,9 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
     if (selectedDate) {
       const dateString = format(selectedDate, 'yyyy-MM-dd');
       const pickupForDate = pickups.find(d => d.pickupDate === dateString);
-      setSelectedPickupItems(pickupForDate?.items || []);
+      setSelectedPickupNote(pickupForDate?.note || '');
     } else {
-        setSelectedPickupItems([]);
+        setSelectedPickupNote('');
     }
   }, [selectedDate, pickups]);
 
@@ -117,26 +117,16 @@ export default function UserSchedulePage({ params }: { params: { boxId: string }
           <Card>
             <CardHeader>
               <CardTitle>What's in the box?</CardTitle>
-               <CardDescription>Items for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardDescription>
+               <CardDescription>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="space-y-3">
-                    {selectedPickupItems.length > 0 ? (
-                        selectedPickupItems.map((item, index) => {
-                            const ItemIcon = Icons[item.icon as keyof typeof Icons] || Icons.HelpCircle;
-                            return (
-                                <div key={index} className="flex items-center gap-3 p-3 rounded-md border bg-muted/20">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20">
-                                        <ItemIcon className="h-5 w-5 text-primary" />
-                                    </div>
-                                    <span className="font-medium">{item.name}</span>
-                                </div>
-                            )
-                        })
+                <div className="space-y-3 p-3 rounded-md border bg-muted/20 min-h-[150px]">
+                    {selectedPickupNote ? (
+                        <p className="text-sm text-muted-foreground">{selectedPickupNote}</p>
                     ) : (
                         <p className="text-sm text-muted-foreground text-center py-8">
                             {selectedDate && pickupDates.some(d => format(d, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'))
-                                ? "Items for this pickup haven't been announced yet. Check back soon!"
+                                ? "The note for this pickup haven't been announced yet. Check back soon!"
                                 : "No pick up scheduled for this date."
                             }
                         </p>

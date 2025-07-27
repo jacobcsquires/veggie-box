@@ -1,8 +1,4 @@
 
-export type BoxItem = {
-  name: string;
-  icon: string;
-};
 
 export type Box = {
   id: string;
@@ -35,5 +31,5 @@ export type Pickup = {
     boxId: string;
     boxName: string;
     pickupDate: string; // YYYY-MM-DD
-    items: BoxItem[];
+    note: string;
 }
