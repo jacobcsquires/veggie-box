@@ -1,5 +1,6 @@
 
 
+
 export type Order = {
     id: string;
     customerName: string;
@@ -27,6 +28,7 @@ export type Box = {
 export type Subscription = {
     id: string;
     userId: string;
+    customerName: string | null;
     boxId: string;
     boxName:string;
     startDate: string;
@@ -43,5 +45,7 @@ export type Pickup = {
     pickupDate: string; // YYYY-MM-DD
     note: string;
 }
+
+    
 
     

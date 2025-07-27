@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc, query, where } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Calendar } from '@/components/ui/calendar';
@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Calendar as CalendarIcon, Bot, Trash2 } from 'lucide-react';
-import type { Box, Pickup } from '@/lib/types';
+import type { Box, Pickup, Subscription } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addDays } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
@@ -57,6 +57,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
@@ -66,6 +68,7 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
 
   const [box, setBox] = useState<Box | null>(null);
   const [pickups, setPickups] = useState<PickupInternal[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   
   // States for editing the box
   const [name, setName] = useState('');
@@ -122,9 +125,16 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
       setPickups(pickupsData);
     });
 
+    const subscriptionsQuery = query(collection(db, 'subscriptions'), where('boxId', '==', boxId));
+    const unsubSubscriptions = onSnapshot(subscriptionsQuery, (snapshot) => {
+        const subsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Subscription);
+        setSubscriptions(subsData);
+    });
+
     return () => {
       unsubBox();
       unsubPickups();
+      unsubSubscriptions();
     };
   }, [boxId]);
   
@@ -290,15 +300,7 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
     return (
         <div>
             <Skeleton className="h-8 w-64 mb-4" />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                  <Skeleton className="h-96 w-full" />
-                  <Skeleton className="h-80 w-full" />
-                </div>
-                <div>
-                  <Skeleton className="h-64 w-full" />
-                </div>
-            </div>
+            <Skeleton className="h-96 w-full" />
         </div>
     )
   }
@@ -309,161 +311,228 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
 
   return (
     <div className="space-y-6">
-        <h1 className="text-2xl font-headline">Edit: {box.name}</h1>
+        <h1 className="text-2xl font-headline">Edit Box: {box.name}</h1>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            
-            {/* Left Column: Edit Form + Schedule Generation */}
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <form onSubmit={handleSaveBox}>
-                  <CardHeader>
-                      <CardTitle>Box Details</CardTitle>
-                      <CardDescription>Update the information for this veggie box.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Name</Label>
-                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSavingBox} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="price">Price</Label>
-                        <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} disabled={isSavingBox} />
-                      </div>
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="image">Image</Label>
-                        <div className="flex items-center gap-4">
-                            {imagePreview && <Image src={imagePreview} alt="Preview" width={80} height={80} className="rounded-md object-cover" />}
-                            <Input id="image" type="file" accept="image/*" onChange={handleImageChange} disabled={isSavingBox} className="max-w-xs" />
-                        </div>
-                      </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="description">Description</Label>
-                      <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSavingBox} />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="quantity">Quantity</Label>
-                        <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={isSavingBox} />
-                      </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter>
-                      <Button type="submit" disabled={isSavingBox}>
-                          {isSavingBox ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Box Details'}
-                      </Button>
-                  </CardFooter>
-                </form>
-              </Card>
-
-              <Card>
-                  <CardHeader className="flex-row items-center justify-between">
-                      <div>
-                          <CardTitle>Schedule Pickups</CardTitle>
-                          <CardDescription>Add or remove pickup dates for this box.</CardDescription>
-                      </div>
-                       <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
-                          <DialogTrigger asChild>
-                              <Button>
-                                  <Bot className="mr-2 h-4 w-4" />
-                                  Generate Schedule
-                              </Button>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-[425px]">
-                              <DialogHeader>
-                                  <DialogTitle>Generate Recurring Schedule</DialogTitle>
-                                  <DialogDescription>Automatically create pickup dates for this box.</DialogDescription>
-                              </DialogHeader>
-                              <div className="grid gap-4 py-4">
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                      <Label htmlFor="start-date" className="text-right">Start Date</Label>
-                                      <Popover>
-                                          <PopoverTrigger asChild>
-                                          <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !generateStartDate && "text-muted-foreground")}>
-                                              <CalendarIcon className="mr-2 h-4 w-4" />
-                                              {generateStartDate ? format(generateStartDate, "PPP") : <span>Pick a date</span>}
-                                          </Button>
-                                          </PopoverTrigger>
-                                          <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={generateStartDate} onSelect={setGenerateStartDate} initialFocus /></PopoverContent>
-                                      </Popover>
-                                  </div>
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                      <Label htmlFor="end-date" className="text-right">End Date</Label>
-                                      <Popover>
-                                          <PopoverTrigger asChild>
-                                          <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !generateEndDate && "text-muted-foreground")}>
-                                              <CalendarIcon className="mr-2 h-4 w-4" />
-                                              {generateEndDate ? format(generateEndDate, "PPP") : <span>Pick a date</span>}
-                                          </Button>
-                                          </PopoverTrigger>
-                                          <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={generateEndDate} onSelect={setGenerateEndDate} disabled={(date) => generateStartDate ? date < generateStartDate : false} initialFocus /></PopoverContent>
-                                      </Popover>
-                                  </div>
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                      <Label htmlFor="frequency" className="text-right">Frequency</Label>
-                                      <Select value={generateFrequency} onValueChange={setGenerateFrequency}>
-                                          <SelectTrigger className="col-span-3"><SelectValue placeholder="Select frequency" /></SelectTrigger>
-                                          <SelectContent>
-                                              <SelectItem value="weekly">Weekly</SelectItem>
-                                              <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
-                                          </SelectContent>
-                                      </Select>
-                                  </div>
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                      <Label htmlFor="note" className="text-right">Note</Label>
-                                      <Textarea id="note" value={generateNote} onChange={(e) => setGenerateNote(e.target.value)} className="col-span-3" placeholder="e.g. This week's box includes..." />
-                                  </div>
-                              </div>
-                              <DialogFooter>
-                                  <Button type="button" onClick={handleGenerateSchedule} disabled={isGenerating}>
-                                      {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                      {isGenerating ? 'Generating...' : 'Generate'}
-                                  </Button>
-                              </DialogFooter>
-                          </DialogContent>
-                      </Dialog>
-                  </CardHeader>
-                  <CardContent className="flex justify-center">
-                    <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        modifiers={{ scheduled: pickupDates }}
-                        modifiersClassNames={{ scheduled: 'bg-primary/20' }}
-                        className="rounded-md border"
-                    />
-                  </CardContent>
-              </Card>
-               <Card>
+        <Tabs defaultValue="edit" className="w-full">
+            <TabsList>
+                <TabsTrigger value="edit">Edit</TabsTrigger>
+                <TabsTrigger value="schedule">Schedule</TabsTrigger>
+                <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+            </TabsList>
+            <TabsContent value="edit" className="mt-6">
+                <Card>
+                    <form onSubmit={handleSaveBox}>
                     <CardHeader>
-                        <CardTitle>Scheduled Pickup List</CardTitle>
-                        <CardDescription>A list of all upcoming pickup dates for this box.</CardDescription>
+                        <CardTitle>Box Details</CardTitle>
+                        <CardDescription>Update the information for this veggie box.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Name</Label>
+                            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSavingBox} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="price">Price</Label>
+                            <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} disabled={isSavingBox} />
+                        </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="image">Image</Label>
+                            <div className="flex items-center gap-4">
+                                {imagePreview && <Image src={imagePreview} alt="Preview" width={80} height={80} className="rounded-md object-cover" />}
+                                <Input id="image" type="file" accept="image/*" onChange={handleImageChange} disabled={isSavingBox} className="max-w-xs" />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSavingBox} />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="quantity">Quantity</Label>
+                            <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={isSavingBox} />
+                        </div>
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                        <Button type="submit" disabled={isSavingBox}>
+                            {isSavingBox ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Box Details'}
+                        </Button>
+                    </CardFooter>
+                    </form>
+                </Card>
+            </TabsContent>
+            <TabsContent value="schedule" className="mt-6">
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                    <div className="lg:col-span-2 space-y-6">
+                        <Card>
+                            <CardHeader className="flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle>Schedule Pickups</CardTitle>
+                                    <CardDescription>Add or remove pickup dates for this box.</CardDescription>
+                                </div>
+                                <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button>
+                                            <Bot className="mr-2 h-4 w-4" />
+                                            Generate Schedule
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[425px]">
+                                        <DialogHeader>
+                                            <DialogTitle>Generate Recurring Schedule</DialogTitle>
+                                            <DialogDescription>Automatically create pickup dates for this box.</DialogDescription>
+                                        </DialogHeader>
+                                        <div className="grid gap-4 py-4">
+                                            <div className="grid grid-cols-4 items-center gap-4">
+                                                <Label htmlFor="start-date" className="text-right">Start Date</Label>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                    <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !generateStartDate && "text-muted-foreground")}>
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {generateStartDate ? format(generateStartDate, "PPP") : <span>Pick a date</span>}
+                                                    </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={generateStartDate} onSelect={setGenerateStartDate} initialFocus /></PopoverContent>
+                                                </Popover>
+                                            </div>
+                                            <div className="grid grid-cols-4 items-center gap-4">
+                                                <Label htmlFor="end-date" className="text-right">End Date</Label>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                    <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !generateEndDate && "text-muted-foreground")}>
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {generateEndDate ? format(generateEndDate, "PPP") : <span>Pick a date</span>}
+                                                    </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={generateEndDate} onSelect={setGenerateEndDate} disabled={(date) => generateStartDate ? date < generateStartDate : false} initialFocus /></PopoverContent>
+                                                </Popover>
+                                            </div>
+                                            <div className="grid grid-cols-4 items-center gap-4">
+                                                <Label htmlFor="frequency" className="text-right">Frequency</Label>
+                                                <Select value={generateFrequency} onValueChange={setGenerateFrequency}>
+                                                    <SelectTrigger className="col-span-3"><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="weekly">Weekly</SelectItem>
+                                                        <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="grid grid-cols-4 items-center gap-4">
+                                                <Label htmlFor="note" className="text-right">Note</Label>
+                                                <Textarea id="note" value={generateNote} onChange={(e) => setGenerateNote(e.target.value)} className="col-span-3" placeholder="e.g. This week's box includes..." />
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button type="button" onClick={handleGenerateSchedule} disabled={isGenerating}>
+                                                {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                {isGenerating ? 'Generating...' : 'Generate'}
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            </CardHeader>
+                            <CardContent className="flex justify-center">
+                                <Calendar
+                                    mode="single"
+                                    selected={selectedDate}
+                                    onSelect={setSelectedDate}
+                                    modifiers={{ scheduled: pickupDates }}
+                                    modifiersClassNames={{ scheduled: 'bg-primary/20' }}
+                                    className="rounded-md border"
+                                />
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Scheduled Pickup List</CardTitle>
+                                <CardDescription>A list of all upcoming pickup dates for this box.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Date</TableHead>
+                                            <TableHead>Note</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {pickups.length === 0 ? (
+                                            <TableRow><TableCell colSpan={3} className="text-center h-24">No pickups scheduled yet.</TableCell></TableRow>
+                                        ) : (
+                                            pickups.map(pickup => (
+                                                <TableRow key={pickup.id}>
+                                                    <TableCell>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
+                                                    <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(pickup)}>
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                            <span className="sr-only">Delete</span>
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div className="sticky top-4">
+                      <Card>
+                          <CardHeader>
+                              <CardTitle>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
+                              <CardDescription>Describe what's in the box for the selected date. Clear note to remove pickup.</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                              <div className="space-y-4">
+                                  <div className="space-y-2">
+                                      <Label htmlFor="pickup-note">Weekly Box Note</Label>
+                                      <Textarea id="pickup-note" placeholder="e.g. Fresh carrots, kale, etc." value={pickupNote} onChange={(e) => setPickupNote(e.target.value)} rows={5} disabled={isSavingPickup} />
+                                  </div>
+                                  <Button onClick={handleSavePickup} disabled={isSavingPickup || !selectedDate} className="w-full">
+                                      {isSavingPickup ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                      {isSavingPickup ? 'Saving...' : 'Save Pick Up Plan'}
+                                  </Button>
+                              </div>
+                          </CardContent>
+                      </Card>
+                    </div>
+                </div>
+            </TabsContent>
+             <TabsContent value="subscriptions" className="mt-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Subscribers</CardTitle>
+                        <CardDescription>A list of all users subscribed to this box.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Table>
+                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Note</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableHead>Customer</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Start Date</TableHead>
+                                    <TableHead className="text-right">Price</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {pickups.length === 0 ? (
-                                    <TableRow><TableCell colSpan={3} className="text-center h-24">No pickups scheduled yet.</TableCell></TableRow>
+                                {subscriptions.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center h-24">No one has subscribed to this box yet.</TableCell>
+                                    </TableRow>
                                 ) : (
-                                    pickups.map(pickup => (
-                                        <TableRow key={pickup.id}>
-                                            <TableCell>{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
-                                            <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(pickup)}>
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                    <span className="sr-only">Delete</span>
-                                                </Button>
+                                    subscriptions.map(sub => (
+                                        <TableRow key={sub.id}>
+                                            <TableCell>{sub.customerName || sub.userId}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>{sub.status}</Badge>
                                             </TableCell>
+                                            <TableCell>{format(new Date(sub.startDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
+                                            <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
                                         </TableRow>
                                     ))
                                 )}
@@ -471,30 +540,8 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
                         </Table>
                     </CardContent>
                 </Card>
-            </div>
-
-            {/* Right Column: Pickup Note */}
-            <div>
-              <Card className="sticky top-4">
-                  <CardHeader>
-                      <CardTitle>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
-                      <CardDescription>Describe what's in the box for the selected date. Clear note to remove pickup.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                      <div className="space-y-4">
-                          <div className="space-y-2">
-                              <Label htmlFor="pickup-note">Weekly Box Note</Label>
-                              <Textarea id="pickup-note" placeholder="e.g. Fresh carrots, kale, etc." value={pickupNote} onChange={(e) => setPickupNote(e.target.value)} rows={5} disabled={isSavingPickup} />
-                          </div>
-                          <Button onClick={handleSavePickup} disabled={isSavingPickup || !selectedDate} className="w-full">
-                              {isSavingPickup ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                              {isSavingPickup ? 'Saving...' : 'Save Pick Up Plan'}
-                          </Button>
-                      </div>
-                  </CardContent>
-              </Card>
-            </div>
-      </div>
+            </TabsContent>
+        </Tabs>
       
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
@@ -511,3 +558,5 @@ export default function AdminBoxDetailPage({ params }: { params: { boxId: string
     </div>
   );
 }
+
+    

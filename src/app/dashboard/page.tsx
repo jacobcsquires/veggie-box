@@ -150,6 +150,7 @@ export default function Dashboard() {
             const subscriptionRef = doc(collection(db, 'subscriptions'));
             const subscriptionData = {
                 userId: user.uid,
+                customerName: user.displayName,
                 boxId: selectedBox.id,
                 boxName: selectedBox.name,
                 price: selectedBox.price,
@@ -311,3 +312,5 @@ export default function Dashboard() {
     </>
   );
 }
+
+    
