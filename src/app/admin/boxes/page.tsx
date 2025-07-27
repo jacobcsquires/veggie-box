@@ -31,7 +31,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -70,7 +69,6 @@ export default function AdminBoxesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [boxToDelete, setBoxToDelete] = useState<Box | null>(null);
 
@@ -153,42 +151,6 @@ export default function AdminBoxesPage() {
     }
   };
   
-  const handleSyncSchedules = async () => {
-      setIsSyncing(true);
-      toast({ title: "Starting Schedule Sync", description: "Updating start and end dates for all boxes..." });
-
-      try {
-          const batch = writeBatch(db);
-          const boxesSnapshot = await getDocs(collection(db, 'boxes'));
-          
-          for (const boxDoc of boxesSnapshot.docs) {
-              const boxRef = boxDoc.ref;
-              const pickupsRef = collection(db, 'boxes', boxDoc.id, 'pickups');
-              const pickupsSnapshot = await getDocs(query(pickupsRef, orderBy('pickupDate')));
-              
-              if (pickupsSnapshot.empty) {
-                  batch.update(boxRef, { startDate: "Schedule TBD", endDate: "Schedule TBD" });
-              } else {
-                  const pickupsData = pickupsSnapshot.docs.map(doc => doc.data() as PickupInternal);
-                  const firstPickupDate = pickupsData[0].pickupDate;
-                  const lastPickupDate = pickupsData[pickupsData.length - 1].pickupDate;
-                  batch.update(boxRef, { 
-                      startDate: format(new Date(firstPickupDate.replace(/-/g, '\/')), 'PPP'), 
-                      endDate: format(new Date(lastPickupDate.replace(/-/g, '\/')), 'PPP')
-                  });
-              }
-          }
-          
-          await batch.commit();
-          toast({ title: "Sync Successful", description: "All box schedules have been updated." });
-      } catch (error) {
-          console.error("Schedule sync failed:", error);
-          toast({ variant: 'destructive', title: "Sync Failed", description: "An error occurred during schedule synchronization." });
-      } finally {
-          setIsSyncing(false);
-      }
-  };
-
   const handleSaveBox = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !price || !description || !quantity) {
@@ -360,17 +322,11 @@ export default function AdminBoxesPage() {
         </div>
       </div>
       <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <div>
-            <CardTitle>Veggie Boxes</CardTitle>
-            <CardDescription>
-              A list of all available veggie boxes.
-            </CardDescription>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleSyncSchedules} disabled={isSyncing}>
-            {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
-            {isSyncing ? 'Syncing...' : 'Sync Schedules'}
-          </Button>
+        <CardHeader>
+          <CardTitle>Veggie Boxes</CardTitle>
+          <CardDescription>
+            A list of all available veggie boxes.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -466,3 +422,5 @@ export default function AdminBoxesPage() {
 
     </div>
   );
+}
+    
