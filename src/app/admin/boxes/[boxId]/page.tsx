@@ -819,17 +819,22 @@ export default function AdminBoxDetailPage() {
                                     </div>
                                 )}
                                 <div className="space-y-2">
-                                    <Label>Pricing Options</Label>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <Label>Pricing Options</Label>
+                                        <Button type="button" variant="outline" size="sm" onClick={addPricingOption} disabled={isSavingBox}>
+                                            <PlusCircle className="mr-2 h-4 w-4"/> Add Option
+                                        </Button>
+                                    </div>
                                     <div className="space-y-3 rounded-md border p-4">
                                         {pricingOptions.map((option, index) => (
                                             <div key={option.id || index} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                                                 <div className="col-span-12 md:col-span-4 space-y-1">
                                                     <Label htmlFor={`price-name-${index}`} className="text-xs text-muted-foreground">Option Name</Label>
-                                                    <Input id={`price-name-${index}`} placeholder="e.g. Single Share" value={option.name} onChange={(e) => handlePricingOptionChange(index, 'name', e.target.value)} disabled={isSavingBox} />
+                                                    <Input id={`price-name-${index}`} placeholder="e.g. Single Share" value={option.name} onChange={(e) => handlePricingOptionChange(index, 'name', e.target.value)} disabled={isSavingBox || !!option.id} />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2 space-y-1">
                                                     <Label htmlFor={`price-value-${index}`} className="text-xs text-muted-foreground">Price ($)</Label>
-                                                    <Input id={`price-value-${index}`} type="number" placeholder="25.00" value={option.price} onChange={(e) => handlePricingOptionChange(index, 'price', parseFloat(e.target.value))} disabled={isSavingBox} />
+                                                    <Input id={`price-value-${index}`} type="number" placeholder="25.00" value={option.price} onChange={(e) => handlePricingOptionChange(index, 'price', parseFloat(e.target.value))} disabled={isSavingBox || !!option.id} />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-2 space-y-1">
                                                     <Label className="text-xs text-muted-foreground">Active Subs</Label>
@@ -854,9 +859,6 @@ export default function AdminBoxDetailPage() {
                                                 </div>
                                             </div>
                                         ))}
-                                        <Button type="button" variant="outline" size="sm" onClick={addPricingOption} disabled={isSavingBox}>
-                                            <PlusCircle className="mr-2 h-4 w-4"/> Add Option
-                                        </Button>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -915,12 +917,9 @@ export default function AdminBoxDetailPage() {
                                     </div>
                                 </div>
                             </CardContent>
-                            <CardFooter className="justify-between">
+                            <CardFooter className="justify-start">
                                 <Button type="submit" disabled={isSavingBox}>
                                     {isSavingBox ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Plan Details'}
-                                </Button>
-                                <Button variant="destructive" type="button" onClick={() => setIsBoxDeleteDialogOpen(true)}>
-                                    <Trash2 className="mr-2 h-4 w-4" /> Delete Plan
                                 </Button>
                             </CardFooter>
                         </form>
