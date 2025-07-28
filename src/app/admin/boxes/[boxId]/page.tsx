@@ -138,7 +138,6 @@ export default function AdminBoxDetailPage() {
   const [pickupToDelete, setPickupToDelete] = useState<PickupInternal | null>(null);
   const [isBoxDeleteDialogOpen, setIsBoxDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isUpdatingStripe, setIsUpdatingStripe] = useState(false);
 
   // State for schedule view
   const [scheduleView, setScheduleView] = useState<'list' | 'calendar' | 'card'>('list');
@@ -411,45 +410,18 @@ export default function AdminBoxDetailPage() {
     }
   };
   
-  const handleAddSinglePickup = async (date: Date, isNewFirstPickup: boolean) => {
+  const handleAddSinglePickup = async (date: Date) => {
     if (!box) return;
-
-    setIsUpdatingStripe(true);
     const dateString = format(date, 'yyyy-MM-dd');
     
     try {
-      const pickupData = {
-        pickupDate: dateString,
-        note: pickups[0]?.note || '', // Carry over the first note if adding before
-      };
+      const pickupData = { pickupDate: dateString, note: '' };
       await addDoc(collection(db, 'boxes', boxId, 'pickups'), pickupData);
       toast({ title: 'Success', description: `Pickup for ${dateString} added.` });
-
-      if (isNewFirstPickup) {
-        const response = await fetch('/api/update-billing-anchor', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ boxId: box.id, newStartDate: dateString }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to update billing dates in Stripe.');
-        }
-
-        const { updatedCount } = await response.json();
-        toast({
-            title: 'Stripe Updated',
-            description: `Billing anchor updated for ${updatedCount} subscription(s).`
-        });
-      }
-
       await updateBoxDates();
     } catch (error: any) {
       console.error('Error adding single pickup:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Could not add the pickup.' });
-    } finally {
-      setIsUpdatingStripe(false);
     }
   };
 
@@ -459,47 +431,19 @@ export default function AdminBoxDetailPage() {
   };
   
   const confirmDeletePickup = async () => {
-      if (!pickupToDelete || !box) return;
+    if (!pickupToDelete || !box) return;
 
-      const isFirstPickup = pickups.length > 0 && pickups[0].id === pickupToDelete.id;
-
-      try {
-          await deleteDoc(doc(db, 'boxes', boxId, 'pickups', pickupToDelete.id));
-          toast({ title: 'Success', description: `Pickup for ${pickupToDelete.pickupDate} has been deleted.` });
-
-          const remainingPickups = pickups.filter(p => p.id !== pickupToDelete.id);
-          
-          if (isFirstPickup && remainingPickups.length > 0) {
-            setIsUpdatingStripe(true);
-            const newFirstPickup = remainingPickups[0];
-            
-            const response = await fetch('/api/update-billing-anchor', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ boxId: box.id, newStartDate: newFirstPickup.pickupDate }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to update billing dates in Stripe.');
-            }
-
-            const { updatedCount } = await response.json();
-            toast({
-                title: 'Stripe Updated',
-                description: `Billing anchor updated for ${updatedCount} subscription(s).`
-            });
-          }
-
-          await updateBoxDates();
-      } catch (error: any) {
-          console.error('Error during pickup deletion process: ', error);
-          toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not complete the deletion process.' });
-      } finally {
-          setIsPickupDeleteDialogOpen(false);
-          setPickupToDelete(null);
-          setIsUpdatingStripe(false);
-      }
+    try {
+        await deleteDoc(doc(db, 'boxes', boxId, 'pickups', pickupToDelete.id));
+        toast({ title: 'Success', description: `Pickup for ${pickupToDelete.pickupDate} has been deleted.` });
+        await updateBoxDates();
+    } catch (error: any) {
+        console.error('Error during pickup deletion process: ', error);
+        toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not complete the deletion process.' });
+    } finally {
+        setIsPickupDeleteDialogOpen(false);
+        setPickupToDelete(null);
+    }
   };
   
   const confirmDeleteBox = async () => {
@@ -604,7 +548,7 @@ export default function AdminBoxDetailPage() {
                 <DialogTrigger asChild>
                     <Button>
                         <PlusCircle className="mr-2 h-4 w-4" />
-                        Add
+                        Add Pickups
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px]">
@@ -675,9 +619,9 @@ export default function AdminBoxDetailPage() {
         return (
              <Popover>
                 <PopoverTrigger asChild>
-                    <Button disabled={isUpdatingStripe}>
-                        {isUpdatingStripe ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                        {isUpdatingStripe ? 'Updating...' : 'Add'}
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Add
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -686,8 +630,7 @@ export default function AdminBoxDetailPage() {
                              <Button
                                 variant="ghost"
                                 className="justify-start"
-                                onClick={() => handleAddSinglePickup(previousPossiblePickupDate, true)}
-                                disabled={isUpdatingStripe}
+                                onClick={() => handleAddSinglePickup(previousPossiblePickupDate)}
                             >
                                 Add previous: {format(previousPossiblePickupDate, 'PPP')}
                             </Button>
@@ -696,15 +639,61 @@ export default function AdminBoxDetailPage() {
                              <Button
                                 variant="ghost"
                                 className="justify-start"
-                                onClick={() => handleAddSinglePickup(nextPossiblePickupDate, false)}
-                                disabled={isUpdatingStripe}
+                                onClick={() => handleAddSinglePickup(nextPossiblePickupDate)}
                             >
                                 Add next: {format(nextPossiblePickupDate, 'PPP')}
                             </Button>
                         )}
-                        {!previousPossiblePickupDate && !nextPossiblePickupDate && (
-                            <p className="text-sm text-muted-foreground p-2">Cannot determine next/previous date.</p>
-                        )}
+                        <Dialog open={isAddPickupDialogOpen} onOpenChange={setIsAddPickupDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="ghost" className="justify-start">Generate Multiple...</Button>
+                            </DialogTrigger>
+                             <DialogContent className="sm:max-w-[425px]">
+                                <DialogHeader>
+                                    <DialogTitle>Add Multiple Pickups</DialogTitle>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                     <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="start-date" className="text-right">Start Date</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                            <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !addStartDate && "text-muted-foreground")}>
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {addStartDate ? format(addStartDate, "PPP") : <span>Pick a date</span>}
+                                            </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar mode="single" selected={addStartDate} onSelect={setAddStartDate} initialFocus />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="end-date" className="text-right">End Date</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                            <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !addEndDate && "text-muted-foreground")}>
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {addEndDate ? format(addEndDate, "PPP") : <span>Pick an end date</span>}
+                                            </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar mode="single" selected={addEndDate} onSelect={setAddEndDate} disabled={(date) => addStartDate ? isBefore(date, addStartDate) : false} initialFocus />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="note" className="text-right">Note</Label>
+                                        <Textarea id="note" value={addNote} onChange={(e) => setAddNote(e.target.value)} className="col-span-3" placeholder="Optional: e.g. This week's box includes..." />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button type="button" onClick={handleAddPickups} disabled={isAddingPickup}>
+                                        {isAddingPickup && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {isAddingPickup ? 'Adding...' : 'Add Pickups'}
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 </PopoverContent>
             </Popover>
@@ -1048,17 +1037,15 @@ export default function AdminBoxDetailPage() {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               {pickupToDelete && isBefore(new Date(pickupToDelete.pickupDate.replace(/-/g, '\/')), startOfToday()) && (
-                <span className="font-bold text-destructive">Warning: You are deleting a pickup from the past. </span>
+                <span className="font-bold text-destructive">Warning: You are deleting a pickup from the past. </span> 
               )}
               This action cannot be undone. This will permanently delete the pickup scheduled for "{pickupToDelete?.pickupDate}".
-              {isUpdatingStripe && " We're updating Stripe billing, please don't close this dialog."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isUpdatingStripe}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeletePickup} className="bg-destructive hover:bg-destructive/90" disabled={isUpdatingStripe}>
-                {isUpdatingStripe && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isUpdatingStripe ? "Updating Stripe..." : "Yes, delete pickup"}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePickup} className="bg-destructive hover:bg-destructive/90">
+                Yes, delete pickup
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1083,4 +1070,5 @@ export default function AdminBoxDetailPage() {
       </AlertDialog>
     </div>
   );
-}
+
+    
