@@ -15,6 +15,8 @@ export type Box = {
   stripeProductId?: string;
   stripePriceId?: string;
   frequency: 'weekly' | 'bi-weekly' | 'monthly';
+  displayOnWebsite: boolean;
+  manualSignupCutoff: boolean;
 };
 
 export type Subscription = {

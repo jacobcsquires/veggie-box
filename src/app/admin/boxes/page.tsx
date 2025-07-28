@@ -37,6 +37,7 @@ import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type BoxWithSchedule = Box & { nextPickup?: string; totalPickups: number };
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
@@ -158,7 +159,7 @@ const EmbedCodeDialog = () => {
     return (
          <Dialog>
             <DialogTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" size="lg">
                   <Code className="mr-2 h-4 w-4" />
                   Embed Plans
                 </Button>
@@ -197,6 +198,8 @@ export default function AdminBoxesPage() {
   const [frequency, setFrequency] = useState<'weekly' | 'bi-weekly' | 'monthly'>('weekly');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [displayOnWebsite, setDisplayOnWebsite] = useState(true);
+  const [manualSignupCutoff, setManualSignupCutoff] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'boxes'), async (snapshot) => {
@@ -262,6 +265,8 @@ export default function AdminBoxesPage() {
     setFrequency('weekly');
     setImageFile(null);
     setImagePreview(null);
+    setDisplayOnWebsite(true);
+    setManualSignupCutoff(false);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -317,6 +322,8 @@ export default function AdminBoxesPage() {
           endDate: null,
           stripeProductId,
           stripePriceId,
+          displayOnWebsite,
+          manualSignupCutoff,
         };
 
         const fullData = {
@@ -357,7 +364,7 @@ export default function AdminBoxesPage() {
                 }
             }}>
               <DialogTrigger asChild>
-                <Button>
+                <Button size="lg">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Add Plan
                 </Button>
@@ -451,6 +458,23 @@ export default function AdminBoxesPage() {
                         disabled={isSaving}
                       />
                     </div>
+                     <div className="grid grid-cols-4 items-start gap-4">
+                        <Label className="text-right pt-2">Settings</Label>
+                        <div className="col-span-3 space-y-3">
+                            <div className="flex items-center space-x-2">
+                                <Checkbox id="displayOnWebsite" checked={displayOnWebsite} onCheckedChange={(checked) => setDisplayOnWebsite(Boolean(checked))} disabled={isSaving} />
+                                <Label htmlFor="displayOnWebsite" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    Display this plan on the public website.
+                                </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Checkbox id="manualSignupCutoff" checked={manualSignupCutoff} onCheckedChange={(checked) => setManualSignupCutoff(Boolean(checked))} disabled={isSaving} />
+                                <Label htmlFor="manualSignupCutoff" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    Manually turn off new sign-ups for this plan.
+                                </Label>
+                            </div>
+                        </div>
+                    </div>
                   </div>
                   <DialogFooter>
                     <Button type="submit" disabled={isSaving}>
@@ -468,7 +492,7 @@ export default function AdminBoxesPage() {
             <TabsTrigger value="past"><Archive className="mr-2 h-4 w-4" />Past Plans ({pastBoxes.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="active" className="mt-4">
-           <BoxGrid boxes={activeBoxes} isLoading={isLoading} />
+           <BoxGrid boxes={activeBoxes.filter(b => b.displayOnWebsite)} isLoading={isLoading} />
         </TabsContent>
         <TabsContent value="past" className="mt-4">
             <BoxGrid boxes={pastBoxes} isLoading={isLoading} />

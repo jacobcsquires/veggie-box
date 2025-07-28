@@ -69,6 +69,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
@@ -117,6 +119,8 @@ export default function AdminBoxDetailPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSavingBox, setIsSavingBox] = useState(false);
+  const [displayOnWebsite, setDisplayOnWebsite] = useState(true);
+  const [manualSignupCutoff, setManualSignupCutoff] = useState(false);
 
   // States for the calendar and pickup notes
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
@@ -163,6 +167,8 @@ export default function AdminBoxDetailPage() {
         setQuantity(boxData.quantity.toString());
         setFrequency(boxData.frequency || 'weekly');
         setImagePreview(boxData.image);
+        setDisplayOnWebsite(boxData.displayOnWebsite);
+        setManualSignupCutoff(boxData.manualSignupCutoff);
       }
       setIsLoading(false);
     });
@@ -291,6 +297,8 @@ export default function AdminBoxDetailPage() {
           quantity: parseInt(quantity, 10),
           image: imageUrlToSave,
           stripePriceId: newStripePriceId,
+          displayOnWebsite,
+          manualSignupCutoff,
         };
 
         const boxRef = doc(db, 'boxes', boxId);
@@ -825,8 +833,23 @@ export default function AdminBoxDetailPage() {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                <Label htmlFor="description">Description</Label>
-                                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSavingBox} />
+                                    <Label htmlFor="description">Description</Label>
+                                    <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSavingBox} />
+                                </div>
+                                <div className="space-y-4">
+                                    <Label>Settings</Label>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox id="displayOnWebsite" checked={displayOnWebsite} onCheckedChange={(checked) => setDisplayOnWebsite(Boolean(checked))} disabled={isSavingBox} />
+                                        <Label htmlFor="displayOnWebsite" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                            Display this plan on the public website.
+                                        </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox id="manualSignupCutoff" checked={manualSignupCutoff} onCheckedChange={(checked) => setManualSignupCutoff(Boolean(checked))} disabled={isSavingBox} />
+                                        <Label htmlFor="manualSignupCutoff" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                            Manually turn off new sign-ups for this plan.
+                                        </Label>
+                                    </div>
                                 </div>
                             </CardContent>
                             <CardFooter className="justify-between">

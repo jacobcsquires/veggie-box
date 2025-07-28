@@ -70,7 +70,8 @@ export default function HomePage() {
   }, [user, authLoading, router]);
   
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'boxes'), (snapshot) => {
+    const q = query(collection(db, 'boxes'), where('displayOnWebsite', '==', true));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const boxesData = snapshot.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() } as Box)
       );
@@ -283,8 +284,8 @@ export default function HomePage() {
                             </p>
                             <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                             </div>
-                            <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.stripePriceId}>
-                                {isSoldOut ? 'Sold Out' : !box.stripePriceId ? 'Not Available' : 'Subscribe'}
+                            <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.stripePriceId || box.manualSignupCutoff}>
+                                {isSoldOut ? 'Sold Out' : !box.stripePriceId ? 'Not Available' : box.manualSignupCutoff ? 'Sign-ups Closed' : 'Subscribe'}
                             </Button>
                         </CardFooter>
                         </Card>
