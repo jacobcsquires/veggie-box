@@ -196,6 +196,7 @@ export default function AdminBoxesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Form state
   const [name, setName] = useState('');
@@ -383,6 +384,31 @@ export default function AdminBoxesPage() {
     }
   };
 
+  const handleSync = async () => {
+        setIsSyncing(true);
+        try {
+            const response = await fetch('/api/sync-stripe-products', {
+                method: 'POST',
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to sync with Stripe.');
+            }
+            toast({
+                title: 'Sync Complete',
+                description: `${result.createdCount} new plan(s) created, ${result.updatedCount} updated.`,
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Sync Error',
+                description: error.message,
+            });
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-2">
@@ -391,6 +417,10 @@ export default function AdminBoxesPage() {
         </h1>
         <div className="flex items-center gap-2">
             <EmbedCodeDialog />
+            <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="lg">
+                <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Sync with Stripe'}
+            </Button>
             <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
                 setIsDialogOpen(isOpen);
                 if (!isOpen) {
