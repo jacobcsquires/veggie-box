@@ -16,6 +16,10 @@ export async function POST(request: Request) {
     
     // Retrieve the customer object
     const customer = await stripe.customers.retrieve(customerId);
+    if (customer.deleted) {
+        return NextResponse.json({ message: 'Customer has been deleted in Stripe.' }, { status: 404 });
+    }
+
 
     // Retrieve active subscriptions for the customer
     const subscriptions = await stripe.subscriptions.list({
@@ -39,8 +43,13 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Stripe API Error:', error);
+    if (error.type === 'invalid_request_error' && error.code === 'resource_missing') {
+       return NextResponse.json({ message: 'Customer not found in Stripe.' }, { status: 404 });
+    }
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
+
+    
 
     

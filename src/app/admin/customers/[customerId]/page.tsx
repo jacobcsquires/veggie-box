@@ -182,7 +182,7 @@ export default function CustomerDetailPage() {
                                         <TableRow key={sub.id}>
                                             <TableCell>{sub.items.data[0]?.price.nickname || productName || 'N/A'}</TableCell>
                                             <TableCell><Badge variant={getStripeStatusBadgeVariant(sub.status)} className="capitalize">{sub.status.replace(/_/g, ' ')}</Badge></TableCell>
-                                            <TableCell>{format(new Date(sub.current_period_end * 1000), 'PPP')}</TableCell>
+                                            <TableCell>{sub.current_period_end ? format(new Date(sub.current_period_end * 1000), 'PPP') : 'N/A'}</TableCell>
                                         </TableRow>
                                     )
                                 })}
@@ -195,7 +195,7 @@ export default function CustomerDetailPage() {
         
         <Card>
             <CardHeader>
-                <CardTitle>Transaction History</CardTitle>
+                <CardTitle>Payment History</CardTitle>
             </CardHeader>
             <CardContent>
                 {isStripeLoading ? <Skeleton className="h-40 w-full" /> : (
@@ -206,6 +206,7 @@ export default function CustomerDetailPage() {
                                     <TableHead>Date</TableHead>
                                     <TableHead>Amount</TableHead>
                                     <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Receipt</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -214,6 +215,15 @@ export default function CustomerDetailPage() {
                                         <TableCell>{format(new Date(charge.created * 1000), 'PPP')}</TableCell>
                                         <TableCell>${(charge.amount / 100).toFixed(2)}</TableCell>
                                         <TableCell><Badge variant={getChargeStatusBadgeVariant(charge.status)}>{charge.status}</Badge></TableCell>
+                                        <TableCell className="text-right">
+                                            {charge.receipt_url &&
+                                                <Button variant="ghost" size="icon" asChild>
+                                                    <a href={charge.receipt_url} target="_blank" rel="noopener noreferrer">
+                                                        <ExternalLink className="h-4 w-4" />
+                                                    </a>
+                                                </Button>
+                                            }
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -226,3 +236,6 @@ export default function CustomerDetailPage() {
       </div>
     </div>
   );
+}
+
+    
