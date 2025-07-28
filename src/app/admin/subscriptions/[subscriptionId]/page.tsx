@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { Loader2, ExternalLink } from 'lucide-react';
+import { Loader2, ExternalLink, ChevronRight, RefreshCw } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type Stripe from 'stripe';
@@ -37,6 +37,7 @@ export default function SubscriptionDetailPage() {
   const [isStripeLoading, setIsStripeLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isManagingPortal, setIsManagingPortal] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
 
   // Form state
@@ -61,28 +62,30 @@ export default function SubscriptionDetailPage() {
     return () => unsubscribe();
   }, [subscriptionId, router, toast]);
 
+  const fetchStripeData = async () => {
+        if (!subscription?.stripeSubscriptionId) return;
+        setIsStripeLoading(true);
+        try {
+            const response = await fetch('/api/get-stripe-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stripeSubscriptionId: subscription.stripeSubscriptionId }),
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to fetch Stripe data.');
+            }
+            const data = await response.json();
+            setStripeData(data);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Stripe Error', description: error.message });
+        } finally {
+            setIsStripeLoading(false);
+        }
+    };
+
   useEffect(() => {
     if (subscription?.stripeSubscriptionId) {
-        const fetchStripeData = async () => {
-            setIsStripeLoading(true);
-            try {
-                const response = await fetch('/api/get-stripe-subscription', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ stripeSubscriptionId: subscription.stripeSubscriptionId }),
-                });
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || 'Failed to fetch Stripe data.');
-                }
-                const data = await response.json();
-                setStripeData(data);
-            } catch (error: any) {
-                toast({ variant: 'destructive', title: 'Stripe Error', description: error.message });
-            } finally {
-                setIsStripeLoading(false);
-            }
-        };
         fetchStripeData();
     } else if (subscription) {
         // If there's a subscription but no stripe ID, we're not loading stripe data.
@@ -164,6 +167,13 @@ export default function SubscriptionDetailPage() {
     }
   };
 
+  const handleSync = async () => {
+        setIsSyncing(true);
+        await fetchStripeData();
+        toast({ title: "Sync Complete", description: "Subscription data has been updated from Stripe."})
+        setIsSyncing(false);
+    }
+
 
   if (isLoading) {
     return (
@@ -206,15 +216,28 @@ export default function SubscriptionDetailPage() {
 
   return (
     <div className="space-y-6">
+       <div className="flex items-center text-sm text-muted-foreground">
+        <Link href="/admin/subscriptions" className="hover:text-primary">Subscriptions</Link>
+        <ChevronRight className="h-4 w-4 mx-1" />
+        <span className="font-medium text-foreground">{subscription.id}</span>
+      </div>
       <div className="flex justify-between items-start">
         <div>
             <h1 className="text-2xl font-headline">Subscription Details</h1>
             <p className="text-muted-foreground mt-1">Manage subscription and view payment history.</p>
         </div>
-        <Button onClick={() => handleManageSubscription(subscription.stripeCustomerId)} disabled={isManagingPortal || !subscription.stripeCustomerId}>
-            {isManagingPortal && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            View in Stripe
-        </Button>
+        <div className="flex items-center gap-2">
+            {subscription.stripeSubscriptionId && (
+                <Button onClick={handleSync} disabled={isSyncing || isStripeLoading} variant="outline">
+                    <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                    Sync with Stripe
+                </Button>
+            )}
+            <Button onClick={() => handleManageSubscription(subscription.stripeCustomerId)} disabled={isManagingPortal || !subscription.stripeCustomerId}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                View in Stripe
+            </Button>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -254,6 +277,7 @@ export default function SubscriptionDetailPage() {
                             <SelectItem value="Pending">Pending</SelectItem>
                             <SelectItem value="Cancelled">Cancelled</SelectItem>
                             <SelectItem value="Past Due">Past Due</SelectItem>
+                            <SelectItem value="Unpaid">Unpaid</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

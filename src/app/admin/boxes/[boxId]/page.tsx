@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown, ExternalLink } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown, ExternalLink, ChevronRight } from 'lucide-react';
 import type { Box, Pickup, Subscription, PricingOption } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addDays, isBefore, startOfToday, addMonths, subDays, subMonths } from 'date-fns';
@@ -63,6 +63,7 @@ import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
+import Link from 'next/link';
 
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
@@ -740,8 +741,10 @@ export default function AdminBoxDetailPage() {
 
   return (
     <div className="space-y-6">
-        <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-headline">Edit Plan: {box.name}</h1>
+        <div className="flex items-center text-sm text-muted-foreground">
+            <Link href="/admin/boxes" className="hover:text-primary">Veggie Box Plans</Link>
+            <ChevronRight className="h-4 w-4 mx-1" />
+            <span className="font-medium text-foreground">{box.name}</span>
         </div>
         
         <Tabs defaultValue="details" className="w-full">

@@ -19,6 +19,7 @@ const findSubscriptionByStripeId = async (stripeSubscriptionId: string): Promise
     const q = query(subsRef, where("stripeSubscriptionId", "==", stripeSubscriptionId));
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) {
+        console.log(`Webhook: Could not find local subscription for Stripe ID: ${stripeSubscriptionId}`);
         return null;
     }
     const doc = querySnapshot.docs[0];
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
 
   // Handle the event
   switch (event.type) {
-    case 'checkout.session.completed':
+    case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
 
       // This is where we fulfill the order.
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
           stripeCustomerId: session.customer,
           stripeSessionId: session.id,
         });
+        console.log(`Webhook: Successfully activated subscription ${subscriptionId}`);
       } catch (error) {
         console.error(`Webhook Error: Failed to update Firestore for subscriptionId: ${subscriptionId}`, error);
         // This is a server error, so we return a 500 to let Stripe know it should retry.
@@ -69,15 +71,17 @@ export async function POST(req: Request) {
       }
 
       break;
-    
+    }
     case 'customer.subscription.updated': {
         const subscriptionUpdated = event.data.object as Stripe.Subscription;
+        console.log(`Webhook: Received customer.subscription.updated for ${subscriptionUpdated.id}`);
         const localSub = await findSubscriptionByStripeId(subscriptionUpdated.id);
         
         if (localSub) {
             const newStatus = subscriptionUpdated.status.charAt(0).toUpperCase() + subscriptionUpdated.status.slice(1);
             try {
                  await updateDoc(doc(db, 'subscriptions', localSub.id), { status: newStatus });
+                 console.log(`Webhook: Successfully updated status for local subscription ${localSub.id} to ${newStatus}`);
             } catch(error) {
                 console.error(`Webhook: Failed to update subscription status for ${localSub.id}`, error);
                 return NextResponse.json({ error: 'Failed to update subscription in database.' }, { status: 500 });
@@ -88,12 +92,14 @@ export async function POST(req: Request) {
 
     case 'customer.subscription.deleted': {
         const subscriptionDeleted = event.data.object as Stripe.Subscription;
+        console.log(`Webhook: Received customer.subscription.deleted for ${subscriptionDeleted.id}`);
         const localSub = await findSubscriptionByStripeId(subscriptionDeleted.id);
 
         if (localSub) {
              try {
-                //  Mark as cancelled, or whatever status makes sense for a hard delete from stripe
+                // Mark as cancelled, or whatever status makes sense for a hard delete from stripe
                  await updateDoc(doc(db, 'subscriptions', localSub.id), { status: 'Cancelled' });
+                 console.log(`Webhook: Successfully marked local subscription ${localSub.id} as Cancelled`);
             } catch(error) {
                 console.error(`Webhook: Failed to mark subscription as cancelled for ${localSub.id}`, error);
                 return NextResponse.json({ error: 'Failed to update subscription in database.' }, { status: 500 });
@@ -103,7 +109,9 @@ export async function POST(req: Request) {
     }
         
     default:
-      console.log(`Unhandled event type ${event.type}`);
+      // Temporarily log all unhandled events to see what's coming in
+      // console.log(`Unhandled event type ${event.type}`, event.data.object);
+      break;
   }
 
   return NextResponse.json({ received: true });
