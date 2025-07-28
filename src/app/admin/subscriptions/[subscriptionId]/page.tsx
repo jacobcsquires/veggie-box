@@ -94,12 +94,36 @@ export default function SubscriptionDetailPage() {
   const handleSaveChanges = async () => {
     if (!subscription) return;
     setIsSaving(true);
+    
+    // First, try to update Stripe if applicable
+    if (subscription.stripeSubscriptionId) {
+      try {
+        const response = await fetch('/api/update-stripe-subscription-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            stripeSubscriptionId: subscription.stripeSubscriptionId, 
+            newStatus: status 
+          }),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to update Stripe subscription.');
+        }
+      } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Stripe Error', description: error.message });
+        setIsSaving(false);
+        return; // Stop if Stripe update fails
+      }
+    }
+    
+    // Then, update Firestore
     try {
       const subRef = doc(db, 'subscriptions', subscriptionId);
       await updateDoc(subRef, { status });
       toast({ title: 'Success', description: 'Subscription updated successfully.' });
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
+      toast({ variant: 'destructive', title: 'Firestore Error', description: error.message });
     } finally {
       setIsSaving(false);
     }

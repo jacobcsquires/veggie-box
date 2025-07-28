@@ -9,7 +9,7 @@ import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where,
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays, RefreshCw, Eye, Code, EyeOff, Trash2 } from 'lucide-react';
+import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays, RefreshCw, Eye, Code, EyeOff, Trash2, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -113,6 +113,10 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                                 <div className="flex items-center justify-between">
                                     <span className="font-medium flex items-center"><Users className="mr-2 h-4 w-4" />Subscribers</span>
                                     <Badge variant={isSoldOut ? 'destructive' : 'secondary'}>{box.subscribedCount} / {box.quantity}</Badge>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium flex items-center"><Clock className="mr-2 h-4 w-4" />Next Pickup</span>
+                                    <span>{box.nextPickup || 'N/A'}</span>
                                 </div>
                             </div>
                         </CardContent>

@@ -6,7 +6,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, onSnapshot, query, where, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription, Box, AppUser } from '@/lib/types';
+import type { Subscription, Box, AppUser, Customer } from '@/lib/types';
 import { Search, RefreshCw, PlusCircle, Copy, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -21,27 +21,23 @@ import type Stripe from 'stripe';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 
-type EnrichedSubscription = Subscription & {
-    stripeSub?: Stripe.Subscription;
-    localOnly?: boolean;
-};
-
 export default function AdminSubscriptionsPage() {
-    const [subscriptions, setSubscriptions] = useState<EnrichedSubscription[]>([]);
+    const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [boxes, setBoxes] = useState<Box[]>([]);
-    const [users, setUsers] = useState<AppUser[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedStatus, setSelectedStatus] = useState('all');
+    const [selectedStatus, setSelectedStatus] = useState('active');
     const router = useRouter();
     const { toast } = useToast();
 
     // State for manual subscription dialog
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
     const [isCreatingSub, setIsCreatingSub] = useState(false);
-    const [selectedUserId, setSelectedUserId] = useState('');
+    const [selectedCustomerId, setSelectedCustomerId] = useState('');
     const [selectedBoxId, setSelectedBoxId] = useState('');
+    const [selectedPriceId, setSelectedPriceId] = useState('');
     const [checkoutUrl, setCheckoutUrl] = useState('');
     const [hasCopied, setHasCopied] = useState(false);
 
@@ -57,15 +53,15 @@ export default function AdminSubscriptionsPage() {
             setBoxes(boxesData);
         });
         
-        const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-            const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
-            setUsers(usersData);
+        const unsubscribeCustomers = onSnapshot(collection(db, 'customers'), (snapshot) => {
+            const customersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
+            setCustomers(customersData);
         });
 
         return () => {
             unsubscribeSubs();
             unsubscribeBoxes();
-            unsubscribeUsers();
+            unsubscribeCustomers();
         };
     }, []);
 
@@ -95,16 +91,17 @@ export default function AdminSubscriptionsPage() {
     };
     
     const handleCreateSubscription = async () => {
-        if (!selectedUserId || !selectedBoxId) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Please select a user and a Veggie Box Plan.'});
+        if (!selectedCustomerId || !selectedBoxId || !selectedPriceId) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please select a customer, a plan, and a pricing option.'});
             return;
         }
         setIsCreatingSub(true);
-        const user = users.find(u => u.uid === selectedUserId);
+        const customer = customers.find(c => c.id === selectedCustomerId);
         const box = boxes.find(b => b.id === selectedBoxId);
+        const price = box?.pricingOptions.find(p => p.id === selectedPriceId);
         
-        if (!user || !box) {
-             toast({ variant: 'destructive', title: 'Error', description: 'Could not find selected user or plan.'});
+        if (!customer || !box || !price) {
+             toast({ variant: 'destructive', title: 'Error', description: 'Could not find selected customer, plan, or price.'});
              setIsCreatingSub(false);
              return;
         }
@@ -115,10 +112,13 @@ export default function AdminSubscriptionsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     boxId: box.id,
-                    userId: user.uid,
-                    customerName: user.displayName,
-                    email: user.email,
-                    startDate: box.startDate, // Assuming first available date
+                    userId: customer.userId || customer.id, // Fallback to customerId if no userId
+                    customerName: customer.name,
+                    email: customer.email,
+                    startDate: box.startDate,
+                    priceId: price.id,
+                    price: price.price,
+                    priceName: price.name
                 }),
             });
             if (!response.ok) {
@@ -145,27 +145,35 @@ export default function AdminSubscriptionsPage() {
     const resetSubDialog = () => {
         setIsSubDialogOpen(false);
         setCheckoutUrl('');
-        setSelectedUserId('');
+        setSelectedCustomerId('');
         setSelectedBoxId('');
+        setSelectedPriceId('');
     }
 
     const filteredSubscriptions = useMemo(() => {
         return subscriptions
             .filter(sub => {
-                const matchesStatus = selectedStatus === 'all' || (sub.stripeSub?.status ?? 'local') === selectedStatus;
+                const status = sub.status?.toLowerCase() || 'pending';
+                const matchesStatus = selectedStatus === 'all' || status === selectedStatus;
                 const matchesSearch = sub.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) || sub.boxName.toLowerCase().includes(searchTerm.toLowerCase());
                 return matchesStatus && matchesSearch;
             })
             .sort((a, b) => (a.customerName || '').localeCompare(b.customerName || ''));
     }, [subscriptions, searchTerm, selectedStatus]);
+    
+    const selectedBoxOptions = useMemo(() => {
+        return boxes.find(b => b.id === selectedBoxId)?.pricingOptions || [];
+    }, [selectedBoxId, boxes]);
 
-    const getStatusVariant = (status: string | undefined) => {
-        switch (status) {
+
+    const getStatusVariant = (status?: string) => {
+        switch (status?.toLowerCase()) {
             case 'active': return 'default';
-            case 'trialing': return 'secondary';
-            case 'past_due':
+            case 'pending': return 'secondary';
+            case 'past due':
             case 'unpaid': return 'destructive';
-            case 'local': return 'outline';
+            case 'localonly': return 'outline';
+            case 'unknown': return 'outline';
             default: return 'secondary';
         }
     }
@@ -195,7 +203,7 @@ export default function AdminSubscriptionsPage() {
                                 <DialogDescription>
                                     {checkoutUrl 
                                         ? "Share this checkout link with the customer to complete payment."
-                                        : "Select a user and a plan to generate a Stripe checkout link."
+                                        : "Select a customer and a plan to generate a Stripe checkout link."
                                     }
                                 </DialogDescription>
                             </DialogHeader>
@@ -212,23 +220,34 @@ export default function AdminSubscriptionsPage() {
                             ) : (
                                 <div className="space-y-4 pt-4">
                                 <div className="grid gap-2">
-                                    <Label htmlFor="user-select">User</Label>
-                                    <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                                        <SelectTrigger id="user-select"><SelectValue placeholder="Select a user" /></SelectTrigger>
+                                    <Label htmlFor="user-select">Customer</Label>
+                                    <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                                        <SelectTrigger id="user-select"><SelectValue placeholder="Select a customer" /></SelectTrigger>
                                         <SelectContent>
-                                            {users.map(user => <SelectItem key={user.uid} value={user.uid}>{user.displayName} ({user.email})</SelectItem>)}
+                                            {customers.map(customer => <SelectItem key={customer.id} value={customer.id}>{customer.name} ({customer.email})</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </div>
                                  <div className="grid gap-2">
                                     <Label htmlFor="box-select">Veggie Box Plan</Label>
-                                    <Select value={selectedBoxId} onValueChange={setSelectedBoxId}>
+                                    <Select value={selectedBoxId} onValueChange={(value) => { setSelectedBoxId(value); setSelectedPriceId(''); }}>
                                         <SelectTrigger id="box-select"><SelectValue placeholder="Select a plan" /></SelectTrigger>
                                         <SelectContent>
                                             {boxes.filter(b => b.displayOnWebsite && !b.manualSignupCutoff).map(box => <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                {selectedBoxId && (
+                                     <div className="grid gap-2">
+                                        <Label htmlFor="price-select">Pricing Option</Label>
+                                        <Select value={selectedPriceId} onValueChange={setSelectedPriceId} disabled={selectedBoxOptions.length === 0}>
+                                            <SelectTrigger id="price-select"><SelectValue placeholder="Select a pricing option" /></SelectTrigger>
+                                            <SelectContent>
+                                                {selectedBoxOptions.map(opt => <SelectItem key={opt.id} value={opt.id}>{opt.name} (${opt.price.toFixed(2)})</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
                             </div>
                             )}
                             <DialogFooter>
@@ -270,11 +289,11 @@ export default function AdminSubscriptionsPage() {
                             <SelectContent>
                                 <SelectItem value="all">All Statuses</SelectItem>
                                 <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="past_due">Past Due</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="past due">Past Due</SelectItem>
                                 <SelectItem value="unpaid">Unpaid</SelectItem>
-                                <SelectItem value="canceled">Canceled</SelectItem>
-                                <SelectItem value="incomplete">Incomplete</SelectItem>
-                                <SelectItem value="local">Local Only</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                                <SelectItem value="unknown">Unknown</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -313,12 +332,12 @@ export default function AdminSubscriptionsPage() {
                                         <TableCell className="font-medium">{sub.customerName || sub.userId}</TableCell>
                                         <TableCell>{sub.boxName}</TableCell>
                                         <TableCell>
-                                            <Badge variant={getStatusVariant(sub.stripeSub?.status || (sub.localOnly ? 'local' : 'default'))} className="capitalize">
-                                                {sub.localOnly ? 'Local Only' : (sub.stripeSub?.status ?? sub.status).replace('_', ' ')}
+                                            <Badge variant={getStatusVariant(sub.status)} className="capitalize">
+                                                {sub.status}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
-                                            {sub.stripeSub?.current_period_end ? format(new Date(sub.stripeSub.current_period_end * 1000), 'PPP') : 'N/A'}
+                                            {sub.nextPickup ? format(new Date(sub.nextPickup.replace(/-/g, '\/')), 'PPP') : 'N/A'}
                                         </TableCell>
                                         <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
                                     </TableRow>
