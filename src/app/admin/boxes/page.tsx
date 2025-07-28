@@ -125,19 +125,11 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                                 <span className="text-lg font-bold">${basePrice.toFixed(2)}{box.pricingOptions?.length > 1 ? '+' : ''}</span>
                                 <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                             </div>
-                            <div className="flex items-center gap-2 mt-2">
-                                <Button asChild className="w-full">
-                                    <Link href={`/admin/boxes/${box.id}`}>
-                                        <FilePen className="mr-2 h-4 w-4" /> Edit Plan
-                                    </Link>
-                                </Button>
-                                <Button asChild variant="secondary" size="icon">
-                                    <Link href="/" target="_blank">
-                                        <Eye className="h-4 w-4" />
-                                        <span className="sr-only">View on Portal</span>
-                                    </Link>
-                                </Button>
-                            </div>
+                            <Button asChild className="w-full mt-2">
+                                <Link href={`/admin/boxes/${box.id}`}>
+                                    <FilePen className="mr-2 h-4 w-4" /> Edit Plan
+                                </Link>
+                            </Button>
                         </CardFooter>
                      </Card>
                 )
