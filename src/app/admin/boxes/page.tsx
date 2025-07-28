@@ -8,7 +8,7 @@ import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where,
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays, RefreshCw, Eye, Code } from 'lucide-react';
+import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays, RefreshCw, Eye, Code, EyeOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -176,7 +176,7 @@ const EmbedCodeDialog = () => {
                 </div>
                  <DialogFooter>
                     <Button onClick={copyToClipboard}>Copy Code</Button>
-                </DialogFooter>
+                 </DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -238,11 +238,12 @@ export default function AdminBoxesPage() {
     return () => unsubscribe();
   }, []);
   
-  const { activeBoxes, pastBoxes } = useMemo(() => {
+  const { activePublicBoxes, activeUnlistedBoxes, pastBoxes } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const active: BoxWithSchedule[] = [];
+    const activePublic: BoxWithSchedule[] = [];
+    const activeUnlisted: BoxWithSchedule[] = [];
     const past: BoxWithSchedule[] = [];
 
     boxes.forEach(box => {
@@ -251,10 +252,14 @@ export default function AdminBoxesPage() {
         if (endDateObj && isValidDate(endDateObj) && endDateObj < today) {
             past.push(box);
         } else {
-            active.push(box);
+            if (box.displayOnWebsite) {
+                activePublic.push(box);
+            } else {
+                activeUnlisted.push(box);
+            }
         }
     });
-    return { activeBoxes: active, pastBoxes: past };
+    return { activePublicBoxes: activePublic, activeUnlistedBoxes: activeUnlisted, pastBoxes: past };
   }, [boxes]);
 
   const resetForm = () => {
@@ -487,12 +492,16 @@ export default function AdminBoxesPage() {
         </div>
       </div>
       <Tabs defaultValue="active">
-        <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="active"><Package className="mr-2 h-4 w-4" />Active Plans ({activeBoxes.length})</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="active"><Package className="mr-2 h-4 w-4" />Active Plans ({activePublicBoxes.length})</TabsTrigger>
+            <TabsTrigger value="unlisted"><EyeOff className="mr-2 h-4 w-4" />Unlisted Plans ({activeUnlistedBoxes.length})</TabsTrigger>
             <TabsTrigger value="past"><Archive className="mr-2 h-4 w-4" />Past Plans ({pastBoxes.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="active" className="mt-4">
-           <BoxGrid boxes={activeBoxes.filter(b => b.displayOnWebsite)} isLoading={isLoading} />
+           <BoxGrid boxes={activePublicBoxes} isLoading={isLoading} />
+        </TabsContent>
+         <TabsContent value="unlisted" className="mt-4">
+           <BoxGrid boxes={activeUnlistedBoxes} isLoading={isLoading} />
         </TabsContent>
         <TabsContent value="past" className="mt-4">
             <BoxGrid boxes={pastBoxes} isLoading={isLoading} />
