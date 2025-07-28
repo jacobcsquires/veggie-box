@@ -1,5 +1,4 @@
 
-
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
@@ -14,6 +13,9 @@ export async function POST(request: Request) {
     if (!customerId) {
       return NextResponse.json({ message: 'Customer ID is required' }, { status: 400 });
     }
+    
+    // Retrieve the customer object
+    const customer = await stripe.customers.retrieve(customerId);
 
     // Retrieve active subscriptions for the customer
     const subscriptions = await stripe.subscriptions.list({
@@ -30,6 +32,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ 
+        customer,
         subscriptions: subscriptions.data,
         charges: charges.data,
     });
@@ -39,3 +42,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
+
+    

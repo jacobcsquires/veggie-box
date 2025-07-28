@@ -1,8 +1,8 @@
 
-
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -11,13 +11,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
-import { ExternalLink } from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
+import { ExternalLink, Home, Mail, ChevronRight, Phone } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type Stripe from 'stripe';
 
 type StripeData = {
+    customer: Stripe.Customer;
     subscriptions: Stripe.Subscription[];
     charges: Stripe.Charge[];
 } | null;
@@ -120,14 +121,25 @@ export default function CustomerDetailPage() {
         default: return 'outline';
     }
   }
+  
+  const stripeCustomer = stripeData?.customer;
 
 
   return (
     <div className="space-y-6">
+       <div className="flex items-center text-sm text-muted-foreground">
+        <Link href="/admin/customers" className="hover:text-primary">Customers</Link>
+        <ChevronRight className="h-4 w-4 mx-1" />
+        <span className="font-medium text-foreground">{customer.name}</span>
+      </div>
       <div className="flex justify-between items-start">
         <div>
             <h1 className="text-2xl font-headline">{customer.name}</h1>
-            <p className="text-muted-foreground mt-1">{customer.email}</p>
+            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2"><Mail className="h-4 w-4"/><span>{customer.email}</span></div>
+                {stripeCustomer?.phone && <div className="flex items-center gap-2"><Phone className="h-4 w-4"/><span>{stripeCustomer.phone}</span></div>}
+                {stripeCustomer?.created && <div className="flex items-center gap-2"><Home className="h-4 w-4"/><span>Joined {formatDistanceToNow(new Date(stripeCustomer.created * 1000), { addSuffix: true })}</span></div>}
+            </div>
         </div>
         <Button asChild>
            <a href={`https://dashboard.stripe.com/test/customers/${customer.id}`} target="_blank" rel="noopener noreferrer">
@@ -205,4 +217,5 @@ export default function CustomerDetailPage() {
       </div>
     </div>
   );
-}
+
+    
