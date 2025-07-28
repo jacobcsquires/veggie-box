@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { PricingOption } from '@/lib/types';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
@@ -20,44 +21,80 @@ function getStripeInterval(frequency: string): { interval: Stripe.PriceCreatePar
 
 export async function POST(request: Request) {
   try {
-    const { name, description, price, frequency, existingProductId, oldPriceId } = await request.json();
+    const { name, description, frequency, pricingOptions, existingProductId, oldPricingOptions } = await request.json();
 
-    if (!name || !description || !price || !frequency) {
+    if (!name || !description || !frequency || !pricingOptions || pricingOptions.length === 0) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
     let productId = existingProductId;
-    if (!productId) {
-        // Create a new Stripe Product
-        const product = await stripe.products.create({
-            name,
-            description,
-        });
+    // 1. Create or Update Stripe Product
+    if (productId) {
+        await stripe.products.update(productId, { name, description });
+    } else {
+        const product = await stripe.products.create({ name, description });
         productId = product.id;
     }
 
-    // Archive the old price if it exists
-    if (oldPriceId) {
-        try {
-            await stripe.prices.update(oldPriceId, { active: false });
-        } catch (error) {
-            console.warn(`Could not archive old price ${oldPriceId}, it might already be inactive or deleted.`);
+    // 2. Archive old prices that are no longer in the list
+    if (oldPricingOptions && oldPricingOptions.length > 0) {
+        const newPriceIds = new Set(pricingOptions.map((p: any) => p.id).filter(Boolean));
+        for (const oldPrice of oldPricingOptions) {
+            if (oldPrice.id && !newPriceIds.has(oldPrice.id)) {
+                try {
+                    await stripe.prices.update(oldPrice.id, { active: false });
+                } catch (error) {
+                    console.warn(`Could not archive old price ${oldPrice.id}`, error);
+                }
+            }
         }
     }
 
     const { interval, interval_count } = getStripeInterval(frequency);
+    const newPricingOptionsResult: PricingOption[] = [];
 
-    // Create Stripe Price
-    const stripePrice = await stripe.prices.create({
-        product: productId,
-        unit_amount: price * 100,
-        currency: 'usd',
-        recurring: { interval, interval_count },
-    });
+    // 3. Create or update prices
+    for (const option of pricingOptions) {
+        if (option.id) { // This is an existing price, check if it needs updating
+            const existingPrice = await stripe.prices.retrieve(option.id);
+            if (existingPrice.unit_amount !== option.price * 100) {
+                 // Prices are immutable, so we must archive the old one and create a new one.
+                 await stripe.prices.update(existingPrice.id, { active: false });
+                 const newStripePrice = await stripe.prices.create({
+                    product: productId,
+                    unit_amount: option.price * 100,
+                    currency: 'usd',
+                    recurring: { interval, interval_count },
+                    nickname: option.name,
+                });
+                newPricingOptionsResult.push({
+                    id: newStripePrice.id,
+                    name: option.name,
+                    price: option.price,
+                });
+            } else {
+                // Price is the same, just keep it.
+                newPricingOptionsResult.push(option);
+            }
+        } else { // This is a new price, create it
+            const newStripePrice = await stripe.prices.create({
+                product: productId,
+                unit_amount: option.price * 100,
+                currency: 'usd',
+                recurring: { interval, interval_count },
+                nickname: option.name,
+            });
+             newPricingOptionsResult.push({
+                id: newStripePrice.id,
+                name: option.name,
+                price: option.price,
+            });
+        }
+    }
 
-    return NextResponse.json({ stripeProductId: productId, stripePriceId: stripePrice.id });
+    return NextResponse.json({ stripeProductId: productId, newPricingOptions: newPricingOptionsResult });
   } catch (error: any) {
-    console.error('Stripe product creation failed:', error);
+    console.error('Stripe product/price modification failed:', error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

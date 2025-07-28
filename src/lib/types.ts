@@ -1,10 +1,16 @@
 
 
+export type PricingOption = {
+  id: string; // Stripe Price ID
+  name: string;
+  price: number;
+  description?: string;
+};
+
 export type Box = {
   id: string;
   name: string;
   description: string;
-  price: number;
   image: string;
   hint: string;
   quantity: number;
@@ -13,7 +19,7 @@ export type Box = {
   endDate?: string | null;
   createdAt?: any;
   stripeProductId?: string;
-  stripePriceId?: string;
+  pricingOptions: PricingOption[];
   frequency: 'weekly' | 'bi-weekly' | 'monthly';
   displayOnWebsite: boolean;
   manualSignupCutoff: boolean;
@@ -29,6 +35,8 @@ export type Subscription = {
     status: 'Active' | 'Cancelled' | 'Pending' | 'Past Due';
     nextPickup: string;
     price: number;
+    priceId: string;
+    priceName?: string;
     createdAt: any; // Firestore timestamp
     stripeSessionId?: string;
     stripeCustomerId?: string;

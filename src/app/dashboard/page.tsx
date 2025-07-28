@@ -27,11 +27,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Box } from '@/lib/types';
+import type { Box, PricingOption } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 type PickupInternal = {
   id: string;
@@ -49,6 +51,7 @@ export default function Dashboard() {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedBox, setSelectedBox] = useState<Box | null>(null);
+  const [selectedPriceId, setSelectedPriceId] = useState<string | null>(null);
   const [upcomingPickups, setUpcomingPickups] = useState<PickupInternal[]>([]);
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
 
@@ -76,9 +79,13 @@ export default function Dashboard() {
         setUpcomingPickups(pickupsData);
         setIsLoadingPickups(false);
       });
-      return () => unsubscribe();
+      // Set default price selection
+      if (selectedBox.pricingOptions.length > 0) {
+        setSelectedPriceId(selectedBox.pricingOptions[0].id);
+      }
     } else {
       setUpcomingPickups([]);
+      setSelectedPriceId(null);
     }
   }, [selectedBox, isDialogOpen]);
 
@@ -96,8 +103,8 @@ export default function Dashboard() {
       });
       return;
     }
-    if (!selectedBox) {
-        toast({ variant: 'destructive', title: 'Error', description: 'No Veggie Box Plan selected.' });
+    if (!selectedBox || !selectedPriceId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No Veggie Box Plan or pricing option selected.' });
         return;
     }
     
@@ -109,6 +116,12 @@ export default function Dashboard() {
             title: 'No Pickups Available',
             description: 'There are no upcoming pickups for this Veggie Box Plan.',
         });
+        return;
+    }
+
+    const selectedPricingOption = selectedBox.pricingOptions.find(p => p.id === selectedPriceId);
+    if (!selectedPricingOption) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Selected pricing option not found.' });
         return;
     }
 
@@ -125,6 +138,9 @@ export default function Dashboard() {
                 customerName: user.displayName,
                 email: user.email,
                 startDate: firstPickup.pickupDate,
+                priceId: selectedPricingOption.id,
+                price: selectedPricingOption.price,
+                priceName: selectedPricingOption.name,
             }),
         });
 
@@ -181,7 +197,7 @@ export default function Dashboard() {
               const hasSchedule = box.startDate && box.endDate;
               const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
               const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
-
+              const basePrice = box.pricingOptions?.[0]?.price ?? 0;
 
               return (
                 <Card key={box.id} className="flex flex-col">
@@ -207,12 +223,12 @@ export default function Dashboard() {
                   <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
                     <div className="flex justify-between items-center">
                       <p className="text-2xl font-bold">
-                        ${box.price.toFixed(2)}
+                        ${basePrice.toFixed(2)}{box.pricingOptions.length > 1 ? '+' : ''}
                       </p>
                       <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                     </div>
-                    <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.stripePriceId || box.manualSignupCutoff}>
-                        {isSoldOut ? 'Sold Out' : !box.stripePriceId ? 'Not Available' : box.manualSignupCutoff ? 'Sign-ups Closed' : 'Subscribe'}
+                    <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || box.pricingOptions.length === 0 || box.manualSignupCutoff}>
+                        {isSoldOut ? 'Sold Out' : box.pricingOptions.length === 0 ? 'Not Available' : box.manualSignupCutoff ? 'Sign-ups Closed' : 'Subscribe'}
                     </Button>
                   </CardFooter>
                 </Card>
@@ -224,17 +240,26 @@ export default function Dashboard() {
             <DialogHeader>
               <DialogTitle>Subscribe to {selectedBox?.name}</DialogTitle>
               <DialogDescription>
-                Confirm your subscription. Your first pickup will be on the next available date.
+                Select your pricing option and confirm your subscription.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-sm mb-2">Plan Details</h3>
-                <p className="text-sm text-muted-foreground">{selectedBox?.description}</p>
-                 <div className="flex justify-between items-center mt-2">
-                    <p className="text-lg font-bold">${selectedBox?.price.toFixed(2)}</p>
-                    <Badge variant="secondary" className="capitalize">{selectedBox?.frequency}</Badge>
-                </div>
+               <div>
+                <h3 className="font-semibold text-sm mb-2">Pricing Options</h3>
+                <RadioGroup value={selectedPriceId ?? ''} onValueChange={setSelectedPriceId}>
+                    {selectedBox?.pricingOptions.map(option => (
+                        <div key={option.id} className="flex items-center space-x-2 rounded-md border p-3">
+                            <RadioGroupItem value={option.id} id={option.id} />
+                            <Label htmlFor={option.id} className="flex flex-col w-full cursor-pointer">
+                                <div className="flex justify-between items-center">
+                                    <span className="font-medium">{option.name}</span>
+                                    <span className="font-bold">${option.price.toFixed(2)}</span>
+                                </div>
+                                {option.description && <p className="text-xs text-muted-foreground">{option.description}</p>}
+                            </Label>
+                        </div>
+                    ))}
+                </RadioGroup>
               </div>
               <Separator />
                <div>

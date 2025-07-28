@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown } from 'lucide-react';
-import type { Box, Pickup, Subscription } from '@/lib/types';
+import type { Box, Pickup, Subscription, PricingOption } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addDays, isBefore, startOfToday, addMonths, subDays, subMonths } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
@@ -112,7 +112,6 @@ export default function AdminBoxDetailPage() {
   
   // States for editing the box
   const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('');
   const [frequency, setFrequency] = useState<'weekly' | 'bi-weekly' | 'monthly'>('weekly');
@@ -121,6 +120,7 @@ export default function AdminBoxDetailPage() {
   const [isSavingBox, setIsSavingBox] = useState(false);
   const [displayOnWebsite, setDisplayOnWebsite] = useState(true);
   const [manualSignupCutoff, setManualSignupCutoff] = useState(false);
+  const [pricingOptions, setPricingOptions] = useState<Array<Partial<PricingOption>>>([]);
 
   // States for the calendar and pickup notes
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
@@ -162,13 +162,13 @@ export default function AdminBoxDetailPage() {
         setBox(boxData);
         // Populate form fields with box data
         setName(boxData.name);
-        setPrice(boxData.price.toString());
         setDescription(boxData.description);
         setQuantity(boxData.quantity.toString());
         setFrequency(boxData.frequency || 'weekly');
         setImagePreview(boxData.image);
         setDisplayOnWebsite(boxData.displayOnWebsite);
         setManualSignupCutoff(boxData.manualSignupCutoff);
+        setPricingOptions(boxData.pricingOptions || [{name: '', price: 0}]);
       }
       setIsLoading(false);
     });
@@ -244,16 +244,32 @@ export default function AdminBoxDetailPage() {
         await updateDoc(boxRef, { startDate, endDate });
     };
 
+    const handlePricingOptionChange = (index: number, field: keyof PricingOption, value: string | number) => {
+        const newOptions = [...pricingOptions];
+        (newOptions[index] as any)[field] = value;
+        setPricingOptions(newOptions);
+    };
+
+    const addPricingOption = () => {
+        setPricingOptions([...pricingOptions, { name: '', price: 0 }]);
+    };
+
+    const removePricingOption = (index: number) => {
+        if (pricingOptions.length <= 1) return; // Must have at least one
+        const newOptions = pricingOptions.filter((_, i) => i !== index);
+        setPricingOptions(newOptions);
+    };
+
   const handleSaveBox = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price || !description || !quantity || !box) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please fill out all required fields.' });
+    const validPricingOptions = pricingOptions.filter(opt => opt.name && (opt.price ?? 0) > 0);
+    if (!name || !description || !quantity || !box || validPricingOptions.length === 0) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please fill out all required fields and have at least one valid pricing option.' });
       return;
     }
     setIsSavingBox(true);
 
     let imageUrlToSave = box.image;
-    let newStripePriceId = box.stripePriceId;
 
     if (imageFile) {
       try {
@@ -269,40 +285,36 @@ export default function AdminBoxDetailPage() {
     }
 
     try {
-        if (box.price !== parseFloat(price)) {
-            const stripeResponse = await fetch('/api/create-stripe-product', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    name, 
-                    description, 
-                    price: parseFloat(price), 
-                    frequency, // frequency is not editable, so this is safe
-                    existingProductId: box.stripeProductId,
-                    oldPriceId: box.stripePriceId
-                }),
-            });
-             if (!stripeResponse.ok) {
-                const error = await stripeResponse.json();
-                throw new Error(error.message || 'Failed to update Stripe product.');
-            }
-            const { stripePriceId } = await stripeResponse.json();
-            newStripePriceId = stripePriceId;
+        const stripeResponse = await fetch('/api/create-stripe-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                name, 
+                description, 
+                frequency, // frequency is not editable, so this is safe
+                existingProductId: box.stripeProductId,
+                pricingOptions: validPricingOptions,
+                oldPricingOptions: box.pricingOptions
+            }),
+        });
+        if (!stripeResponse.ok) {
+            const error = await stripeResponse.json();
+            throw new Error(error.message || 'Failed to update Stripe product.');
         }
+        const { newPricingOptions } = await stripeResponse.json();
 
         const boxData: Partial<Box> = {
           name,
-          price: parseFloat(price),
           description,
           quantity: parseInt(quantity, 10),
           image: imageUrlToSave,
-          stripePriceId: newStripePriceId,
+          pricingOptions: newPricingOptions,
           displayOnWebsite,
           manualSignupCutoff,
         };
 
         const boxRef = doc(db, 'boxes', boxId);
-        await updateDoc(boxRef, boxData);
+        await updateDoc(boxRef, boxData as any);
         toast({ title: 'Success', description: 'Veggie Box Plan details updated successfully.' });
     } catch (error: any) {
       console.error('Error updating document: ', error);
@@ -786,7 +798,7 @@ export default function AdminBoxDetailPage() {
     <div className="space-y-6">
         <h1 className="text-2xl font-headline">Edit Plan: {box.name}</h1>
         
-         <Accordion type="single" collapsible className="w-full">
+         <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
             <AccordionItem value="item-1">
                 <Card>
                     <AccordionTrigger className="px-6">
@@ -798,14 +810,33 @@ export default function AdminBoxDetailPage() {
                     <AccordionContent>
                         <form onSubmit={handleSaveBox}>
                             <CardContent className="space-y-4 pt-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="name">Name</Label>
-                                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSavingBox} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="price">Price</Label>
-                                        <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} disabled={isSavingBox} />
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Plan Name</Label>
+                                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSavingBox} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Pricing Options</Label>
+                                    <div className="space-y-3 rounded-md border p-4">
+                                        {pricingOptions.map((option, index) => (
+                                            <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                                                <div className="col-span-5 space-y-1">
+                                                    <Label htmlFor={`price-name-${index}`} className="text-xs text-muted-foreground">Option Name</Label>
+                                                    <Input id={`price-name-${index}`} placeholder="e.g. Single Share" value={option.name} onChange={(e) => handlePricingOptionChange(index, 'name', e.target.value)} disabled={isSavingBox} />
+                                                </div>
+                                                <div className="col-span-5 space-y-1">
+                                                    <Label htmlFor={`price-value-${index}`} className="text-xs text-muted-foreground">Price ($)</Label>
+                                                    <Input id={`price-value-${index}`} type="number" placeholder="25.00" value={option.price} onChange={(e) => handlePricingOptionChange(index, 'price', parseFloat(e.target.value))} disabled={isSavingBox} />
+                                                </div>
+                                                <div className="col-span-2 pt-5">
+                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removePricingOption(index)} disabled={pricingOptions.length <= 1 || isSavingBox}>
+                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <Button type="button" variant="outline" size="sm" onClick={addPricingOption} disabled={isSavingBox}>
+                                            <PlusCircle className="mr-2 h-4 w-4"/> Add Option
+                                        </Button>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

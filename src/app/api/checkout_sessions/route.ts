@@ -11,9 +11,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 export async function POST(request: Request) {
-  const { boxId, userId, customerName, email, startDate, subscriptionId } = await request.json();
+  const { boxId, userId, customerName, email, startDate, subscriptionId, priceId, price, priceName } = await request.json();
 
-  if (!boxId || !userId || !email || !startDate) {
+  if (!boxId || !userId || !email || !startDate || !priceId || !price) {
     return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
   }
 
@@ -27,11 +27,7 @@ export async function POST(request: Request) {
         throw new Error("Veggie Box Plan does not exist!");
     }
     const boxData = boxDoc.data() as Box;
-    const { name: boxName, price, stripePriceId } = boxData;
-
-    if (!stripePriceId) {
-        throw new Error("This Veggie Box Plan is not configured for payments. Please contact support.");
-    }
+    const { name: boxName } = boxData;
 
     // Check if a customer already exists in Stripe
     const customerSearch = await stripe.customers.list({ email: email, limit: 1 });
@@ -65,6 +61,8 @@ export async function POST(request: Request) {
                 boxId,
                 boxName,
                 price,
+                priceId,
+                priceName,
                 status: 'Pending', // Will be updated by webhook
                 startDate,
                 nextPickup: startDate,
@@ -90,7 +88,7 @@ export async function POST(request: Request) {
       payment_method_types: ['card'],
       line_items: [
         {
-          price: stripePriceId,
+          price: priceId,
           quantity: 1,
         },
       ],

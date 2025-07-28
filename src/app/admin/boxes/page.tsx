@@ -8,7 +8,7 @@ import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where,
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays, RefreshCw, Eye, Code, EyeOff } from 'lucide-react';
+import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays, RefreshCw, Eye, Code, EyeOff, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,7 +31,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { Box, Pickup } from '@/lib/types';
+import type { Box, Pickup, PricingOption } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
@@ -91,6 +91,7 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                  const formattedStartDate = startDateObj && isValidDate(startDateObj) ? format(startDateObj, 'MM/dd/yy') : 'N/A';
                  const formattedEndDate = endDateObj && isValidDate(endDateObj) ? format(endDateObj, 'MM/dd/yy') : 'N/A';
                  const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
+                 const basePrice = box.pricingOptions?.[0]?.price ?? 0;
                 return (
                      <Card key={box.id} className="flex flex-col">
                         <CardHeader className="p-0">
@@ -115,7 +116,7 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                         </CardContent>
                         <CardFooter className="flex-col gap-2 items-stretch p-4">
                              <div className="flex items-center justify-between pt-2">
-                                <span className="text-lg font-bold">${box.price.toFixed(2)}</span>
+                                <span className="text-lg font-bold">${basePrice.toFixed(2)}{box.pricingOptions.length > 1 ? '+' : ''}</span>
                                 <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                             </div>
                             <div className="flex items-center gap-2 mt-2">
@@ -192,7 +193,6 @@ export default function AdminBoxesPage() {
 
   // Form state
   const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('');
   const [frequency, setFrequency] = useState<'weekly' | 'bi-weekly' | 'monthly'>('weekly');
@@ -200,6 +200,8 @@ export default function AdminBoxesPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [displayOnWebsite, setDisplayOnWebsite] = useState(true);
   const [manualSignupCutoff, setManualSignupCutoff] = useState(false);
+  const [pricingOptions, setPricingOptions] = useState<Array<Partial<PricingOption>>>([{ name: '', price: 0}]);
+
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'boxes'), async (snapshot) => {
@@ -264,7 +266,6 @@ export default function AdminBoxesPage() {
 
   const resetForm = () => {
     setName('');
-    setPrice('');
     setDescription('');
     setQuantity('');
     setFrequency('weekly');
@@ -272,6 +273,7 @@ export default function AdminBoxesPage() {
     setImagePreview(null);
     setDisplayOnWebsite(true);
     setManualSignupCutoff(false);
+    setPricingOptions([{ name: '', price: 0 }]);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -281,14 +283,31 @@ export default function AdminBoxesPage() {
       setImagePreview(URL.createObjectURL(file));
     }
   };
+
+  const handlePricingOptionChange = (index: number, field: keyof PricingOption, value: string | number) => {
+    const newOptions = [...pricingOptions];
+    (newOptions[index] as any)[field] = value;
+    setPricingOptions(newOptions);
+  };
+
+  const addPricingOption = () => {
+    setPricingOptions([...pricingOptions, { name: '', price: 0 }]);
+  };
+
+  const removePricingOption = (index: number) => {
+    if (pricingOptions.length <= 1) return; // Must have at least one
+    const newOptions = pricingOptions.filter((_, i) => i !== index);
+    setPricingOptions(newOptions);
+  };
   
   const handleSaveBox = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price || !description || !quantity) {
+    const validPricingOptions = pricingOptions.filter(opt => opt.name && (opt.price ?? 0) > 0);
+    if (!name || !description || !quantity || validPricingOptions.length === 0) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Please fill out name, price, quantity, and description.',
+        description: 'Please fill out all required fields, including at least one valid pricing option.',
       });
       return;
     }
@@ -306,7 +325,12 @@ export default function AdminBoxesPage() {
         const stripeResponse = await fetch('/api/create-stripe-product', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description, price: parseFloat(price), frequency }),
+            body: JSON.stringify({ 
+                name, 
+                description, 
+                frequency,
+                pricingOptions: validPricingOptions.map(p => ({name: p.name, price: p.price}))
+            }),
         });
 
         if (!stripeResponse.ok) {
@@ -314,11 +338,10 @@ export default function AdminBoxesPage() {
             throw new Error(error.message || 'Failed to create Stripe product.');
         }
 
-        const { stripeProductId, stripePriceId } = await stripeResponse.json();
+        const { stripeProductId, newPricingOptions } = await stripeResponse.json();
 
         const boxData = {
           name,
-          price: parseFloat(price),
           description,
           quantity: parseInt(quantity, 10),
           image: imageUrlToSave || 'https://placehold.co/600x400.png',
@@ -326,7 +349,7 @@ export default function AdminBoxesPage() {
           startDate: null,
           endDate: null,
           stripeProductId,
-          stripePriceId,
+          pricingOptions: newPricingOptions,
           displayOnWebsite,
           manualSignupCutoff,
         };
@@ -383,101 +406,81 @@ export default function AdminBoxesPage() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="name" className="text-right">
-                        Name
-                      </Label>
-                      <Input
-                        id="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="col-span-3"
-                        disabled={isSaving}
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Plan Name</Label>
+                      <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSaving}/>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="image" className="text-right">
-                        Image
-                      </Label>
-                      <div className="col-span-3">
-                        <Input
-                          id="image"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          disabled={isSaving}
-                        />
-                        {imagePreview && (
-                          <Image src={imagePreview} alt="Image Preview" width={100} height={100} className="mt-2 rounded-md object-cover" />
-                        )}
-                      </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="image">Image</Label>
+                        <div className="flex items-center gap-4">
+                            {imagePreview && <Image src={imagePreview} alt="Image Preview" width={80} height={80} className="rounded-md object-cover" />}
+                            <Input id="image" type="file" accept="image/*" onChange={handleImageChange} disabled={isSaving} className="max-w-xs"/>
+                        </div>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="price" className="text-right">
-                        Price
-                      </Label>
-                      <Input
-                        id="price"
-                        type="number"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        className="col-span-3"
-                        disabled={isSaving}
-                      />
+                    
+                    <div className="space-y-2">
+                        <Label>Pricing Options</Label>
+                        <div className="space-y-3 rounded-md border p-4">
+                            {pricingOptions.map((option, index) => (
+                                <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                                    <div className="col-span-5 space-y-1">
+                                        <Label htmlFor={`price-name-${index}`} className="text-xs text-muted-foreground">Option Name</Label>
+                                        <Input id={`price-name-${index}`} placeholder="e.g. Single Share" value={option.name} onChange={(e) => handlePricingOptionChange(index, 'name', e.target.value)} disabled={isSaving} />
+                                    </div>
+                                    <div className="col-span-5 space-y-1">
+                                        <Label htmlFor={`price-value-${index}`} className="text-xs text-muted-foreground">Price ($)</Label>
+                                        <Input id={`price-value-${index}`} type="number" placeholder="25.00" value={option.price} onChange={(e) => handlePricingOptionChange(index, 'price', parseFloat(e.target.value))} disabled={isSaving} />
+                                    </div>
+                                    <div className="col-span-2 pt-5">
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => removePricingOption(index)} disabled={pricingOptions.length <= 1 || isSaving}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                            <Button type="button" variant="outline" size="sm" onClick={addPricingOption} disabled={isSaving}>
+                                <PlusCircle className="mr-2 h-4 w-4"/> Add Option
+                            </Button>
+                        </div>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="frequency" className="text-right">Frequency</Label>
-                        <Select value={frequency} onValueChange={(value) => setFrequency(value as any)} disabled={isSaving}>
-                            <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="Select frequency" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="weekly">Weekly</SelectItem>
-                                <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
-                                <SelectItem value="monthly">Monthly</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-2">
+                            <Label htmlFor="frequency">Frequency</Label>
+                            <Select value={frequency} onValueChange={(value) => setFrequency(value as any)} disabled={isSaving}>
+                                <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="weekly">Weekly</SelectItem>
+                                    <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
+                                    <SelectItem value="monthly">Monthly</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="quantity">Quantity Available</Label>
+                            <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={isSaving}/>
+                        </div>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="quantity" className="text-right">
-                        Quantity
-                      </Label>
-                      <Input
-                        id="quantity"
-                        type="number"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        className="col-span-3"
-                        disabled={isSaving}
-                      />
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSaving} />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="description" className="text-right">
-                        Description
-                      </Label>
-                      <Textarea
-                        id="description"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="col-span-3"
-                        disabled={isSaving}
-                      />
-                    </div>
-                     <div className="grid grid-cols-4 items-start gap-4">
-                        <Label className="text-right pt-2">Settings</Label>
-                        <div className="col-span-3 space-y-3">
-                            <div className="flex items-center space-x-2">
-                                <Checkbox id="displayOnWebsite" checked={displayOnWebsite} onCheckedChange={(checked) => setDisplayOnWebsite(Boolean(checked))} disabled={isSaving} />
-                                <Label htmlFor="displayOnWebsite" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                    Display this plan on the public website.
-                                </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <Checkbox id="manualSignupCutoff" checked={manualSignupCutoff} onCheckedChange={(checked) => setManualSignupCutoff(Boolean(checked))} disabled={isSaving} />
-                                <Label htmlFor="manualSignupCutoff" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                    Manually turn off new sign-ups for this plan.
-                                </Label>
-                            </div>
+
+                    <div className="space-y-4 rounded-md border p-4">
+                        <Label className="text-base">Settings</Label>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox id="displayOnWebsite" checked={displayOnWebsite} onCheckedChange={(checked) => setDisplayOnWebsite(Boolean(checked))} disabled={isSaving} />
+                            <Label htmlFor="displayOnWebsite" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                Display this plan on the public website.
+                            </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox id="manualSignupCutoff" checked={manualSignupCutoff} onCheckedChange={(checked) => setManualSignupCutoff(Boolean(checked))} disabled={isSaving} />
+                            <Label htmlFor="manualSignupCutoff" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                Manually turn off new sign-ups for this plan.
+                            </Label>
                         </div>
                     </div>
                   </div>
