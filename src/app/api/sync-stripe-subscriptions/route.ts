@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription, Box, AppUser } from '@/lib/types';
+import type { Subscription, Box, AppUser, PricingOption } from '@/lib/types';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
@@ -21,19 +21,23 @@ const findUserByEmail = async (email: string): Promise<AppUser | null> => {
 }
 
 // Helper function to find a box by its Stripe Price ID
-const findBoxByPriceId = async (priceId: string): Promise<Box | null> => {
+const findBoxAndPriceByPriceId = async (priceId: string): Promise<{box: Box, priceOption: PricingOption} | null> => {
     const boxesRef = collection(db, 'boxes');
-    const q = query(boxesRef, where("stripePriceId", "==", priceId));
-    const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) {
-        return null;
+    const querySnapshot = await getDocs(boxesRef);
+    
+    for (const doc of querySnapshot.docs) {
+        const box = { id: doc.id, ...doc.data() } as Box;
+        const priceOption = box.pricingOptions?.find(p => p.id === priceId);
+        if (priceOption) {
+            return { box, priceOption };
+        }
     }
-    return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as Box;
+    return null;
 }
 
 export async function POST() {
   try {
-    // 1. Fetch all active subscriptions from Stripe
+    // 1. Fetch all subscriptions from Stripe
     const stripeSubscriptions: Stripe.Subscription[] = [];
     for await (const sub of stripe.subscriptions.list({ status: 'all', limit: 100 })) {
       stripeSubscriptions.push(sub);
@@ -68,12 +72,13 @@ export async function POST() {
         } else {
             // Subscription exists in Stripe but not Firestore -> Create it
             const customer = await stripe.customers.retrieve(stripeSub.customer as string) as Stripe.Customer;
-            if (customer.deleted) continue;
+            if (customer.deleted || !customer.email) continue;
 
-            const user = await findUserByEmail(customer.email!);
-            const box = await findBoxByPriceId(stripeSub.items.data[0].price.id);
+            const user = await findUserByEmail(customer.email);
+            const boxInfo = await findBoxAndPriceByPriceId(stripeSub.items.data[0].price.id);
 
-            if (user && box) {
+            if (user && boxInfo) {
+                const { box, priceOption } = boxInfo;
                 const newSubRef = doc(collection(db, 'subscriptions'));
                 const newSubData: Omit<Subscription, 'id'> = {
                     userId: user.uid,
@@ -83,7 +88,9 @@ export async function POST() {
                     startDate: new Date(stripeSub.start_date * 1000).toISOString().split('T')[0],
                     status: (stripeSub.status.charAt(0).toUpperCase() + stripeSub.status.slice(1)) as Subscription['status'],
                     nextPickup: new Date(stripeSub.current_period_end * 1000).toISOString().split('T')[0],
-                    price: (stripeSub.items.data[0].price.unit_amount || 0) / 100,
+                    price: priceOption.price,
+                    priceId: priceOption.id,
+                    priceName: priceOption.name,
                     createdAt: serverTimestamp(),
                     stripeSubscriptionId: stripeSub.id,
                     stripeCustomerId: customer.id,
@@ -100,7 +107,7 @@ export async function POST() {
         // Subscriptions without a stripeId are 'Pending' or manually created.
         if (stripeId) { 
              const subRef = doc(db, 'subscriptions', firestoreSub.id);
-             batch.update(subRef, { status: 'Unknown', localOnly: true }); // Mark as localOnly or another status
+             batch.update(subRef, { status: 'Unknown' });
              updatedCount++;
         }
     }

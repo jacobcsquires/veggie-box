@@ -34,7 +34,7 @@ export type Subscription = {
     boxId: string;
     boxName:string;
     startDate: string;
-    status: 'Active' | 'Cancelled' | 'Pending' | 'Past Due';
+    status: 'Active' | 'Cancelled' | 'Pending' | 'Past Due' | 'Unpaid' | 'Unknown';
     nextPickup: string;
     price: number;
     priceId: string;
