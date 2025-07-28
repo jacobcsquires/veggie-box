@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, addDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, addDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Box, AppUser, PricingOption, Customer } from '@/lib/types';
 
