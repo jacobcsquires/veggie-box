@@ -227,7 +227,7 @@ export default function AdminCustomersPage() {
                             <TableRow>
                                 <TableHead>Name</TableHead>
                                 <TableHead>Email</TableHead>
-                                <TableHead>Active Subs</TableHead>
+                                <TableHead>Active Subscriptions</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="text-right">Stripe</TableHead>
                             </TableRow>
