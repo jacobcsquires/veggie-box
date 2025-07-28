@@ -1,45 +1,109 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription, Box, AppUser, PricingOption } from '@/lib/types';
+import type { Subscription, Box, AppUser, PricingOption, Customer } from '@/lib/types';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
 
-// Helper function to find a user by email
-const findUserByEmail = async (email: string): Promise<AppUser | null> => {
+// Helper function to find or create a user by email
+const findOrCreateUser = async (email: string, name?: string | null): Promise<AppUser | null> => {
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where("email", "==", email));
     const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) {
-        return null;
+    if (!querySnapshot.empty) {
+        return { uid: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as AppUser;
     }
-    return { uid: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as AppUser;
+    // If user doesn't exist in Firebase Auth, we can't create a subscription for them
+    // This assumes user signs up through the app first.
+    // For this use case, we will return null as we shouldn't create a firebase auth user here.
+    return null;
 }
 
-// Helper function to find a box by its Stripe Price ID
-const findBoxAndPriceByPriceId = async (priceId: string): Promise<{box: Box, priceOption: PricingOption} | null> => {
+// Helper function to find or create a box by its Stripe Product and Price ID
+const findOrCreateBoxAndPrice = async (priceId: string): Promise<{box: Box, priceOption: PricingOption} | null> => {
     const boxesRef = collection(db, 'boxes');
-    const querySnapshot = await getDocs(boxesRef);
+    const boxesSnapshot = await getDocs(boxesRef);
     
-    for (const doc of querySnapshot.docs) {
+    // First, try to find the price in existing boxes
+    for (const doc of boxesSnapshot.docs) {
         const box = { id: doc.id, ...doc.data() } as Box;
         const priceOption = box.pricingOptions?.find(p => p.id === priceId);
         if (priceOption) {
             return { box, priceOption };
         }
     }
-    return null;
+
+    // If price is not found, it might be a new price for an existing product or a new product
+    try {
+        const stripePrice = await stripe.prices.retrieve(priceId, { expand: ['product'] });
+        const stripeProduct = stripePrice.product as Stripe.Product;
+
+        // Check if a box with this stripeProductId already exists
+        const boxQuery = query(boxesRef, where("stripeProductId", "==", stripeProduct.id));
+        const boxQuerySnapshot = await getDocs(boxQuery);
+
+        if (!boxQuerySnapshot.empty) {
+            // Product exists, but the price is new. Add the new price to the existing box.
+            const boxDoc = boxQuerySnapshot.docs[0];
+            const box = { id: boxDoc.id, ...boxDoc.data() } as Box;
+            const newPriceOption: PricingOption = {
+                id: stripePrice.id,
+                name: stripePrice.nickname || 'Standard',
+                price: (stripePrice.unit_amount || 0) / 100,
+            };
+            const updatedPricingOptions = [...box.pricingOptions, newPriceOption];
+            await updateDoc(doc(db, 'boxes', box.id), { pricingOptions: updatedPricingOptions });
+            
+            // Return the updated box and the new price option
+            return { box: { ...box, pricingOptions: updatedPricingOptions }, priceOption: newPriceOption };
+        } else {
+            // Product does not exist in Firestore. Create a new box.
+            const newPriceOption: PricingOption = {
+                id: stripePrice.id,
+                name: stripePrice.nickname || 'Standard',
+                price: (stripePrice.unit_amount || 0) / 100,
+            };
+
+            const getFrequencyFromInterval = (interval: Stripe.Price.Recurring.Interval, intervalCount: number): Box['frequency'] => {
+                if (interval === 'month' && intervalCount === 1) return 'monthly';
+                if (interval === 'week' && intervalCount === 2) return 'bi-weekly';
+                return 'weekly';
+            }
+
+            const newBoxData: Omit<Box, 'id'> = {
+                name: stripeProduct.name,
+                description: stripeProduct.description || 'Imported from Stripe.',
+                image: stripeProduct.images?.[0] || 'https://placehold.co/600x400.png',
+                hint: 'vegetable box',
+                quantity: 999,
+                subscribedCount: 0,
+                stripeProductId: stripeProduct.id,
+                pricingOptions: [newPriceOption],
+                frequency: getFrequencyFromInterval(stripePrice.recurring!.interval, stripePrice.recurring!.interval_count),
+                displayOnWebsite: true,
+                manualSignupCutoff: false,
+                createdAt: serverTimestamp(),
+            };
+            const newBoxRef = await addDoc(collection(db, 'boxes'), newBoxData);
+            const newBox = { id: newBoxRef.id, ...newBoxData } as Box;
+            return { box: newBox, priceOption: newPriceOption };
+        }
+    } catch (error) {
+        console.error(`Error finding or creating box for price ID ${priceId}:`, error);
+        return null;
+    }
 }
+
 
 export async function POST() {
   try {
     // 1. Fetch all subscriptions from Stripe
     const stripeSubscriptions: Stripe.Subscription[] = [];
-    for await (const sub of stripe.subscriptions.list({ status: 'all', limit: 100 })) {
+    for await (const sub of stripe.subscriptions.list({ status: 'all', limit: 100, expand: ['data.customer'] })) {
       stripeSubscriptions.push(sub);
     }
     
@@ -57,10 +121,10 @@ export async function POST() {
         if (!stripeSub.items.data[0]?.price?.id) continue;
         
         const existingFirestoreSub = firestoreSubMap.get(stripeSub.id);
+        const newStatus = stripeSub.status.charAt(0).toUpperCase() + stripeSub.status.slice(1);
 
         if (existingFirestoreSub) {
             // Subscription exists in both, update status if different
-            const newStatus = stripeSub.status.charAt(0).toUpperCase() + stripeSub.status.slice(1);
             if (existingFirestoreSub.status !== newStatus) {
                 const subRef = doc(db, 'subscriptions', existingFirestoreSub.id);
                 batch.update(subRef, { status: newStatus });
@@ -71,11 +135,23 @@ export async function POST() {
 
         } else {
             // Subscription exists in Stripe but not Firestore -> Create it
-            const customer = await stripe.customers.retrieve(stripeSub.customer as string) as Stripe.Customer;
+            const customer = stripeSub.customer as Stripe.Customer;
             if (customer.deleted || !customer.email) continue;
 
-            const user = await findUserByEmail(customer.email);
-            const boxInfo = await findBoxAndPriceByPriceId(stripeSub.items.data[0].price.id);
+            // Ensure customer exists in our 'customers' collection
+            const customerRef = doc(db, 'customers', customer.id);
+            const customerSnap = await getDoc(customerRef);
+            if (!customerSnap.exists()) {
+                 await setDoc(customerRef, {
+                    name: customer.name,
+                    email: customer.email,
+                    createdAt: serverTimestamp(),
+                    localOnly: false,
+                });
+            }
+
+            const user = await findOrCreateUser(customer.email, customer.name);
+            const boxInfo = await findOrCreateBoxAndPrice(stripeSub.items.data[0].price.id);
 
             if (user && boxInfo) {
                 const { box, priceOption } = boxInfo;
@@ -86,7 +162,7 @@ export async function POST() {
                     boxId: box.id,
                     boxName: box.name,
                     startDate: new Date(stripeSub.start_date * 1000).toISOString().split('T')[0],
-                    status: (stripeSub.status.charAt(0).toUpperCase() + stripeSub.status.slice(1)) as Subscription['status'],
+                    status: newStatus as Subscription['status'],
                     nextPickup: new Date(stripeSub.current_period_end * 1000).toISOString().split('T')[0],
                     price: priceOption.price,
                     priceId: priceOption.id,
