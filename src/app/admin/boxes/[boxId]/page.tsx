@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown, ExternalLink } from 'lucide-react';
 import type { Box, Pickup, Subscription, PricingOption } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addDays, isBefore, startOfToday, addMonths, subDays, subMonths } from 'date-fns';
@@ -200,6 +200,16 @@ export default function AdminBoxDetailPage() {
       setPickupNote('');
     }
   }, [selectedDate, pickups]);
+
+  const subscriptionCountsByPrice = useMemo(() => {
+    const counts: { [priceId: string]: number } = {};
+    subscriptions.forEach(sub => {
+      if (sub.status === 'Active' && sub.priceId) {
+        counts[sub.priceId] = (counts[sub.priceId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [subscriptions]);
   
   const openNoteDialog = (date: Date) => {
     setSelectedDate(date);
@@ -796,7 +806,7 @@ export default function AdminBoxDetailPage() {
     <div className="space-y-6">
         <h1 className="text-2xl font-headline">Edit Plan: {box.name}</h1>
         
-         <Accordion type="single" collapsible className="w-full">
+         <Accordion type="single" collapsible className="w-full" defaultValue='item-1'>
             <AccordionItem value="item-1">
                 <Card>
                     <AccordionTrigger className="px-6">
@@ -822,23 +832,35 @@ export default function AdminBoxDetailPage() {
                                     <Label>Pricing Options</Label>
                                     <div className="space-y-3 rounded-md border p-4">
                                         {pricingOptions.map((option, index) => (
-                                            <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
-                                                <div className="col-span-12 md:col-span-5 space-y-1">
+                                            <div key={option.id || index} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+                                                <div className="col-span-12 md:col-span-4 space-y-1">
                                                     <Label htmlFor={`price-name-${index}`} className="text-xs text-muted-foreground">Option Name</Label>
                                                     <Input id={`price-name-${index}`} placeholder="e.g. Single Share" value={option.name} onChange={(e) => handlePricingOptionChange(index, 'name', e.target.value)} disabled={isSavingBox} />
                                                 </div>
-                                                <div className="col-span-12 md:col-span-3 space-y-1">
+                                                <div className="col-span-6 md:col-span-2 space-y-1">
                                                     <Label htmlFor={`price-value-${index}`} className="text-xs text-muted-foreground">Price ($)</Label>
                                                     <Input id={`price-value-${index}`} type="number" placeholder="25.00" value={option.price} onChange={(e) => handlePricingOptionChange(index, 'price', parseFloat(e.target.value))} disabled={isSavingBox} />
+                                                </div>
+                                                <div className="col-span-6 md:col-span-2 space-y-1">
+                                                    <Label className="text-xs text-muted-foreground">Active Subs</Label>
+                                                    <Input value={subscriptionCountsByPrice[option.id!] || 0} readOnly disabled className="font-mono text-xs" />
                                                 </div>
                                                  <div className="col-span-10 md:col-span-3 space-y-1">
                                                     <Label htmlFor={`price-id-${index}`} className="text-xs text-muted-foreground">Stripe Price ID</Label>
                                                     <Input id={`price-id-${index}`} value={option.id || 'Will be generated'} readOnly disabled className="font-mono text-xs" />
                                                 </div>
                                                 <div className="col-span-2 md:col-span-1 flex items-end justify-end">
-                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removePricingOption(index)} disabled={pricingOptions.length <= 1 || isSavingBox}>
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
+                                                    {option.id ? (
+                                                        <Button type="button" variant="ghost" size="icon" asChild>
+                                                            <a href={`https://dashboard.stripe.com/test/prices/${option.id}`} target="_blank" rel="noopener noreferrer">
+                                                                <ExternalLink className="h-4 w-4" />
+                                                            </a>
+                                                        </Button>
+                                                    ) : (
+                                                        <Button type="button" variant="ghost" size="icon" onClick={() => removePricingOption(index)} disabled={isSavingBox}>
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -1062,5 +1084,3 @@ export default function AdminBoxDetailPage() {
     </div>
   );
 }
-
-    
