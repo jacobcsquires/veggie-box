@@ -711,7 +711,7 @@ export default function AdminBoxDetailPage() {
                             return (
                                 <Card key={pickup.id}>
                                     <CardHeader>
-                                        <CardTitle>{format(pickupDateObj, 'PPP')}</CardTitle>
+                                        <CardTitle>{format(pickupDateObj, 'PPPP')}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <p className="text-sm text-muted-foreground truncate">{pickup.note || 'No note for this date.'}</p>
@@ -741,7 +741,7 @@ export default function AdminBoxDetailPage() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Date</TableHead>
-                            <TableHead>Note</TableHead>
+                            <TableHead>Pickup Notes</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -755,7 +755,7 @@ export default function AdminBoxDetailPage() {
                                 const canDelete = !isPast && (lastPickup?.id === pickup.id || firstPickup?.id === pickup.id);
                                 return (
                                     <TableRow key={pickup.id}>
-                                        <TableCell>{format(pickupDateObj, 'PPP')}</TableCell>
+                                        <TableCell>{format(pickupDateObj, 'PPPP')}</TableCell>
                                         <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
                                         <TableCell className="text-right space-x-2">
                                             <Button variant="ghost" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
