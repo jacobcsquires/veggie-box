@@ -77,7 +77,7 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
     if (boxes.length === 0) {
         return (
             <div className="text-center text-muted-foreground py-10">
-                <p>No boxes to display in this category.</p>
+                <p>No Veggie Box Plans to display in this category.</p>
             </div>
         )
     }
@@ -120,7 +120,7 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                             <div className="flex items-center gap-2 mt-2">
                                 <Button asChild className="w-full">
                                     <Link href={`/admin/boxes/${box.id}`}>
-                                        <FilePen className="mr-2 h-4 w-4" /> Edit Box
+                                        <FilePen className="mr-2 h-4 w-4" /> Edit Plan
                                     </Link>
                                 </Button>
                                 <Button asChild variant="secondary" size="icon">
@@ -158,26 +158,20 @@ const EmbedCodeDialog = () => {
     return (
          <Dialog>
             <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="h-8 gap-1">
-                  <Code className="h-3.5 w-3.5" />
-                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                    Embed
-                  </span>
+                <Button variant="outline">
+                  <Code className="mr-2 h-4 w-4" />
+                  Embed Plans
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle>Embed Active Boxes</DialogTitle>
+                    <DialogTitle>Embed Active Veggie Box Plans</DialogTitle>
                     <DialogDescription>
-                        Copy and paste this code into your website (e.g., a Wix HTML block) to display a live list of your available boxes.
+                        Copy and paste this code into your website (e.g., a Wix HTML block) to display a live list of your available Veggie Box Plans.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="bg-muted/50 rounded-md p-4">
-                    <pre className="text-sm text-muted-foreground overflow-x-auto">
-                        <code>
-                            {embedCode}
-                        </code>
-                    </pre>
+                 <div className="bg-muted rounded-md p-4 font-mono text-sm text-muted-foreground overflow-x-auto">
+                    <pre><code>{embedCode}</code></pre>
                 </div>
                  <DialogFooter>
                     <Button onClick={copyToClipboard}>Copy Code</Button>
@@ -332,16 +326,16 @@ export default function AdminBoxesPage() {
           createdAt: serverTimestamp(),
         }
         await addDoc(collection(db, 'boxes'), fullData);
-        toast({ title: 'Success', description: 'New box added and Stripe product created.' });
+        toast({ title: 'Success', description: 'New Veggie Box Plan added and Stripe product created.' });
       
         resetForm();
         setIsDialogOpen(false);
     } catch (error: any) {
-      console.error('Error saving box: ', error);
+      console.error('Error saving plan: ', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Could not save the box. Please try again.',
+        description: error.message || 'Could not save the Veggie Box Plan. Please try again.',
       });
     } finally {
       setIsSaving(false);
@@ -352,7 +346,7 @@ export default function AdminBoxesPage() {
     <div>
       <div className="flex items-center justify-between mb-4 gap-2">
         <h1 className="text-lg font-semibold md:text-2xl font-headline">
-          Manage Boxes
+          Manage Veggie Box Plans
         </h1>
         <div className="flex items-center gap-2">
             <EmbedCodeDialog />
@@ -363,19 +357,17 @@ export default function AdminBoxesPage() {
                 }
             }}>
               <DialogTrigger asChild>
-                <Button size="sm" className="h-8 gap-1">
-                  <PlusCircle className="h-3.5 w-3.5" />
-                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                    Add Box
-                  </span>
+                <Button>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Plan
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[600px]">
                 <form onSubmit={handleSaveBox}>
                   <DialogHeader>
-                    <DialogTitle>Add New Box</DialogTitle>
+                    <DialogTitle>Add New Veggie Box Plan</DialogTitle>
                     <DialogDescription>
-                      Fill out the details for the new veggie box. This will also create a new product and price in Stripe.
+                      Fill out the details for the new Veggie Box Plan. This will also create a new product and price in Stripe.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
@@ -462,7 +454,7 @@ export default function AdminBoxesPage() {
                   </div>
                   <DialogFooter>
                     <Button type="submit" disabled={isSaving}>
-                      {isSaving ? 'Saving...' : 'Save box'}
+                      {isSaving ? 'Saving...' : 'Save Veggie Box Plan'}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -472,8 +464,8 @@ export default function AdminBoxesPage() {
       </div>
       <Tabs defaultValue="active">
         <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="active"><Package className="mr-2 h-4 w-4" />Active Boxes ({activeBoxes.length})</TabsTrigger>
-            <TabsTrigger value="past"><Archive className="mr-2 h-4 w-4" />Past Boxes ({pastBoxes.length})</TabsTrigger>
+            <TabsTrigger value="active"><Package className="mr-2 h-4 w-4" />Active Plans ({activeBoxes.length})</TabsTrigger>
+            <TabsTrigger value="past"><Archive className="mr-2 h-4 w-4" />Past Plans ({pastBoxes.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="active" className="mt-4">
            <BoxGrid boxes={activeBoxes} isLoading={isLoading} />

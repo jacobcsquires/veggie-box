@@ -131,7 +131,7 @@ export default function HomePage() {
       return;
     }
     if (!selectedBox) {
-        toast({ variant: 'destructive', title: 'Error', description: 'No box selected.' });
+        toast({ variant: 'destructive', title: 'Error', description: 'No Veggie Box Plan selected.' });
         return;
     }
     
@@ -141,7 +141,7 @@ export default function HomePage() {
         toast({
             variant: 'destructive',
             title: 'No Pickups Available',
-            description: 'There are no upcoming pickups for this box.',
+            description: 'There are no upcoming pickups for this Veggie Box Plan.',
         });
         return;
     }
@@ -315,7 +315,7 @@ export default function HomePage() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold text-sm mb-2">Box Details</h3>
+                <h3 className="font-semibold text-sm mb-2">Plan Details</h3>
                 <p className="text-sm text-muted-foreground">{selectedBox?.description}</p>
                  <div className="flex justify-between items-center mt-2">
                     <p className="text-lg font-bold">${selectedBox?.price.toFixed(2)}</p>

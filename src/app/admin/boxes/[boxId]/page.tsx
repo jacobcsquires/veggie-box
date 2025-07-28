@@ -289,10 +289,10 @@ export default function AdminBoxDetailPage() {
 
         const boxRef = doc(db, 'boxes', boxId);
         await updateDoc(boxRef, boxData);
-        toast({ title: 'Success', description: 'Box details updated successfully.' });
+        toast({ title: 'Success', description: 'Veggie Box Plan details updated successfully.' });
     } catch (error: any) {
       console.error('Error updating document: ', error);
-      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not update the box. Please try again.' });
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not update the Veggie Box Plan. Please try again.' });
     } finally {
       setIsSavingBox(false);
     }
@@ -499,15 +499,15 @@ export default function AdminBoxDetailPage() {
       
       toast({
         title: 'Success',
-        description: `Box "${box.name}" and all its data have been deleted.`,
+        description: `Veggie Box Plan "${box.name}" and all its data have been deleted.`,
       });
       router.push('/admin/boxes');
     } catch (error: any) {
-      console.error('Error deleting box: ', error);
+      console.error('Error deleting plan: ', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Could not delete the box. Please try again.',
+        description: error.message || 'Could not delete the Veggie Box Plan. Please try again.',
       });
     } finally {
       setIsDeleting(false);
@@ -561,7 +561,7 @@ export default function AdminBoxDetailPage() {
   }
 
   if (!box) {
-    return <div>Box not found.</div>;
+    return <div>Veggie Box Plan not found.</div>;
   }
   
   const renderAddButton = () => {
@@ -578,7 +578,7 @@ export default function AdminBoxDetailPage() {
                     <DialogHeader>
                         <DialogTitle>Add Pickups</DialogTitle>
                         <DialogDescription>
-                            Generate pickup dates based on the box's frequency ({box.frequency}).
+                            Generate pickup dates based on the plan's frequency ({box.frequency}).
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -780,7 +780,7 @@ export default function AdminBoxDetailPage() {
 
   return (
     <div className="space-y-6">
-        <h1 className="text-2xl font-headline">Edit Box: {box.name}</h1>
+        <h1 className="text-2xl font-headline">Edit Plan: {box.name}</h1>
         
         <Tabs defaultValue="edit" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
@@ -792,8 +792,8 @@ export default function AdminBoxDetailPage() {
                 <Card>
                     <form onSubmit={handleSaveBox}>
                     <CardHeader>
-                        <CardTitle>Box Details</CardTitle>
-                        <CardDescription>Update the information for this veggie box.</CardDescription>
+                        <CardTitle>Plan Details</CardTitle>
+                        <CardDescription>Update the information for this Veggie Box Plan.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -838,10 +838,10 @@ export default function AdminBoxDetailPage() {
                     </CardContent>
                     <CardFooter className="justify-between">
                         <Button type="submit" disabled={isSavingBox}>
-                            {isSavingBox ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Box Details'}
+                            {isSavingBox ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Plan Details'}
                         </Button>
                         <Button variant="destructive" type="button" onClick={() => setIsBoxDeleteDialogOpen(true)}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete Box
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Plan
                         </Button>
                     </CardFooter>
                     </form>
@@ -852,7 +852,7 @@ export default function AdminBoxDetailPage() {
                     <CardHeader className="flex-row items-center justify-between">
                         <div>
                             <CardTitle>Scheduled Pickup List</CardTitle>
-                            <CardDescription>A list of all upcoming pickup dates for this box.</CardDescription>
+                            <CardDescription>A list of all upcoming pickup dates for this plan.</CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
                                 <ToggleGroup type="single" value={scheduleView} onValueChange={(value) => { if (value) setScheduleView(value as any) }} aria-label="Schedule view">
@@ -878,7 +878,7 @@ export default function AdminBoxDetailPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Subscribers</CardTitle>
-                        <CardDescription>A list of all users subscribed to this box.</CardDescription>
+                        <CardDescription>A list of all users subscribed to this Veggie Box Plan.</CardDescription>
                          <div className="relative mt-2">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
@@ -904,7 +904,7 @@ export default function AdminBoxDetailPage() {
                                 {filteredAndSortedSubscriptions.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={4} className="text-center h-24">
-                                            {subscriptionSearch ? "No matching subscribers found." : "No one has subscribed to this box yet."}
+                                            {subscriptionSearch ? "No matching subscribers found." : "No one has subscribed to this plan yet."}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -967,16 +967,16 @@ export default function AdminBoxDetailPage() {
       <AlertDialog open={isBoxDeleteDialogOpen} onOpenChange={setIsBoxDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete this box?</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure you want to delete this Veggie Box Plan?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the 
-              "{box?.name}" box and all associated data, including its Stripe product.
+              "{box?.name}" plan and all associated data, including its Stripe product.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setIsBoxDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteBox} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
-              {isDeleting ? 'Deleting...' : 'Yes, delete box'}
+              {isDeleting ? 'Deleting...' : 'Yes, delete plan'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -24,13 +24,13 @@ export async function POST(request: Request) {
     const boxDoc = await getDoc(boxRef);
 
     if (!boxDoc.exists()) {
-        throw new Error("Box does not exist!");
+        throw new Error("Veggie Box Plan does not exist!");
     }
     const boxData = boxDoc.data() as Box;
     const { name: boxName, price, stripePriceId } = boxData;
 
     if (!stripePriceId) {
-        throw new Error("This box is not configured for payments. Please contact support.");
+        throw new Error("This Veggie Box Plan is not configured for payments. Please contact support.");
     }
 
     // Check if a customer already exists in Stripe
@@ -47,14 +47,14 @@ export async function POST(request: Request) {
         await runTransaction(db, async (transaction) => {
             const freshBoxDoc = await transaction.get(boxRef);
             if (!freshBoxDoc.exists()) {
-                throw new Error("Box does not exist!");
+                throw new Error("Veggie Box Plan does not exist!");
             }
 
             const currentBoxData = freshBoxDoc.data() as Omit<Box, 'id'>;
             const newSubscribedCount = (currentBoxData.subscribedCount || 0) + 1;
 
             if (newSubscribedCount > currentBoxData.quantity) {
-                throw new Error("Sorry, this box is now sold out.");
+                throw new Error("Sorry, this Veggie Box Plan is now sold out.");
             }
 
             transaction.update(boxRef, { subscribedCount: newSubscribedCount });

@@ -214,7 +214,7 @@ export default function UserSchedulePage() {
         <div className="lg:sticky lg:top-20">
           <Card>
             <CardHeader>
-              <CardTitle>What's in the box?</CardTitle>
+              <CardTitle>What's in the Veggie Box?</CardTitle>
                <CardDescription>Note for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardDescription>
             </CardHeader>
             <CardContent>

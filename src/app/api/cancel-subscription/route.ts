@@ -34,7 +34,7 @@ export async function POST(request: Request) {
         const boxDoc = await transaction.get(boxRef);
         if (!boxDoc.exists()) {
             // This case should ideally not happen if data is consistent
-            throw new Error("Associated box not found.");
+            throw new Error("Associated Veggie Box Plan not found.");
         }
 
         // This will cancel the subscription at the end of the current billing period.

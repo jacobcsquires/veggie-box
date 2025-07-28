@@ -35,7 +35,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const { state, isMobile } = useSidebar();
   const navItems = [
     { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
-    { href: "/admin/boxes", icon: Package, label: "Boxes" },
+    { href: "/admin/boxes", icon: Package, label: "Veggie Box Plans" },
     { href: "/admin/subscriptions", icon: ShoppingCart, label: "Subscriptions" },
     { href: "/admin/users", icon: Users, label: "Users" },
   ];

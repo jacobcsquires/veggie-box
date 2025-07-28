@@ -313,7 +313,7 @@ export default function SubscriptionsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Box Type</TableHead>
+                <TableHead>Veggie Box Plan</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Schedule Dates</TableHead>
                 <TableHead className="text-right">Price</TableHead>

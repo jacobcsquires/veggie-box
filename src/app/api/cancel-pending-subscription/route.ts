@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     await runTransaction(db, async (transaction) => {
       const boxDoc = await transaction.get(boxRef);
       if (!boxDoc.exists()) {
-        throw new Error("Associated box does not exist!");
+        throw new Error("Associated Veggie Box Plan does not exist!");
       }
 
       const currentBoxData = boxDoc.data() as Omit<Box, 'id'>;

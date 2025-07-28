@@ -207,7 +207,7 @@ export default function SubscriptionDetailPage() {
                     <p className="text-sm font-medium">{subscription.customerName}</p>
                     </div>
                     <div>
-                    <Label>Box</Label>
+                    <Label>Veggie Box Plan</Label>
                     <p className="text-sm font-medium">{subscription.boxName}</p>
                     </div>
                     <div>

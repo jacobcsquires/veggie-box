@@ -96,7 +96,7 @@ export default function Dashboard() {
       return;
     }
     if (!selectedBox) {
-        toast({ variant: 'destructive', title: 'Error', description: 'No box selected.' });
+        toast({ variant: 'destructive', title: 'Error', description: 'No Veggie Box Plan selected.' });
         return;
     }
     
@@ -106,7 +106,7 @@ export default function Dashboard() {
         toast({
             variant: 'destructive',
             title: 'No Pickups Available',
-            description: 'There are no upcoming pickups for this box.',
+            description: 'There are no upcoming pickups for this Veggie Box Plan.',
         });
         return;
     }
@@ -151,7 +151,7 @@ export default function Dashboard() {
     <>
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl font-headline">
-          Browse Our Boxes
+          Browse Our Veggie Box Plans
         </h1>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -228,7 +228,7 @@ export default function Dashboard() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold text-sm mb-2">Box Details</h3>
+                <h3 className="font-semibold text-sm mb-2">Plan Details</h3>
                 <p className="text-sm text-muted-foreground">{selectedBox?.description}</p>
                  <div className="flex justify-between items-center mt-2">
                     <p className="text-lg font-bold">${selectedBox?.price.toFixed(2)}</p>

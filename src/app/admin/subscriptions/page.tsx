@@ -99,49 +99,49 @@ export default function AdminSubscriptionsPage() {
 
   return (
     <div>
-        <div className="flex items-center justify-between mb-2">
-            <h1 className="text-lg font-semibold md:text-2xl font-headline">
-                Subscriptions
-            </h1>
-            <Button onClick={handleSync} disabled={isSyncing} size="sm">
-                <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? 'Refreshing...' : 'Refresh from Stripe'}
-            </Button>
-        </div>
-        <p className="text-muted-foreground mb-4">
-            A list of all active and pending subscriptions.
-        </p>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold md:text-2xl font-headline">
+            Subscriptions
+        </h1>
+        <Button onClick={handleSync} disabled={isSyncing} size="sm">
+            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Refreshing...' : 'Refresh from Stripe'}
+        </Button>
+      </div>
+      <p className="text-muted-foreground mb-4">
+          A list of all active and pending subscriptions.
+      </p>
 
-        <div className="flex flex-col md:flex-row gap-2 mb-4">
-            <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                    type="search"
-                    placeholder="Search by name..."
-                    className="pl-8"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-            </div>
-            <Select value={selectedBoxId} onValueChange={setSelectedBoxId}>
-                <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="Filter by box" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All Boxes</SelectItem>
-                    {boxes.map(box => (
-                    <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
+      <div className="flex flex-col md:flex-row gap-2 mb-4">
+          <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                  type="search"
+                  placeholder="Search by name..."
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+              />
+          </div>
+          <Select value={selectedBoxId} onValueChange={setSelectedBoxId}>
+              <SelectTrigger className="w-full md:w-[200px]">
+                  <SelectValue placeholder="Filter by plan" />
+              </SelectTrigger>
+              <SelectContent>
+                  <SelectItem value="all">All Veggie Box Plans</SelectItem>
+                  {boxes.map(box => (
+                  <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>
+                  ))}
+              </SelectContent>
+          </Select>
+      </div>
       <Card>
         <CardContent className="pt-6">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Customer</TableHead>
-                <TableHead>Box</TableHead>
+                <TableHead>Veggie Box Plan</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Start Date</TableHead>
                 <TableHead className="text-right">Price</TableHead>
