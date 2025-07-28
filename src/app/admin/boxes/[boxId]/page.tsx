@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -25,7 +24,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
@@ -798,7 +796,7 @@ export default function AdminBoxDetailPage() {
     <div className="space-y-6">
         <h1 className="text-2xl font-headline">Edit Plan: {box.name}</h1>
         
-         <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
+         <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1">
                 <Card>
                     <AccordionTrigger className="px-6">
@@ -814,20 +812,30 @@ export default function AdminBoxDetailPage() {
                                     <Label htmlFor="name">Plan Name</Label>
                                     <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSavingBox} />
                                 </div>
+                                {box.stripeProductId && (
+                                    <div className="space-y-2">
+                                        <Label>Stripe Product ID</Label>
+                                        <Input value={box.stripeProductId} readOnly disabled className="font-mono text-xs" />
+                                    </div>
+                                )}
                                 <div className="space-y-2">
                                     <Label>Pricing Options</Label>
                                     <div className="space-y-3 rounded-md border p-4">
                                         {pricingOptions.map((option, index) => (
-                                            <div key={index} className="grid grid-cols-12 gap-2 items-center">
-                                                <div className="col-span-5 space-y-1">
+                                            <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+                                                <div className="col-span-12 md:col-span-5 space-y-1">
                                                     <Label htmlFor={`price-name-${index}`} className="text-xs text-muted-foreground">Option Name</Label>
                                                     <Input id={`price-name-${index}`} placeholder="e.g. Single Share" value={option.name} onChange={(e) => handlePricingOptionChange(index, 'name', e.target.value)} disabled={isSavingBox} />
                                                 </div>
-                                                <div className="col-span-5 space-y-1">
+                                                <div className="col-span-12 md:col-span-3 space-y-1">
                                                     <Label htmlFor={`price-value-${index}`} className="text-xs text-muted-foreground">Price ($)</Label>
                                                     <Input id={`price-value-${index}`} type="number" placeholder="25.00" value={option.price} onChange={(e) => handlePricingOptionChange(index, 'price', parseFloat(e.target.value))} disabled={isSavingBox} />
                                                 </div>
-                                                <div className="col-span-2 pt-5">
+                                                 <div className="col-span-10 md:col-span-3 space-y-1">
+                                                    <Label htmlFor={`price-id-${index}`} className="text-xs text-muted-foreground">Stripe Price ID</Label>
+                                                    <Input id={`price-id-${index}`} value={option.id || 'Will be generated'} readOnly disabled className="font-mono text-xs" />
+                                                </div>
+                                                <div className="col-span-2 md:col-span-1 flex items-end justify-end">
                                                     <Button type="button" variant="ghost" size="icon" onClick={() => removePricingOption(index)} disabled={pricingOptions.length <= 1 || isSavingBox}>
                                                         <Trash2 className="h-4 w-4 text-destructive" />
                                                     </Button>
@@ -1054,3 +1062,5 @@ export default function AdminBoxDetailPage() {
     </div>
   );
 }
+
+    
