@@ -8,7 +8,7 @@ import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where,
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays, RefreshCw } from 'lucide-react';
+import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays, RefreshCw, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -117,11 +117,19 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                                 <span className="text-lg font-bold">${box.price.toFixed(2)}</span>
                                 <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                             </div>
-                            <Button asChild className="w-full mt-2">
-                                <Link href={`/admin/boxes/${box.id}`}>
-                                    <FilePen className="mr-2 h-4 w-4" /> Edit Box
-                                </Link>
-                            </Button>
+                            <div className="flex items-center gap-2 mt-2">
+                                <Button asChild className="w-full">
+                                    <Link href={`/admin/boxes/${box.id}`}>
+                                        <FilePen className="mr-2 h-4 w-4" /> Edit Box
+                                    </Link>
+                                </Button>
+                                <Button asChild variant="secondary" size="icon">
+                                    <Link href="/dashboard" target="_blank">
+                                        <Eye className="h-4 w-4" />
+                                        <span className="sr-only">View Public Page</span>
+                                    </Link>
+                                </Button>
+                            </div>
                         </CardFooter>
                      </Card>
                 )
@@ -428,6 +436,3 @@ export default function AdminBoxesPage() {
   );
 
     
-
-
-
