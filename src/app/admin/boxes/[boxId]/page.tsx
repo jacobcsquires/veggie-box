@@ -166,8 +166,8 @@ export default function AdminBoxDetailPage() {
         setQuantity(boxData.quantity.toString());
         setFrequency(boxData.frequency || 'weekly');
         setImagePreview(boxData.image);
-        setDisplayOnWebsite(boxData.displayOnWebsite);
-        setManualSignupCutoff(boxData.manualSignupCutoff);
+        setDisplayOnWebsite(boxData.displayOnWebsite ?? true);
+        setManualSignupCutoff(boxData.manualSignupCutoff ?? false);
         setPricingOptions(boxData.pricingOptions || [{name: '', price: 0}]);
       }
       setIsLoading(false);
