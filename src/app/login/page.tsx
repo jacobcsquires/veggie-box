@@ -29,17 +29,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [redirectTo, setRedirectTo] = useState<string | null>('/dashboard');
-
-  useEffect(() => {
-    setRedirectTo(searchParams.get('redirect_to'));
-  }, [searchParams]);
-
+  
   useEffect(() => {
     if (!loading && user) {
+        const redirectTo = searchParams.get('redirect_to');
         router.replace(redirectTo || '/dashboard');
     }
-  }, [user, loading, router, redirectTo]);
+  }, [user, loading, router, searchParams]);
 
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {

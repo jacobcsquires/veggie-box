@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -61,17 +62,6 @@ export default function HomePage() {
   const [upcomingPickups, setUpcomingPickups] = useState<PickupInternal[]>([]);
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (user) {
-        if (user.isAdmin) {
-            router.replace('/admin/dashboard');
-        } else {
-            router.replace('/dashboard');
-        }
-    }
-  }, [user, authLoading, router]);
-  
   useEffect(() => {
     const q = query(collection(db, 'boxes'), where('displayOnWebsite', '==', true));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -213,7 +203,7 @@ export default function HomePage() {
       <header className="px-4 lg:px-6 h-14 flex items-center bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 border-b">
         <Link href="#" className="flex items-center justify-center" prefetch={false}>
           <Sprout className="h-6 w-6 text-primary" />
-          <span className="sr-only">Veggie Box</span>
+          <span className="sr-only">Veggie Box Customer Portal</span>
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6">
           {authLoading ? (
@@ -235,7 +225,7 @@ export default function HomePage() {
             <div className="flex flex-col items-center space-y-4 text-center">
               <div className="space-y-2">
                 <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none font-headline">
-                  Fresh, Local Veggies
+                  Welcome to the Veggie Box Customer Portal
                 </h1>
                 <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
                   Discover the best seasonal produce, sourced from local farms and delivered straight to your door.

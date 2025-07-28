@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -147,6 +148,9 @@ export default function SubscriptionsPage() {
                 email: user.email,
                 startDate: sub.startDate,
                 subscriptionId: sub.id, // Pass existing subscription ID to reuse it
+                priceId: sub.priceId,
+                price: sub.price,
+                priceName: sub.priceName,
             }),
         });
 
@@ -271,7 +275,7 @@ export default function SubscriptionsPage() {
              <>
                 <Button variant="default" size="sm" onClick={() => handleCompletePayment(sub)} disabled={isLoadingThis}>
                     {isLoadingThis ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                    Manage
+                    Complete Payment
                 </Button>
                  <AlertDialog>
                     <AlertDialogTrigger asChild>

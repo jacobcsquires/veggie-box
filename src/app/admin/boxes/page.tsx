@@ -134,7 +134,7 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                                 <Button asChild variant="secondary" size="icon">
                                     <Link href="/" target="_blank">
                                         <Eye className="h-4 w-4" />
-                                        <span className="sr-only">View Public Page</span>
+                                        <span className="sr-only">View on Portal</span>
                                     </Link>
                                 </Button>
                             </div>
