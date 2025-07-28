@@ -11,7 +11,8 @@ import {
   Users,
   Sprout,
   ShoppingCart,
-  User
+  User,
+  Globe
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -38,6 +39,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     { href: "/admin/boxes", icon: Package, label: "Veggie Box Plans" },
     { href: "/admin/subscriptions", icon: ShoppingCart, label: "Subscriptions" },
     { href: "/admin/customers", icon: Users, label: "Customers" },
+    { href: "/admin/portal", icon: Globe, label: "Customer Portal" },
   ];
   return (
       <>
