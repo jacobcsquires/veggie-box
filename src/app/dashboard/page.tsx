@@ -80,7 +80,7 @@ export default function Dashboard() {
         setIsLoadingPickups(false);
       });
       // Set default price selection
-      if (selectedBox.pricingOptions.length > 0) {
+      if (selectedBox.pricingOptions && selectedBox.pricingOptions.length > 0) {
         setSelectedPriceId(selectedBox.pricingOptions[0].id);
       }
     } else {
@@ -227,8 +227,8 @@ export default function Dashboard() {
                       </p>
                       <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                     </div>
-                    <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || box.pricingOptions.length === 0 || box.manualSignupCutoff}>
-                        {isSoldOut ? 'Sold Out' : box.pricingOptions.length === 0 ? 'Not Available' : box.manualSignupCutoff ? 'Sign-ups Closed' : 'Subscribe'}
+                    <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.pricingOptions || box.pricingOptions.length === 0 || box.manualSignupCutoff}>
+                        {isSoldOut ? 'Sold Out' : (!box.pricingOptions || box.pricingOptions.length === 0) ? 'Not Available' : box.manualSignupCutoff ? 'Sign-ups Closed' : 'Subscribe'}
                     </Button>
                   </CardFooter>
                 </Card>

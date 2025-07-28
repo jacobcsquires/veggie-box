@@ -55,7 +55,7 @@ export default function EmbedPage() {
 
   useEffect(() => {
     // Only show boxes that have a defined schedule
-    const q = query(collection(db, 'boxes'), where('endDate', '!=', null));
+    const q = query(collection(db, 'boxes'), where('displayOnWebsite', '==', true), where('endDate', '!=', null));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -126,6 +126,7 @@ export default function EmbedPage() {
               const hasSchedule = box.startDate && box.endDate;
               const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
               const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
+              const basePrice = box.pricingOptions?.[0]?.price ?? 0;
 
               return (
                   <Card key={box.id} className="flex flex-col">
@@ -151,12 +152,12 @@ export default function EmbedPage() {
                   <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
                       <div className="flex justify-between items-center">
                       <p className="text-2xl font-bold">
-                          ${box.price.toFixed(2)}
+                          ${basePrice.toFixed(2)}{box.pricingOptions.length > 1 ? '+' : ''}
                       </p>
                       <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                       </div>
-                      <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.stripePriceId}>
-                          {isSoldOut ? 'Sold Out' : !box.stripePriceId ? 'Not Available' : 'Subscribe'}
+                      <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.pricingOptions || box.pricingOptions.length === 0}>
+                          {isSoldOut ? 'Sold Out' : (!box.pricingOptions || box.pricingOptions.length === 0) ? 'Not Available' : 'Subscribe'}
                       </Button>
                   </CardFooter>
                   </Card>
@@ -166,4 +167,3 @@ export default function EmbedPage() {
     </div>
   );
 }
-    
