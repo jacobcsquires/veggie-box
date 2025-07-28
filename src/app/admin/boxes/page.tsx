@@ -116,7 +116,7 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                         </CardContent>
                         <CardFooter className="flex-col gap-2 items-stretch p-4">
                              <div className="flex items-center justify-between pt-2">
-                                <span className="text-lg font-bold">${basePrice.toFixed(2)}{box.pricingOptions.length > 1 ? '+' : ''}</span>
+                                <span className="text-lg font-bold">${basePrice.toFixed(2)}{box.pricingOptions?.length > 1 ? '+' : ''}</span>
                                 <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                             </div>
                             <div className="flex items-center gap-2 mt-2">
