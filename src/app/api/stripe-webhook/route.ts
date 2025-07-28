@@ -2,14 +2,28 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { Subscription } from '@/lib/types';
+
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+// Helper function to find a subscription by its Stripe ID
+const findSubscriptionByStripeId = async (stripeSubscriptionId: string): Promise<Subscription | null> => {
+    const subsRef = collection(db, 'subscriptions');
+    const q = query(subsRef, where("stripeSubscriptionId", "==", stripeSubscriptionId));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+        return null;
+    }
+    const doc = querySnapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as Subscription;
+}
 
 export async function POST(req: Request) {
   const body = await req.text();
@@ -56,16 +70,37 @@ export async function POST(req: Request) {
 
       break;
     
-    case 'customer.subscription.updated':
+    case 'customer.subscription.updated': {
         const subscriptionUpdated = event.data.object as Stripe.Subscription;
-        // Handle subscription updates, e.g., status changes like 'past_due' or 'canceled'.
-        // You would query your subscriptions collection for the subscription with stripeSubscriptionId.
+        const localSub = await findSubscriptionByStripeId(subscriptionUpdated.id);
+        
+        if (localSub) {
+            const newStatus = subscriptionUpdated.status.charAt(0).toUpperCase() + subscriptionUpdated.status.slice(1);
+            try {
+                 await updateDoc(doc(db, 'subscriptions', localSub.id), { status: newStatus });
+            } catch(error) {
+                console.error(`Webhook: Failed to update subscription status for ${localSub.id}`, error);
+                return NextResponse.json({ error: 'Failed to update subscription in database.' }, { status: 500 });
+            }
+        }
         break;
+    }
 
-    case 'customer.subscription.deleted':
+    case 'customer.subscription.deleted': {
         const subscriptionDeleted = event.data.object as Stripe.Subscription;
-        // Handle subscription cancellations.
+        const localSub = await findSubscriptionByStripeId(subscriptionDeleted.id);
+
+        if (localSub) {
+             try {
+                //  Mark as cancelled, or whatever status makes sense for a hard delete from stripe
+                 await updateDoc(doc(db, 'subscriptions', localSub.id), { status: 'Cancelled' });
+            } catch(error) {
+                console.error(`Webhook: Failed to mark subscription as cancelled for ${localSub.id}`, error);
+                return NextResponse.json({ error: 'Failed to update subscription in database.' }, { status: 500 });
+            }
+        }
         break;
+    }
         
     default:
       console.log(`Unhandled event type ${event.type}`);
