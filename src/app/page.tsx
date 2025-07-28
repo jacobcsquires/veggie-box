@@ -1,12 +1,13 @@
 
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/auth-context';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { collection, doc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import * as Icons from 'lucide-react';
 
@@ -27,7 +28,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
 import type { Box } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
@@ -47,6 +47,8 @@ export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -57,6 +59,17 @@ export default function HomePage() {
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (user) {
+        if (user.isAdmin) {
+            router.replace('/admin/dashboard');
+        } else {
+            router.replace('/dashboard');
+        }
+    }
+  }, [user, authLoading, router]);
+  
+  useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'boxes'), (snapshot) => {
       const boxesData = snapshot.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() } as Box)
@@ -66,6 +79,16 @@ export default function HomePage() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const subscribeToId = searchParams.get('subscribe_to');
+    if (subscribeToId && boxes.length > 0) {
+      const boxToSubscribe = boxes.find(b => b.id === subscribeToId);
+      if (boxToSubscribe) {
+        handleSubscribeClick(boxToSubscribe);
+      }
+    }
+  }, [searchParams, boxes]);
 
   useEffect(() => {
     if (selectedBox && isDialogOpen) {
@@ -87,7 +110,11 @@ export default function HomePage() {
 
   const handleSubscribeClick = (box: Box) => {
     if (!user) {
-        router.push('/login');
+        const currentPath = new URL(window.location.href);
+        currentPath.searchParams.set('subscribe_to', box.id);
+        const loginUrl = new URL('/login', window.location.origin);
+        loginUrl.searchParams.set('redirect_to', currentPath.pathname + currentPath.search);
+        router.push(loginUrl.toString());
         return;
     }
     setSelectedBox(box);
@@ -154,6 +181,14 @@ export default function HomePage() {
         setIsSubscribing(false);
     }
   };
+
+  if (authLoading || user) {
+    return (
+        <div className="flex items-center justify-center min-h-screen">
+            <Icons.Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    )
+  }
   
   return (
     <div className="flex flex-col min-h-screen">
@@ -323,3 +358,4 @@ export default function HomePage() {
     </div>
   );
 }
+    

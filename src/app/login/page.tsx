@@ -1,8 +1,9 @@
+
 'use client';
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -17,21 +18,36 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sprout } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function LoginPage() {
+  const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [redirectTo, setRedirectTo] = useState<string | null>('/dashboard');
+
+  useEffect(() => {
+    setRedirectTo(searchParams.get('redirect_to'));
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!loading && user) {
+        router.replace(redirectTo || '/dashboard');
+    }
+  }, [user, loading, router, redirectTo]);
+
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push("/dashboard");
+      // Let the useEffect handle redirection
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -48,7 +64,7 @@ export default function LoginPage() {
     const provider = new GoogleAuthProvider();
     try {
         await signInWithPopup(auth, provider);
-        router.push("/dashboard");
+        // Let the useEffect handle redirection
     } catch (error: any) {
         toast({
             variant: "destructive",
@@ -120,3 +136,4 @@ export default function LoginPage() {
     </div>
   )
 }
+    

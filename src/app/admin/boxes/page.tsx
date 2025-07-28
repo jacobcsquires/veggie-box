@@ -8,7 +8,7 @@ import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where,
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays, RefreshCw, Eye } from 'lucide-react';
+import { PlusCircle, FilePen, Calendar as CalendarIcon, Package, Archive, Users, ListTree, CalendarDays, RefreshCw, Eye, Code } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -135,6 +135,55 @@ const BoxGrid = ({ boxes, isLoading }: { boxes: BoxWithSchedule[], isLoading: bo
                 )
             })}
         </div>
+    )
+}
+
+const EmbedCodeDialog = () => {
+    const { toast } = useToast();
+    const [embedCode, setEmbedCode] = useState('');
+
+    useEffect(() => {
+        const url = new URL('/embed', window.location.origin);
+        setEmbedCode(`<iframe src="${url.href}" width="100%" height="600" style="border:none;"></iframe>`);
+    }, []);
+
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(embedCode).then(() => {
+            toast({ title: 'Success', description: 'Embed code copied to clipboard.' });
+        }, () => {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to copy embed code.' });
+        });
+    };
+    
+    return (
+         <Dialog>
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="h-8 gap-1">
+                  <Code className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    Embed
+                  </span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Embed Active Boxes</DialogTitle>
+                    <DialogDescription>
+                        Copy and paste this code into your website (e.g., a Wix HTML block) to display a live list of your available boxes.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="bg-muted/50 rounded-md p-4">
+                    <pre className="text-sm text-muted-foreground overflow-x-auto">
+                        <code>
+                            {embedCode}
+                        </code>
+                    </pre>
+                </div>
+                 <DialogFooter>
+                    <Button onClick={copyToClipboard}>Copy Code</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }
 
@@ -306,6 +355,7 @@ export default function AdminBoxesPage() {
           Manage Boxes
         </h1>
         <div className="flex items-center gap-2">
+            <EmbedCodeDialog />
             <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
                 setIsDialogOpen(isOpen);
                 if (!isOpen) {
@@ -434,5 +484,5 @@ export default function AdminBoxesPage() {
       </Tabs>
     </div>
   );
-
+}
     
