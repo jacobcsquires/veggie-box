@@ -12,8 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown, ExternalLink, ChevronRight } from 'lucide-react';
-import type { Box, Pickup, Subscription, PricingOption } from '@/lib/types';
+import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown, ExternalLink, ChevronRight, Users, DollarSign, CalendarDays, Download } from 'lucide-react';
+import type { Box, Pickup, Subscription, PricingOption, Customer } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addDays, isBefore, startOfToday, addMonths, subDays, subMonths } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
@@ -94,6 +94,8 @@ function getPreviousPickupDate(firstDate: Date, frequency: Box['frequency']): Da
     }
 }
 
+type EnrichedSubscription = Subscription & { customerEmail?: string };
+
 export default function AdminBoxDetailPage() {
   const params = useParams();
   const boxId = params.boxId as string;
@@ -102,7 +104,7 @@ export default function AdminBoxDetailPage() {
 
   const [box, setBox] = useState<Box | null>(null);
   const [pickups, setPickups] = useState<PickupInternal[]>([]);
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptions, setSubscriptions] = useState<EnrichedSubscription[]>([]);
   
   // States for editing the box
   const [name, setName] = useState('');
@@ -173,9 +175,25 @@ export default function AdminBoxDetailPage() {
     });
 
     const subscriptionsQuery = query(collection(db, 'subscriptions'), where('boxId', '==', boxId));
-    const unsubSubscriptions = onSnapshot(subscriptionsQuery, (snapshot) => {
+    const unsubSubscriptions = onSnapshot(subscriptionsQuery, async (snapshot) => {
         const subsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Subscription);
-        setSubscriptions(subsData);
+        
+        // Enrich subscriptions with customer email
+        const enrichedSubs = await Promise.all(subsData.map(async (sub) => {
+          if (!sub.stripeCustomerId) return sub;
+          try {
+            const customerRef = doc(db, 'customers', sub.stripeCustomerId);
+            const customerSnap = await getDoc(customerRef);
+            if (customerSnap.exists()) {
+              return { ...sub, customerEmail: customerSnap.data().email };
+            }
+          } catch (error) {
+             console.error("Failed to fetch customer data for sub", sub.id, error);
+          }
+          return sub;
+        }));
+        
+        setSubscriptions(enrichedSubs);
     });
 
     return () => {
@@ -447,7 +465,7 @@ export default function AdminBoxDetailPage() {
     return subscriptions
       .filter(sub => 
         sub.customerName?.toLowerCase().includes(subscriptionSearch.toLowerCase()) ||
-        sub.userId.toLowerCase().includes(subscriptionSearch.toLowerCase())
+        sub.customerEmail?.toLowerCase().includes(subscriptionSearch.toLowerCase())
       )
       .sort((a, b) => (a.customerName || '').localeCompare(b.customerName || ''));
   }, [subscriptions, subscriptionSearch]);
@@ -475,6 +493,37 @@ export default function AdminBoxDetailPage() {
     
     return prevDate;
   }, [box, pickups]);
+  
+   const exportSubscribersToCSV = () => {
+    if (filteredAndSortedSubscriptions.length === 0) {
+      toast({ variant: 'destructive', title: 'No Subscribers', description: 'There are no subscribers to export.' });
+      return;
+    }
+
+    const headers = ['Customer Name', 'Email', 'Status', 'Start Date', 'Price'];
+    const rows = filteredAndSortedSubscriptions.map(sub => [
+      `"${sub.customerName || sub.userId}"`,
+      `"${sub.customerEmail || 'N/A'}"`,
+      sub.status,
+      format(new Date(sub.startDate.replace(/-/g, '\/')), 'yyyy-MM-dd'),
+      sub.price.toFixed(2),
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+      
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    const fileName = `${box?.name.replace(/\s+/g, '_')}_subscribers_${new Date().toISOString().split('T')[0]}.csv`;
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({ title: 'Export Complete', description: 'The subscriber list has been downloaded.' });
+  };
+
 
   if (isLoading) {
     return (
@@ -749,10 +798,10 @@ export default function AdminBoxDetailPage() {
         
         <Tabs defaultValue="details" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="pricing">Pricing</TabsTrigger>
-                <TabsTrigger value="schedule">Schedule ({pickups.length})</TabsTrigger>
-                <TabsTrigger value="subscriptions">Subscribers ({subscriptions.length})</TabsTrigger>
+                <TabsTrigger value="details"><FilePen className="mr-2 h-4 w-4" />Details</TabsTrigger>
+                <TabsTrigger value="pricing"><DollarSign className="mr-2 h-4 w-4" />Pricing</TabsTrigger>
+                <TabsTrigger value="schedule"><CalendarDays className="mr-2 h-4 w-4" />Schedule ({pickups.length})</TabsTrigger>
+                <TabsTrigger value="subscriptions"><Users className="mr-2 h-4 w-4" />Subscribers ({subscriptions.length})</TabsTrigger>
             </TabsList>
             <TabsContent value="details" className="mt-6">
                 <Card>
@@ -917,13 +966,21 @@ export default function AdminBoxDetailPage() {
              <TabsContent value="subscriptions" className="mt-6">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Subscribers</CardTitle>
-                        <CardDescription>A list of all users subscribed to this Veggie Box Plan.</CardDescription>
+                         <div className="flex justify-between items-center">
+                            <div>
+                                <CardTitle>Subscribers</CardTitle>
+                                <CardDescription>A list of all users subscribed to this Veggie Box Plan.</CardDescription>
+                            </div>
+                            <Button onClick={exportSubscribersToCSV} variant="outline" size="sm">
+                                <Download className="mr-2 h-4 w-4"/>
+                                Export CSV
+                            </Button>
+                        </div>
                          <div className="relative mt-2">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
                                 type="search"
-                                placeholder="Search by name..."
+                                placeholder="Search by name or email..."
                                 className="pl-8"
                                 value={subscriptionSearch}
                                 onChange={(e) => setSubscriptionSearch(e.target.value)}
@@ -935,6 +992,7 @@ export default function AdminBoxDetailPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Customer</TableHead>
+                                    <TableHead>Email</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Start Date</TableHead>
                                     <TableHead className="text-right">Price</TableHead>
@@ -943,7 +1001,7 @@ export default function AdminBoxDetailPage() {
                             <TableBody>
                                 {filteredAndSortedSubscriptions.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center h-24">
+                                        <TableCell colSpan={5} className="text-center h-24">
                                             {subscriptionSearch ? "No matching subscribers found." : "No one has subscribed to this plan yet."}
                                         </TableCell>
                                     </TableRow>
@@ -951,6 +1009,7 @@ export default function AdminBoxDetailPage() {
                                     filteredAndSortedSubscriptions.map(sub => (
                                         <TableRow key={sub.id}>
                                             <TableCell>{sub.customerName || sub.userId}</TableCell>
+                                            <TableCell>{sub.customerEmail || 'N/A'}</TableCell>
                                             <TableCell>
                                                 <Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>{sub.status}</Badge>
                                             </TableCell>

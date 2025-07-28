@@ -44,6 +44,7 @@ export type Subscription = {
     stripeSessionId?: string;
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
+    customerEmail?: string;
 }
 
 export type Pickup = {
