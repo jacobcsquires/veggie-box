@@ -1,25 +1,30 @@
 
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, onSnapshot, query, where, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs, doc, setDoc, serverTimestamp, orderBy as firestoreOrderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Box, AppUser, Customer } from '@/lib/types';
-import { Search, RefreshCw, PlusCircle, Copy, Check } from 'lucide-react';
+import { Search, RefreshCw, PlusCircle, Copy, Check, ChevronsUpDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import type Stripe from 'stripe';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import Link from 'next/link';
+
+type SortDescriptor = {
+    column: keyof Subscription;
+    direction: 'asc' | 'desc';
+};
 
 export default function AdminSubscriptionsPage() {
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -29,6 +34,8 @@ export default function AdminSubscriptionsPage() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStatus, setSelectedStatus] = useState('active');
+    const [selectedBoxFilter, setSelectedBoxFilter] = useState('all');
+    const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({ column: 'createdAt', direction: 'desc' });
     const router = useRouter();
     const { toast } = useToast();
 
@@ -53,7 +60,7 @@ export default function AdminSubscriptionsPage() {
             setBoxes(boxesData);
         });
         
-        const unsubscribeCustomers = onSnapshot(query(collection(db, 'customers'), orderBy('name')), (snapshot) => {
+        const unsubscribeCustomers = onSnapshot(query(collection(db, 'customers'), firestoreOrderBy('name')), (snapshot) => {
             const customersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
             setCustomers(customersData);
         });
@@ -150,16 +157,35 @@ export default function AdminSubscriptionsPage() {
         setSelectedPriceId('');
     }
 
-    const filteredSubscriptions = useMemo(() => {
+    const handleSort = (column: keyof Subscription) => {
+        if (sortDescriptor.column === column) {
+            setSortDescriptor({ ...sortDescriptor, direction: sortDescriptor.direction === 'asc' ? 'desc' : 'asc' });
+        } else {
+            setSortDescriptor({ column, direction: 'asc' });
+        }
+    };
+
+
+    const filteredAndSortedSubscriptions = useMemo(() => {
         return subscriptions
             .filter(sub => {
                 const status = sub.status?.toLowerCase() || 'pending';
                 const matchesStatus = selectedStatus === 'all' || status === selectedStatus;
+                const matchesBox = selectedBoxFilter === 'all' || sub.boxId === selectedBoxFilter;
                 const matchesSearch = sub.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) || sub.boxName.toLowerCase().includes(searchTerm.toLowerCase());
-                return matchesStatus && matchesSearch;
+                return matchesStatus && matchesBox && matchesSearch;
             })
-            .sort((a, b) => new Date(b.createdAt?.toDate()).getTime() - new Date(a.createdAt?.toDate()).getTime());
-    }, [subscriptions, searchTerm, selectedStatus]);
+            .sort((a, b) => {
+                const aValue = a[sortDescriptor.column];
+                const bValue = b[sortDescriptor.column];
+                
+                let cmp = 0;
+                if (aValue > bValue) cmp = 1;
+                if (aValue < bValue) cmp = -1;
+
+                return sortDescriptor.direction === 'asc' ? cmp : -cmp;
+            });
+    }, [subscriptions, searchTerm, selectedStatus, selectedBoxFilter, sortDescriptor]);
     
     const selectedBoxOptions = useMemo(() => {
         return boxes.find(b => b.id === selectedBoxId)?.pricingOptions || [];
@@ -177,6 +203,12 @@ export default function AdminSubscriptionsPage() {
             default: return 'secondary';
         }
     }
+
+    const renderSortIcon = (column: keyof Subscription) => {
+        if (sortDescriptor.column !== column) return <ChevronsUpDown className="ml-2 h-4 w-4" />;
+        return sortDescriptor.direction === 'asc' ? <ChevronsUpDown className="ml-2 h-4 w-4" /> : <ChevronsUpDown className="ml-2 h-4 w-4" />; // Icons could be different for asc/desc
+    };
+
 
     return (
         <div>
@@ -282,6 +314,15 @@ export default function AdminSubscriptionsPage() {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
+                        <Select value={selectedBoxFilter} onValueChange={setSelectedBoxFilter}>
+                            <SelectTrigger className="w-full md:w-[280px]">
+                                <SelectValue placeholder="Filter by plan" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Veggie Box Plans</SelectItem>
+                                {boxes.map(box => <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                         <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                             <SelectTrigger className="w-full md:w-[200px]">
                                 <SelectValue placeholder="Filter by status" />
@@ -302,10 +343,23 @@ export default function AdminSubscriptionsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Customer</TableHead>
-                                <TableHead>Plan</TableHead>
+                                <TableHead>
+                                    <Button variant="ghost" onClick={() => handleSort('customerName')}>
+                                        Customer {renderSortIcon('customerName')}
+                                    </Button>
+                                </TableHead>
+                                <TableHead>
+                                     <Button variant="ghost" onClick={() => handleSort('boxName')}>
+                                        Plan {renderSortIcon('boxName')}
+                                    </Button>
+                                </TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead>Next Billing</TableHead>
+                                <TableHead>
+                                     <Button variant="ghost" onClick={() => handleSort('nextPickup')}>
+                                        Next Billing {renderSortIcon('nextPickup')}
+                                    </Button>
+                                </TableHead>
+                                <TableHead>Last Charged</TableHead>
                                 <TableHead className="text-right">Price</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -317,19 +371,24 @@ export default function AdminSubscriptionsPage() {
                                         <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                                         <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                         <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                                     </TableRow>
                                 ))
-                            ) : filteredSubscriptions.length === 0 ? (
+                            ) : filteredAndSortedSubscriptions.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
+                                    <TableCell colSpan={6} className="h-24 text-center">
                                         No matching subscriptions found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredSubscriptions.map((sub) => (
-                                    <TableRow key={sub.id} onClick={() => router.push(`/admin/subscriptions/${sub.id}`)} className="cursor-pointer">
-                                        <TableCell className="font-medium">{sub.customerName || sub.userId}</TableCell>
+                                filteredAndSortedSubscriptions.map((sub) => (
+                                    <TableRow key={sub.id} className="group">
+                                        <TableCell className="font-medium">
+                                            <Link href={`/admin/customers/${sub.stripeCustomerId}`} className="hover:underline">
+                                                {sub.customerName || sub.userId}
+                                            </Link>
+                                        </TableCell>
                                         <TableCell>{sub.boxName}</TableCell>
                                         <TableCell>
                                             <Badge variant={getStatusVariant(sub.status)} className="capitalize">
@@ -337,9 +396,17 @@ export default function AdminSubscriptionsPage() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
-                                            {sub.nextPickup ? format(new Date(sub.nextPickup.replace(/-/g, '\/')), 'PPP') : 'N/A'}
+                                            {sub.nextPickup ? format(parseISO(sub.nextPickup), 'PPP') : 'N/A'}
+                                        </TableCell>
+                                        <TableCell>
+                                            {sub.lastCharged ? format(parseISO(sub.lastCharged), 'PPP') : 'N/A'}
                                         </TableCell>
                                         <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
+                                        <TableCell className="opacity-0 group-hover:opacity-100 text-right">
+                                            <Button variant="outline" size="sm" onClick={() => router.push(`/admin/subscriptions/${sub.id}`)}>
+                                                View
+                                            </Button>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}

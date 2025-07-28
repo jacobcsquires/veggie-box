@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
-import { ExternalLink, Home, Mail, ChevronRight, Phone } from 'lucide-react';
+import { ExternalLink, Home, Mail, ChevronRight, Phone, RefreshCw } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type Stripe from 'stripe';
@@ -51,31 +51,34 @@ export default function CustomerDetailPage() {
     return () => unsubscribe();
   }, [customerId, toast]);
 
+  const fetchStripeData = useCallback(async () => {
+        if (!customer) return;
+        setIsStripeLoading(true);
+        try {
+            const response = await fetch('/api/get-stripe-customer-details', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customerId: customer.id }),
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to fetch Stripe data.');
+            }
+            const data = await response.json();
+            setStripeData(data);
+            toast({ title: "Sync Complete", description: "Customer data has been refreshed from Stripe."})
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Stripe Error', description: error.message });
+        } finally {
+            setIsStripeLoading(false);
+        }
+    }, [customer, toast]);
+
   useEffect(() => {
     if (customer) {
-        const fetchStripeData = async () => {
-            setIsStripeLoading(true);
-            try {
-                const response = await fetch('/api/get-stripe-customer-details', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ customerId: customer.id }),
-                });
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || 'Failed to fetch Stripe data.');
-                }
-                const data = await response.json();
-                setStripeData(data);
-            } catch (error: any) {
-                toast({ variant: 'destructive', title: 'Stripe Error', description: error.message });
-            } finally {
-                setIsStripeLoading(false);
-            }
-        };
         fetchStripeData();
     }
-  }, [customer, toast]);
+  }, [customer, fetchStripeData]);
 
 
   if (isLoading) {
@@ -141,12 +144,18 @@ export default function CustomerDetailPage() {
                 {stripeCustomer?.created && <div className="flex items-center gap-2"><Home className="h-4 w-4"/><span>Joined {formatDistanceToNow(new Date(stripeCustomer.created * 1000), { addSuffix: true })}</span></div>}
             </div>
         </div>
-        <Button asChild>
-           <a href={`https://dashboard.stripe.com/test/customers/${customer.id}`} target="_blank" rel="noopener noreferrer">
-             <ExternalLink className="mr-2 h-4 w-4" />
-             View in Stripe
-            </a>
-        </Button>
+         <div className="flex items-center gap-2">
+            <Button onClick={fetchStripeData} disabled={isStripeLoading}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isStripeLoading ? 'animate-spin' : ''}`} />
+                Sync with Stripe
+            </Button>
+            <Button asChild>
+                <a href={`https://dashboard.stripe.com/test/customers/${customer.id}`} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    View in Stripe
+                </a>
+            </Button>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
@@ -217,5 +226,3 @@ export default function CustomerDetailPage() {
       </div>
     </div>
   );
-
-    

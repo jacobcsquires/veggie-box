@@ -1,4 +1,5 @@
 
+
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, addDoc, getDoc, updateDoc } from 'firebase/firestore';
@@ -100,7 +101,7 @@ export async function POST() {
   try {
     // 1. Fetch all subscriptions from Stripe
     const stripeSubscriptions: Stripe.Subscription[] = [];
-    for await (const sub of stripe.subscriptions.list({ status: 'all', limit: 100, expand: ['data.customer'] })) {
+    for await (const sub of stripe.subscriptions.list({ status: 'all', limit: 100, expand: ['data.customer', 'latest_invoice'] })) {
       stripeSubscriptions.push(sub);
     }
     
@@ -121,12 +122,18 @@ export async function POST() {
         const customer = stripeSub.customer as Stripe.Customer;
         if (customer.deleted || !customer.email) continue;
         const newStatus = stripeSub.status.charAt(0).toUpperCase() + stripeSub.status.slice(1);
+        const latestInvoice = stripeSub.latest_invoice as Stripe.Invoice;
+        const lastChargedDate = latestInvoice?.status === 'paid' && latestInvoice?.created ? new Date(latestInvoice.created * 1000).toISOString().split('T')[0] : undefined;
 
         if (existingFirestoreSub) {
             // Subscription exists in both, update if different
-            if (existingFirestoreSub.status !== newStatus || existingFirestoreSub.customerName !== customer.name) {
+            if (existingFirestoreSub.status !== newStatus || existingFirestoreSub.customerName !== customer.name || existingFirestoreSub.lastCharged !== lastChargedDate) {
                 const subRef = doc(db, 'subscriptions', existingFirestoreSub.id);
-                batch.update(subRef, { status: newStatus, customerName: customer.name });
+                batch.update(subRef, { 
+                    status: newStatus, 
+                    customerName: customer.name,
+                    lastCharged: lastChargedDate || null,
+                });
                 updatedCount++;
             }
             // Remove from map to track remaining Firestore-only subs
@@ -166,6 +173,7 @@ export async function POST() {
                     createdAt: serverTimestamp(),
                     stripeSubscriptionId: stripeSub.id,
                     stripeCustomerId: customer.id,
+                    lastCharged: lastChargedDate,
                 };
                 batch.set(newSubRef, newSubData);
                 createdCount++;

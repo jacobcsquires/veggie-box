@@ -36,6 +36,7 @@ export type Subscription = {
     startDate: string;
     status: 'Active' | 'Cancelled' | 'Pending' | 'Past Due' | 'Unpaid' | 'Unknown';
     nextPickup: string;
+    lastCharged?: string;
     price: number;
     priceId: string;
     priceName?: string;
