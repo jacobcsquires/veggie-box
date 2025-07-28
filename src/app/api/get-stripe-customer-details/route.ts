@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
       status: 'all',
+      expand: ['data.plan.product'],
       limit: 10,
     });
 

@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Customer, Subscription } from '@/lib/types';
+import type { Customer } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -112,6 +112,15 @@ export default function CustomerDetailPage() {
     }
   }
 
+  const getChargeStatusBadgeVariant = (status: Stripe.Charge.Status) => {
+    switch(status) {
+        case 'succeeded': return 'default';
+        case 'pending': return 'secondary';
+        case 'failed': return 'destructive';
+        default: return 'outline';
+    }
+  }
+
 
   return (
     <div className="space-y-6">
@@ -145,13 +154,17 @@ export default function CustomerDetailPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {stripeData.subscriptions.map(sub => (
-                                    <TableRow key={sub.id}>
-                                        <TableCell>{sub.items.data[0]?.price.nickname || 'N/A'}</TableCell>
-                                        <TableCell><Badge variant={getStripeStatusBadgeVariant(sub.status)} className="capitalize">{sub.status.replace(/_/g, ' ')}</Badge></TableCell>
-                                        <TableCell>{format(new Date(sub.current_period_end * 1000), 'PPP')}</TableCell>
-                                    </TableRow>
-                                ))}
+                                {stripeData.subscriptions.map(sub => {
+                                    const product = sub.plan?.product;
+                                    const productName = typeof product === 'string' ? product : product?.name;
+                                    return (
+                                        <TableRow key={sub.id}>
+                                            <TableCell>{sub.items.data[0]?.price.nickname || productName || 'N/A'}</TableCell>
+                                            <TableCell><Badge variant={getStripeStatusBadgeVariant(sub.status)} className="capitalize">{sub.status.replace(/_/g, ' ')}</Badge></TableCell>
+                                            <TableCell>{format(new Date(sub.current_period_end * 1000), 'PPP')}</TableCell>
+                                        </TableRow>
+                                    )
+                                })}
                             </TableBody>
                         </Table>
                     ) : <p className="text-sm text-muted-foreground text-center py-4">No active subscriptions found in Stripe.</p>
@@ -179,7 +192,7 @@ export default function CustomerDetailPage() {
                                     <TableRow key={charge.id}>
                                         <TableCell>{format(new Date(charge.created * 1000), 'PPP')}</TableCell>
                                         <TableCell>${(charge.amount / 100).toFixed(2)}</TableCell>
-                                        <TableCell><Badge variant={charge.status === 'succeeded' ? 'default' : 'destructive'}>{charge.status}</Badge></TableCell>
+                                        <TableCell><Badge variant={getChargeStatusBadgeVariant(charge.status)}>{charge.status}</Badge></TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
