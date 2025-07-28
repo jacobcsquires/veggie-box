@@ -35,14 +35,9 @@ export default function SubscriptionDetailPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isStripeLoading, setIsStripeLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [isManagingPortal, setIsManagingPortal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-
-  // Form state
-  const [status, setStatus] = useState<Subscription['status']>('Pending');
-  
   useEffect(() => {
     if (!subscriptionId) return;
 
@@ -51,7 +46,6 @@ export default function SubscriptionDetailPage() {
       if (docSnap.exists()) {
         const subData = { id: docSnap.id, ...docSnap.data() } as Subscription;
         setSubscription(subData);
-        setStatus(subData.status);
       } else {
         toast({ variant: 'destructive', title: 'Error', description: 'Subscription not found.' });
         router.push('/admin/subscriptions');
@@ -93,44 +87,6 @@ export default function SubscriptionDetailPage() {
     }
   }, [subscription, toast]);
 
-
-  const handleSaveChanges = async () => {
-    if (!subscription) return;
-    setIsSaving(true);
-    
-    // First, try to update Stripe if applicable
-    if (subscription.stripeSubscriptionId) {
-      try {
-        const response = await fetch('/api/update-stripe-subscription-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            stripeSubscriptionId: subscription.stripeSubscriptionId, 
-            newStatus: status 
-          }),
-        });
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Failed to update Stripe subscription.');
-        }
-      } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Stripe Error', description: error.message });
-        setIsSaving(false);
-        return; // Stop if Stripe update fails
-      }
-    }
-    
-    // Then, update Firestore
-    try {
-      const subRef = doc(db, 'subscriptions', subscriptionId);
-      await updateDoc(subRef, { status });
-      toast({ title: 'Success', description: 'Subscription updated successfully.' });
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Firestore Error', description: error.message });
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleManageSubscription = async (customerId?: string) => {
     if (!customerId) {
@@ -200,8 +156,8 @@ export default function SubscriptionDetailPage() {
     return null; // Or a 'not found' component
   }
 
-  const getStripeStatusBadgeVariant = (status: Stripe.Subscription.Status) => {
-    switch (status) {
+  const getStripeStatusBadgeVariant = (status: Stripe.Subscription.Status | Subscription['status']) => {
+    switch (status?.toLowerCase()) {
         case 'active': return 'default';
         case 'past_due':
         case 'unpaid':
@@ -235,7 +191,7 @@ export default function SubscriptionDetailPage() {
             )}
             <Button onClick={() => handleManageSubscription(subscription.stripeCustomerId)} disabled={isManagingPortal || !subscription.stripeCustomerId}>
                 <ExternalLink className="mr-2 h-4 w-4" />
-                View in Stripe
+                Manage in Stripe
             </Button>
         </div>
       </div>
@@ -244,8 +200,8 @@ export default function SubscriptionDetailPage() {
         <div className="lg:col-span-2 space-y-6">
             <Card>
                 <CardHeader>
-                <CardTitle>Manage Subscription</CardTitle>
-                <CardDescription>View and edit the details for this subscription.</CardDescription>
+                <CardTitle>Subscription Details</CardTitle>
+                <CardDescription>View the details for this subscription. Manage in Stripe.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -265,29 +221,12 @@ export default function SubscriptionDetailPage() {
                     <Label>Price</Label>
                     <p className="text-sm font-medium">${subscription.price.toFixed(2)}</p>
                     </div>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select value={status} onValueChange={(value) => setStatus(value as any)} disabled={isSaving}>
-                        <SelectTrigger id="status">
-                            <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Active">Active</SelectItem>
-                            <SelectItem value="Pending">Pending</SelectItem>
-                            <SelectItem value="Cancelled">Cancelled</SelectItem>
-                            <SelectItem value="Past Due">Past Due</SelectItem>
-                            <SelectItem value="Unpaid">Unpaid</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <p><Badge variant={getStripeStatusBadgeVariant(subscription.status)} className="capitalize">{subscription.status}</Badge></p>
+                    </div>
                 </div>
                 </CardContent>
-                <CardFooter>
-                <Button onClick={handleSaveChanges} disabled={isSaving}>
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
-                </Button>
-                </CardFooter>
             </Card>
 
             <Card>
