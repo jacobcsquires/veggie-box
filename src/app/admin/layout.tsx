@@ -37,7 +37,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
     { href: "/admin/boxes", icon: Package, label: "Veggie Box Plans" },
     { href: "/admin/subscriptions", icon: ShoppingCart, label: "Subscriptions" },
-    { href: "/admin/users", icon: Users, label: "Users" },
+    { href: "/admin/customers", icon: Users, label: "Customers" },
   ];
   return (
       <>

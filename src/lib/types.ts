@@ -1,5 +1,7 @@
 
 
+import type { Timestamp } from "firebase/firestore";
+
 export type PricingOption = {
   id: string; // Stripe Price ID
   name: string;
@@ -56,4 +58,13 @@ export type AppUser = {
   email: string | null;
   displayName: string | null;
   isAdmin?: boolean;
+}
+
+export type Customer = {
+    id: string; // This will be the Stripe Customer ID
+    userId?: string; // Link to Firebase Auth user if they exist
+    name: string | null;
+    email: string;
+    createdAt: Timestamp;
+    localOnly?: boolean; // Flag to indicate if customer only exists locally
 }
