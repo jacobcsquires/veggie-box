@@ -1,4 +1,5 @@
 
+
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { collection, getDocs, doc, writeBatch, getDoc } from 'firebase/firestore';
@@ -9,6 +10,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
 
+// This function is now part of the more comprehensive sync-stripe-subscriptions route.
+// It remains here to avoid breaking changes if it was bookmarked, but it is deprecated.
+// The new logic is more robust.
 export async function POST(request: Request) {
   try {
     const subscriptionsRef = collection(db, 'subscriptions');

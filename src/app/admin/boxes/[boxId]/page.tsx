@@ -786,7 +786,7 @@ export default function AdminBoxDetailPage() {
     <div className="space-y-6">
         <h1 className="text-2xl font-headline">Edit Plan: {box.name}</h1>
         
-         <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
+         <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1">
                 <Card>
                     <AccordionTrigger className="px-6">
