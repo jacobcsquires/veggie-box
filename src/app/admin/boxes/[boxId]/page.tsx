@@ -869,11 +869,23 @@ export default function AdminBoxDetailPage() {
                                 </div>
                                 <div className="space-y-4">
                                     <Label>Settings</Label>
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox id="displayOnWebsite" checked={displayOnWebsite} onCheckedChange={(checked) => setDisplayOnWebsite(Boolean(checked))} disabled={isSavingBox} />
-                                        <Label htmlFor="displayOnWebsite" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                            Display this plan on the public website.
-                                        </Label>
+                                    <div className="space-y-2">
+                                        <Label>Display on public website</Label>
+                                        <RadioGroup
+                                            value={displayOnWebsite ? "true" : "false"}
+                                            onValueChange={(value) => setDisplayOnWebsite(value === "true")}
+                                            className="flex items-center space-x-4"
+                                            disabled={isSavingBox}
+                                        >
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="true" id="display-on" />
+                                                <Label htmlFor="display-on" className="font-normal">On</Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="false" id="display-off" />
+                                                <Label htmlFor="display-off" className="font-normal">Off</Label>
+                                            </div>
+                                        </RadioGroup>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <Checkbox id="manualSignupCutoff" checked={manualSignupCutoff} onCheckedChange={(checked) => setManualSignupCutoff(Boolean(checked))} disabled={isSavingBox} />

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -38,6 +39,7 @@ import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 type BoxWithSchedule = Box & { nextPickup?: string; totalPickups: number };
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
@@ -470,11 +472,23 @@ export default function AdminBoxesPage() {
 
                     <div className="space-y-4 rounded-md border p-4">
                         <Label className="text-base">Settings</Label>
-                        <div className="flex items-center space-x-2">
-                            <Checkbox id="displayOnWebsite" checked={displayOnWebsite} onCheckedChange={(checked) => setDisplayOnWebsite(Boolean(checked))} disabled={isSaving} />
-                            <Label htmlFor="displayOnWebsite" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                Display this plan on the public website.
-                            </Label>
+                        <div className="space-y-2">
+                           <Label>Display on public website</Label>
+                            <RadioGroup
+                                value={displayOnWebsite ? "true" : "false"}
+                                onValueChange={(value) => setDisplayOnWebsite(value === "true")}
+                                className="flex items-center space-x-4"
+                                disabled={isSaving}
+                            >
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="true" id="display-on-add" />
+                                    <Label htmlFor="display-on-add" className="font-normal">On</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="false" id="display-off-add" />
+                                    <Label htmlFor="display-off-add" className="font-normal">Off</Label>
+                                </div>
+                            </RadioGroup>
                         </div>
                         <div className="flex items-center space-x-2">
                             <Checkbox id="manualSignupCutoff" checked={manualSignupCutoff} onCheckedChange={(checked) => setManualSignupCutoff(Boolean(checked))} disabled={isSaving} />
