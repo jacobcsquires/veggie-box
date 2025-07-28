@@ -9,17 +9,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
 
-// Helper function to find or create a user by email
-const findOrCreateUser = async (email: string, name?: string | null): Promise<AppUser | null> => {
+// Helper function to find a user by email
+const findUser = async (email: string): Promise<AppUser | null> => {
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where("email", "==", email));
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
         return { uid: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as AppUser;
     }
-    // If user doesn't exist in Firebase Auth, we can't create a subscription for them
-    // This assumes user signs up through the app first.
-    // For this use case, we will return null as we shouldn't create a firebase auth user here.
     return null;
 }
 
@@ -121,13 +118,15 @@ export async function POST() {
         if (!stripeSub.items.data[0]?.price?.id) continue;
         
         const existingFirestoreSub = firestoreSubMap.get(stripeSub.id);
+        const customer = stripeSub.customer as Stripe.Customer;
+        if (customer.deleted || !customer.email) continue;
         const newStatus = stripeSub.status.charAt(0).toUpperCase() + stripeSub.status.slice(1);
 
         if (existingFirestoreSub) {
-            // Subscription exists in both, update status if different
-            if (existingFirestoreSub.status !== newStatus) {
+            // Subscription exists in both, update if different
+            if (existingFirestoreSub.status !== newStatus || existingFirestoreSub.customerName !== customer.name) {
                 const subRef = doc(db, 'subscriptions', existingFirestoreSub.id);
-                batch.update(subRef, { status: newStatus });
+                batch.update(subRef, { status: newStatus, customerName: customer.name });
                 updatedCount++;
             }
             // Remove from map to track remaining Firestore-only subs
@@ -135,9 +134,6 @@ export async function POST() {
 
         } else {
             // Subscription exists in Stripe but not Firestore -> Create it
-            const customer = stripeSub.customer as Stripe.Customer;
-            if (customer.deleted || !customer.email) continue;
-
             // Ensure customer exists in our 'customers' collection
             const customerRef = doc(db, 'customers', customer.id);
             const customerSnap = await getDoc(customerRef);
@@ -150,15 +146,15 @@ export async function POST() {
                 });
             }
 
-            const user = await findOrCreateUser(customer.email, customer.name);
+            const user = await findUser(customer.email);
             const boxInfo = await findOrCreateBoxAndPrice(stripeSub.items.data[0].price.id);
 
-            if (user && boxInfo) {
+            if (boxInfo) { // User is optional, but box info is critical
                 const { box, priceOption } = boxInfo;
                 const newSubRef = doc(collection(db, 'subscriptions'));
                 const newSubData: Omit<Subscription, 'id'> = {
-                    userId: user.uid,
-                    customerName: user.displayName || customer.name,
+                    userId: user?.uid || customer.id, // Fallback to customer ID if no Firebase user
+                    customerName: customer.name, // Use Stripe customer name as source of truth
                     boxId: box.id,
                     boxName: box.name,
                     startDate: new Date(stripeSub.start_date * 1000).toISOString().split('T')[0],
@@ -181,7 +177,7 @@ export async function POST() {
     for (const [stripeId, firestoreSub] of firestoreSubMap.entries()) {
         // We only care about subscriptions that have a stripeId but were not found in the Stripe loop.
         // Subscriptions without a stripeId are 'Pending' or manually created.
-        if (stripeId) { 
+        if (stripeId && firestoreSub.status !== 'Unknown') { 
              const subRef = doc(db, 'subscriptions', firestoreSub.id);
              batch.update(subRef, { status: 'Unknown' });
              updatedCount++;

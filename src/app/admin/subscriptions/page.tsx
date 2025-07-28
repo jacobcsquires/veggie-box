@@ -53,7 +53,7 @@ export default function AdminSubscriptionsPage() {
             setBoxes(boxesData);
         });
         
-        const unsubscribeCustomers = onSnapshot(collection(db, 'customers'), (snapshot) => {
+        const unsubscribeCustomers = onSnapshot(query(collection(db, 'customers'), orderBy('name')), (snapshot) => {
             const customersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
             setCustomers(customersData);
         });
@@ -112,7 +112,7 @@ export default function AdminSubscriptionsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     boxId: box.id,
-                    userId: customer.userId || customer.id, // Fallback to customerId if no userId
+                    userId: customer.id, // Use Stripe Customer ID as the reference
                     customerName: customer.name,
                     email: customer.email,
                     startDate: box.startDate,
@@ -158,7 +158,7 @@ export default function AdminSubscriptionsPage() {
                 const matchesSearch = sub.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) || sub.boxName.toLowerCase().includes(searchTerm.toLowerCase());
                 return matchesStatus && matchesSearch;
             })
-            .sort((a, b) => (a.customerName || '').localeCompare(b.customerName || ''));
+            .sort((a, b) => new Date(b.createdAt?.toDate()).getTime() - new Date(a.createdAt?.toDate()).getTime());
     }, [subscriptions, searchTerm, selectedStatus]);
     
     const selectedBoxOptions = useMemo(() => {
