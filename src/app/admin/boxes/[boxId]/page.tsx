@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown } from 'lucide-react';
 import type { Box, Pickup, Subscription } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addDays, isBefore, startOfToday, addMonths, subDays, subMonths } from 'date-fns';
@@ -50,6 +50,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import {
   Table,
@@ -516,7 +522,6 @@ export default function AdminBoxDetailPage() {
   };
   
   const pickupDates = useMemo(() => pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/'))), [pickups]);
-  const existingPickupDateStrings = useMemo(() => new Set(pickups.map(p => p.pickupDate)), [pickups]);
 
   const filteredAndSortedSubscriptions = useMemo(() => {
     return subscriptions
@@ -681,9 +686,7 @@ export default function AdminBoxDetailPage() {
 
   const renderScheduleView = () => {
     const today = startOfToday();
-    const firstPickup = pickups.length > 0 ? pickups[0] : null;
-    const lastPickup = pickups.length > 0 ? pickups[pickups.length - 1] : null;
-
+    
     switch (scheduleView) {
         case 'calendar':
             return (
@@ -707,7 +710,6 @@ export default function AdminBoxDetailPage() {
                         pickups.map(pickup => {
                             const pickupDateObj = new Date(pickup.pickupDate.replace(/-/g, '\/'));
                             const isPast = isBefore(pickupDateObj, today);
-                            const canDelete = !isPast && (lastPickup?.id === pickup.id || firstPickup?.id === pickup.id);
                             return (
                                 <Card key={pickup.id}>
                                     <CardHeader>
@@ -721,12 +723,10 @@ export default function AdminBoxDetailPage() {
                                             <FilePen className="h-4 w-4"/>
                                             <span className="sr-only">Edit Note</span>
                                         </Button>
-                                        {canDelete && (
-                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup);}}>
-                                                <Trash2 className="h-4 w-4" />
-                                                <span className="sr-only">Delete</span>
-                                            </Button>
-                                        )}
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup);}}>
+                                            <Trash2 className="h-4 w-4" />
+                                            <span className="sr-only">Delete</span>
+                                        </Button>
                                     </CardFooter>
                                 </Card>
                             )
@@ -751,8 +751,6 @@ export default function AdminBoxDetailPage() {
                         ) : (
                             pickups.map(pickup => {
                                 const pickupDateObj = new Date(pickup.pickupDate.replace(/-/g, '\/'));
-                                const isPast = isBefore(pickupDateObj, today);
-                                const canDelete = !isPast && (lastPickup?.id === pickup.id || firstPickup?.id === pickup.id);
                                 return (
                                     <TableRow key={pickup.id}>
                                         <TableCell>{format(pickupDateObj, 'PPPP')}</TableCell>
@@ -761,11 +759,9 @@ export default function AdminBoxDetailPage() {
                                             <Button variant="ghost" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
                                                 <FilePen className="h-4 w-4" />
                                             </Button>
-                                            {canDelete && (
-                                                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup)}}>
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            )}
+                                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup)}}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 )
@@ -782,71 +778,76 @@ export default function AdminBoxDetailPage() {
     <div className="space-y-6">
         <h1 className="text-2xl font-headline">Edit Plan: {box.name}</h1>
         
-        <Tabs defaultValue="edit" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="edit">Edit</TabsTrigger>
-                <TabsTrigger value="schedule">Schedule</TabsTrigger>
-                <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-            </TabsList>
-            <TabsContent value="edit" className="mt-6">
+         <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
+            <AccordionItem value="item-1">
                 <Card>
-                    <form onSubmit={handleSaveBox}>
-                    <CardHeader>
-                        <CardTitle>Plan Details</CardTitle>
-                        <CardDescription>Update the information for this Veggie Box Plan.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Name</Label>
-                                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSavingBox} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="price">Price</Label>
-                                <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} disabled={isSavingBox} />
-                            </div>
+                    <AccordionTrigger className="px-6">
+                        <div className="flex flex-col items-start">
+                             <CardTitle>Veggie Box Details</CardTitle>
+                             <CardDescription className="mt-1">Update the information for this Veggie Box Plan.</CardDescription>
                         </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div className="space-y-2">
-                                <Label htmlFor="frequency">Frequency</Label>
-                                <Select value={frequency} onValueChange={(value) => setFrequency(value as any)} disabled>
-                                    <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="weekly">Weekly</SelectItem>
-                                        <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
-                                        <SelectItem value="monthly">Monthly</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="quantity">Quantity</Label>
-                                <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={isSavingBox} />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="image">Image</Label>
-                            <div className="flex items-center gap-4">
-                                {imagePreview && <Image src={imagePreview} alt="Preview" width={80} height={80} className="rounded-md object-cover" />}
-                                <Input id="image" type="file" accept="image/*" onChange={handleImageChange} disabled={isSavingBox} className="max-w-xs" />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSavingBox} />
-                        </div>
-
-                    </CardContent>
-                    <CardFooter className="justify-between">
-                        <Button type="submit" disabled={isSavingBox}>
-                            {isSavingBox ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Plan Details'}
-                        </Button>
-                        <Button variant="destructive" type="button" onClick={() => setIsBoxDeleteDialogOpen(true)}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete Plan
-                        </Button>
-                    </CardFooter>
-                    </form>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                        <form onSubmit={handleSaveBox}>
+                            <CardContent className="space-y-4 pt-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="name">Name</Label>
+                                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSavingBox} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="price">Price</Label>
+                                        <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} disabled={isSavingBox} />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="frequency">Frequency</Label>
+                                        <Select value={frequency} onValueChange={(value) => setFrequency(value as any)} disabled>
+                                            <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="weekly">Weekly</SelectItem>
+                                                <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
+                                                <SelectItem value="monthly">Monthly</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="quantity">Quantity</Label>
+                                        <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={isSavingBox} />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="image">Image</Label>
+                                    <div className="flex items-center gap-4">
+                                        {imagePreview && <Image src={imagePreview} alt="Preview" width={80} height={80} className="rounded-md object-cover" />}
+                                        <Input id="image" type="file" accept="image/*" onChange={handleImageChange} disabled={isSavingBox} className="max-w-xs" />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                <Label htmlFor="description">Description</Label>
+                                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSavingBox} />
+                                </div>
+                            </CardContent>
+                            <CardFooter className="justify-between">
+                                <Button type="submit" disabled={isSavingBox}>
+                                    {isSavingBox ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Plan Details'}
+                                </Button>
+                                <Button variant="destructive" type="button" onClick={() => setIsBoxDeleteDialogOpen(true)}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete Plan
+                                </Button>
+                            </CardFooter>
+                        </form>
+                    </AccordionContent>
                 </Card>
-            </TabsContent>
+            </AccordionItem>
+        </Accordion>
+
+        <Tabs defaultValue="schedule" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="schedule">Schedule ({pickups.length})</TabsTrigger>
+                <TabsTrigger value="subscriptions">Subscriptions ({subscriptions.length})</TabsTrigger>
+            </TabsList>
             <TabsContent value="schedule" className="mt-6">
                  <Card>
                     <CardHeader className="flex-row items-center justify-between">
@@ -950,8 +951,11 @@ export default function AdminBoxDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the pickup scheduled for "{pickupToDelete?.pickupDate}".
-                {isUpdatingStripe && " We're updating Stripe billing, please don't close this dialog."}
+              {pickupToDelete && isBefore(new Date(pickupToDelete.pickupDate.replace(/-/g, '\/')), startOfToday()) && (
+                <span className="font-bold text-destructive">Warning: You are deleting a pickup from the past. </span>
+              )}
+              This action cannot be undone. This will permanently delete the pickup scheduled for "{pickupToDelete?.pickupDate}".
+              {isUpdatingStripe && " We're updating Stripe billing, please don't close this dialog."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
