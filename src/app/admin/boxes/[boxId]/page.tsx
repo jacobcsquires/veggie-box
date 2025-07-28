@@ -856,7 +856,7 @@ export default function AdminBoxDetailPage() {
                                         <Input id={`price-value-${index}`} type="number" placeholder="25.00" value={option.price} onChange={(e) => handlePricingOptionChange(index, 'price', parseFloat(e.target.value))} disabled={isSavingBox || !!option.id} />
                                     </div>
                                     <div className="col-span-6 md:col-span-2 space-y-1">
-                                        <Label className="text-xs text-muted-foreground">Active Subs</Label>
+                                        <Label className="text-xs text-muted-foreground">Active Subscriptions</Label>
                                         <Input value={subscriptionCountsByPrice[option.id!] || 0} readOnly disabled className="font-mono text-xs" />
                                     </div>
                                     <div className="col-span-10 md:col-span-3 space-y-1">
