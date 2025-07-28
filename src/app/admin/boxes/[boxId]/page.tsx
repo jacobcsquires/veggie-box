@@ -49,12 +49,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import {
   Table,
@@ -137,7 +131,6 @@ export default function AdminBoxDetailPage() {
   // State for delete confirmation dialog
   const [isPickupDeleteDialogOpen, setIsPickupDeleteDialogOpen] = useState(false);
   const [pickupToDelete, setPickupToDelete] = useState<PickupInternal | null>(null);
-  const [isBoxDeleteDialogOpen, setIsBoxDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // State for schedule view
@@ -447,53 +440,6 @@ export default function AdminBoxDetailPage() {
     }
   };
   
-  const confirmDeleteBox = async () => {
-    if (!box) return;
-    setIsDeleting(true);
-    try {
-      // 1. Archive Stripe Product if it exists
-      if (box.stripeProductId) {
-        const response = await fetch('/api/archive-stripe-product', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stripeProductId: box.stripeProductId }),
-        });
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Failed to archive Stripe product.');
-        }
-      }
-
-      // 2. Delete all pickups in a batch
-      const pickupsCollectionRef = collection(db, 'boxes', box.id, 'pickups');
-      const pickupsSnapshot = await getDocs(pickupsCollectionRef);
-      const deletePickupsBatch = writeBatch(db);
-      pickupsSnapshot.docs.forEach(doc => {
-        deletePickupsBatch.delete(doc.ref);
-      });
-      await deletePickupsBatch.commit();
-      
-      // 3. Delete the box itself
-      await deleteDoc(doc(db, 'boxes', box.id));
-      
-      toast({
-        title: 'Success',
-        description: `Veggie Box Plan "${box.name}" and all its data have been deleted.`,
-      });
-      router.push('/admin/boxes');
-    } catch (error: any) {
-      console.error('Error deleting plan: ', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Could not delete the Veggie Box Plan. Please try again.',
-      });
-    } finally {
-      setIsDeleting(false);
-      setIsBoxDeleteDialogOpen(false);
-    }
-  };
-  
   const pickupDates = useMemo(() => pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/'))), [pickups]);
 
   const filteredAndSortedSubscriptions = useMemo(() => {
@@ -794,145 +740,150 @@ export default function AdminBoxDetailPage() {
 
   return (
     <div className="space-y-6">
-        <h1 className="text-2xl font-headline">Edit Plan: {box.name}</h1>
+        <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-headline">Edit Plan: {box.name}</h1>
+        </div>
         
-         <Accordion type="single" collapsible className="w-full" defaultValue='item-1'>
-            <AccordionItem value="item-1">
-                <Card>
-                    <AccordionTrigger className="px-6">
-                        <div className="flex flex-col items-start">
-                             <CardTitle>Veggie Box Details</CardTitle>
-                             <CardDescription className="mt-1">Update the information for this Veggie Box Plan.</CardDescription>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                        <form onSubmit={handleSaveBox}>
-                            <CardContent className="space-y-4 pt-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="name">Plan Name</Label>
-                                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSavingBox} />
-                                </div>
-                                {box.stripeProductId && (
-                                    <div className="space-y-2">
-                                        <Label>Stripe Product ID</Label>
-                                        <Input value={box.stripeProductId} readOnly disabled className="font-mono text-xs" />
-                                    </div>
-                                )}
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <Label>Pricing Options</Label>
-                                        <Button type="button" variant="outline" size="sm" onClick={addPricingOption} disabled={isSavingBox}>
-                                            <PlusCircle className="mr-2 h-4 w-4"/> Add Option
-                                        </Button>
-                                    </div>
-                                    <div className="space-y-3 rounded-md border p-4">
-                                        {pricingOptions.map((option, index) => (
-                                            <div key={option.id || index} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-                                                <div className="col-span-12 md:col-span-4 space-y-1">
-                                                    <Label htmlFor={`price-name-${index}`} className="text-xs text-muted-foreground">Option Name</Label>
-                                                    <Input id={`price-name-${index}`} placeholder="e.g. Single Share" value={option.name} onChange={(e) => handlePricingOptionChange(index, 'name', e.target.value)} disabled={isSavingBox || !!option.id} />
-                                                </div>
-                                                <div className="col-span-6 md:col-span-2 space-y-1">
-                                                    <Label htmlFor={`price-value-${index}`} className="text-xs text-muted-foreground">Price ($)</Label>
-                                                    <Input id={`price-value-${index}`} type="number" placeholder="25.00" value={option.price} onChange={(e) => handlePricingOptionChange(index, 'price', parseFloat(e.target.value))} disabled={isSavingBox || !!option.id} />
-                                                </div>
-                                                <div className="col-span-6 md:col-span-2 space-y-1">
-                                                    <Label className="text-xs text-muted-foreground">Active Subs</Label>
-                                                    <Input value={subscriptionCountsByPrice[option.id!] || 0} readOnly disabled className="font-mono text-xs" />
-                                                </div>
-                                                 <div className="col-span-10 md:col-span-3 space-y-1">
-                                                    <Label htmlFor={`price-id-${index}`} className="text-xs text-muted-foreground">Stripe Price ID</Label>
-                                                    <Input id={`price-id-${index}`} value={option.id || 'Will be generated'} readOnly disabled className="font-mono text-xs" />
-                                                </div>
-                                                <div className="col-span-2 md:col-span-1 flex items-end justify-end">
-                                                    {option.id ? (
-                                                        <Button type="button" variant="ghost" size="icon" asChild>
-                                                            <a href={`https://dashboard.stripe.com/test/prices/${option.id}`} target="_blank" rel="noopener noreferrer">
-                                                                <ExternalLink className="h-4 w-4" />
-                                                            </a>
-                                                        </Button>
-                                                    ) : (
-                                                        <Button type="button" variant="ghost" size="icon" onClick={() => removePricingOption(index)} disabled={isSavingBox}>
-                                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="frequency">Frequency</Label>
-                                        <Select value={frequency} onValueChange={(value) => setFrequency(value as any)} disabled>
-                                            <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="weekly">Weekly</SelectItem>
-                                                <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
-                                                <SelectItem value="monthly">Monthly</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="quantity">Quantity</Label>
-                                        <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={isSavingBox} />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="image">Image</Label>
-                                    <div className="flex items-center gap-4">
-                                        {imagePreview && <Image src={imagePreview} alt="Preview" width={80} height={80} className="rounded-md object-cover" />}
-                                        <Input id="image" type="file" accept="image/*" onChange={handleImageChange} disabled={isSavingBox} className="max-w-xs" />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="description">Description</Label>
-                                    <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSavingBox} />
-                                </div>
-                                <div className="space-y-4">
-                                    <Label>Settings</Label>
-                                    <div className="space-y-2">
-                                        <Label>Display on public website</Label>
-                                        <RadioGroup
-                                            value={displayOnWebsite ? "true" : "false"}
-                                            onValueChange={(value) => setDisplayOnWebsite(value === "true")}
-                                            className="flex items-center space-x-4"
-                                            disabled={isSavingBox}
-                                        >
-                                            <div className="flex items-center space-x-2">
-                                                <RadioGroupItem value="true" id="display-on" />
-                                                <Label htmlFor="display-on" className="font-normal">On</Label>
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                                <RadioGroupItem value="false" id="display-off" />
-                                                <Label htmlFor="display-off" className="font-normal">Off</Label>
-                                            </div>
-                                        </RadioGroup>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox id="manualSignupCutoff" checked={manualSignupCutoff} onCheckedChange={(checked) => setManualSignupCutoff(Boolean(checked))} disabled={isSavingBox} />
-                                        <Label htmlFor="manualSignupCutoff" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                            Manually turn off new sign-ups for this plan.
-                                        </Label>
-                                    </div>
-                                </div>
-                            </CardContent>
-                            <CardFooter className="justify-start">
-                                <Button type="submit" disabled={isSavingBox}>
-                                    {isSavingBox ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Plan Details'}
-                                </Button>
-                            </CardFooter>
-                        </form>
-                    </AccordionContent>
-                </Card>
-            </AccordionItem>
-        </Accordion>
-
-        <Tabs defaultValue="schedule" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+        <Tabs defaultValue="details" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="pricing">Pricing</TabsTrigger>
                 <TabsTrigger value="schedule">Schedule ({pickups.length})</TabsTrigger>
-                <TabsTrigger value="subscriptions">Subscriptions ({subscriptions.length})</TabsTrigger>
+                <TabsTrigger value="subscriptions">Subscribers ({subscriptions.length})</TabsTrigger>
             </TabsList>
+            <TabsContent value="details" className="mt-6">
+                <Card>
+                    <form onSubmit={handleSaveBox}>
+                        <CardHeader>
+                            <CardTitle>Veggie Box Details</CardTitle>
+                            <CardDescription>Update the information for this Veggie Box Plan.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="name">Plan Name</Label>
+                                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSavingBox} />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="frequency">Frequency</Label>
+                                    <Select value={frequency} onValueChange={(value) => setFrequency(value as any)} disabled>
+                                        <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="weekly">Weekly</SelectItem>
+                                            <SelectItem value="bi-weekly">Bi-weekly (every 2 weeks)</SelectItem>
+                                            <SelectItem value="monthly">Monthly</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="quantity">Quantity</Label>
+                                    <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={isSavingBox} />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="image">Image</Label>
+                                <div className="flex items-center gap-4">
+                                    {imagePreview && <Image src={imagePreview} alt="Preview" width={80} height={80} className="rounded-md object-cover" />}
+                                    <Input id="image" type="file" accept="image/*" onChange={handleImageChange} disabled={isSavingBox} className="max-w-xs" />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="description">Description</Label>
+                                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSavingBox} />
+                            </div>
+                            <div className="space-y-4">
+                                <Label>Settings</Label>
+                                <div className="space-y-2">
+                                    <Label>Display on public website</Label>
+                                    <RadioGroup
+                                        value={displayOnWebsite ? "true" : "false"}
+                                        onValueChange={(value) => setDisplayOnWebsite(value === "true")}
+                                        className="flex items-center space-x-4"
+                                        disabled={isSavingBox}
+                                    >
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="true" id="display-on" />
+                                            <Label htmlFor="display-on" className="font-normal">On</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="false" id="display-off" />
+                                            <Label htmlFor="display-off" className="font-normal">Off</Label>
+                                        </div>
+                                    </RadioGroup>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox id="manualSignupCutoff" checked={manualSignupCutoff} onCheckedChange={(checked) => setManualSignupCutoff(Boolean(checked))} disabled={isSavingBox} />
+                                    <Label htmlFor="manualSignupCutoff" className="font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Manually turn off new sign-ups for this plan.
+                                    </Label>
+                                </div>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="justify-start">
+                            <Button type="submit" disabled={isSavingBox}>
+                                {isSavingBox ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Plan Details'}
+                            </Button>
+                        </CardFooter>
+                    </form>
+                </Card>
+            </TabsContent>
+            <TabsContent value="pricing" className="mt-6">
+                 <Card>
+                    <CardHeader>
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <CardTitle>Pricing Options</CardTitle>
+                                <CardDescription>Manage the pricing tiers for this plan.</CardDescription>
+                            </div>
+                            <Button type="button" variant="outline" size="sm" onClick={addPricingOption} disabled={isSavingBox}>
+                                <PlusCircle className="mr-2 h-4 w-4"/> Add Option
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                         <div className="space-y-3 rounded-md border p-4">
+                            {pricingOptions.map((option, index) => (
+                                <div key={option.id || index} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+                                    <div className="col-span-12 md:col-span-4 space-y-1">
+                                        <Label htmlFor={`price-name-${index}`} className="text-xs text-muted-foreground">Option Name</Label>
+                                        <Input id={`price-name-${index}`} placeholder="e.g. Single Share" value={option.name} onChange={(e) => handlePricingOptionChange(index, 'name', e.target.value)} disabled={isSavingBox || !!option.id} />
+                                    </div>
+                                    <div className="col-span-6 md:col-span-2 space-y-1">
+                                        <Label htmlFor={`price-value-${index}`} className="text-xs text-muted-foreground">Price ($)</Label>
+                                        <Input id={`price-value-${index}`} type="number" placeholder="25.00" value={option.price} onChange={(e) => handlePricingOptionChange(index, 'price', parseFloat(e.target.value))} disabled={isSavingBox || !!option.id} />
+                                    </div>
+                                    <div className="col-span-6 md:col-span-2 space-y-1">
+                                        <Label className="text-xs text-muted-foreground">Active Subs</Label>
+                                        <Input value={subscriptionCountsByPrice[option.id!] || 0} readOnly disabled className="font-mono text-xs" />
+                                    </div>
+                                    <div className="col-span-10 md:col-span-3 space-y-1">
+                                        <Label htmlFor={`price-id-${index}`} className="text-xs text-muted-foreground">Stripe Price ID</Label>
+                                        <Input id={`price-id-${index}`} value={option.id || 'Will be generated'} readOnly disabled className="font-mono text-xs" />
+                                    </div>
+                                    <div className="col-span-2 md:col-span-1 flex items-end justify-end">
+                                        {option.id ? (
+                                            <Button type="button" variant="ghost" size="icon" asChild>
+                                                <a href={`https://dashboard.stripe.com/test/prices/${option.id}`} target="_blank" rel="noopener noreferrer">
+                                                    <ExternalLink className="h-4 w-4" />
+                                                </a>
+                                            </Button>
+                                        ) : (
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => removePricingOption(index)} disabled={isSavingBox}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                     <CardFooter className="justify-start">
+                        <Button type="button" onClick={handleSaveBox} disabled={isSavingBox}>
+                            {isSavingBox ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Pricing'}
+                        </Button>
+                    </CardFooter>
+                 </Card>
+            </TabsContent>
             <TabsContent value="schedule" className="mt-6">
                  <Card>
                     <CardHeader className="flex-row items-center justify-between">
@@ -1050,27 +1001,7 @@ export default function AdminBoxDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <AlertDialog open={isBoxDeleteDialogOpen} onOpenChange={setIsBoxDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete this Veggie Box Plan?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the 
-              "{box?.name}" plan and all associated data, including its Stripe product.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsBoxDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteBox} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
-              {isDeleting ? 'Deleting...' : 'Yes, delete plan'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
-    
-
     

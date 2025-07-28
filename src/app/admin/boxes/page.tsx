@@ -199,6 +199,10 @@ export default function AdminBoxesPage() {
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Form state
+  const defaultPricingOptions = [
+    { name: 'Single Family Veggie Box', price: 25 },
+    { name: 'Single Family Veggie Box Bi-Weekly + Support Another Family', price: 50 },
+  ];
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -207,7 +211,7 @@ export default function AdminBoxesPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [displayOnWebsite, setDisplayOnWebsite] = useState(true);
   const [manualSignupCutoff, setManualSignupCutoff] = useState(false);
-  const [pricingOptions, setPricingOptions] = useState<Array<Partial<PricingOption>>>([{ name: '', price: 0}]);
+  const [pricingOptions, setPricingOptions] = useState<Array<Partial<PricingOption>>>(defaultPricingOptions);
 
 
   useEffect(() => {
@@ -280,7 +284,7 @@ export default function AdminBoxesPage() {
     setImagePreview(null);
     setDisplayOnWebsite(true);
     setManualSignupCutoff(false);
-    setPricingOptions([{ name: '', price: 0 }]);
+    setPricingOptions(defaultPricingOptions);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
