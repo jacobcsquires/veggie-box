@@ -276,5 +276,5 @@ export default function AdminCustomersPage() {
             </Card>
         </div>
     );
-
+}
     
