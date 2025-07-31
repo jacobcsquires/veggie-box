@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   User,
   Sprout,
+  Package,
 } from "lucide-react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -49,7 +50,8 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
 
     const navItems = [
         { href: "/dashboard", icon: Home, label: "Dashboard" },
-        { href: "/dashboard/subscriptions", icon: ShoppingCart, label: "Subscriptions", badge: subscriptionsCount > 0 ? subscriptionsCount : undefined },
+        { href: "/dashboard/subscriptions", icon: ShoppingCart, label: "My Subscriptions", badge: subscriptionsCount > 0 ? subscriptionsCount : undefined },
+        { href: "/dashboard/boxes", icon: Package, label: "Explore Boxes" },
     ];
     return (
         <>
@@ -108,12 +110,9 @@ export default function DashboardLayout({
       router.push('/login');
       return;
     }
-    if (user.isAdmin) {
-      router.push('/admin/dashboard');
-    }
   }, [user, loading, router]);
 
-  if (loading || !user || user.isAdmin) {
+  if (loading || !user) {
     return (
       <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
         <div className="hidden border-r bg-muted/40 md:block">
@@ -143,6 +142,12 @@ export default function DashboardLayout({
         </div>
       </div>
     );
+  }
+
+  // Redirect admins to their specific dashboard from the user dashboard layout
+  if (user.isAdmin) {
+    router.replace('/admin/dashboard');
+    return null; // Render nothing while redirecting
   }
 
   return <SidebarProvider><DashboardPageContent>{children}</DashboardPageContent></SidebarProvider>

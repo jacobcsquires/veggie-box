@@ -306,12 +306,19 @@ export default function SubscriptionsPage() {
 
   return (
     <div>
-      <h1 className="text-lg font-semibold md:text-2xl font-headline">
-        My Subscriptions
-      </h1>
-      <p className="text-muted-foreground mb-4">
-        Manage your active and view past subscriptions.
-      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold md:text-2xl font-headline">
+            My Subscriptions
+          </h1>
+          <p className="text-muted-foreground mb-4">
+            Manage your active and view past subscriptions.
+          </p>
+        </div>
+        <Button asChild>
+            <Link href="/dashboard/boxes">Explore Veggie Boxes</Link>
+        </Button>
+      </div>
       <Card>
         <CardContent className="pt-6">
           <Table>
