@@ -12,24 +12,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { Users, ShoppingCart, Package, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Package, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function DashboardPage() {
-    const { user, loading } = useAuth();
-    const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+    const { user, loading: authLoading } = useAuth();
+    const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(null);
     const [boxes, setBoxes] = useState<Box[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
+    
     useEffect(() => {
-        if (loading || !user) return;
+        if (!user) return;
 
         const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'), limit(5));
         const boxesQuery = query(collection(db, 'boxes'), where('displayOnWebsite', '==', true));
 
         const unsubSubs = onSnapshot(subsQuery, (snapshot) => {
             setSubscriptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription)));
-            setIsLoading(false);
         });
 
         const unsubBoxes = onSnapshot(boxesQuery, (snapshot) => {
@@ -40,20 +38,20 @@ export default function DashboardPage() {
             unsubSubs();
             unsubBoxes();
         };
-    }, [user, loading]);
+    }, [user]);
 
     const stats = {
-        totalSubscriptions: subscriptions.length,
+        totalSubscriptions: subscriptions?.length ?? 0,
         activePlans: boxes.length,
     };
     
-    if (loading || isLoading) {
+    if (authLoading || subscriptions === null) {
         return (
             <div className="space-y-6">
                 <Skeleton className="h-8 w-64"/>
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Skeleton className="h-24"/>
-                    <Skeleton className="h-24"/>
+                    <Skeleton className="h-28"/>
+                    <Skeleton className="h-28"/>
                 </div>
                  <Skeleton className="h-48 w-full"/>
             </div>
@@ -77,7 +75,7 @@ export default function DashboardPage() {
                         <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        {isLoading ? <Skeleton className="h-8 w-16"/> : <div className="text-2xl font-bold">{stats.totalSubscriptions}</div>}
+                        <div className="text-2xl font-bold">{stats.totalSubscriptions}</div>
                     </CardContent>
                 </Card>
                 <Card>
@@ -86,14 +84,12 @@ export default function DashboardPage() {
                         <Package className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                         {isLoading ? <Skeleton className="h-8 w-16"/> : (
-                            <div className="flex items-center justify-between">
-                                <span className="text-2xl font-bold">{stats.activePlans}</span>
-                                <Button asChild size="sm">
-                                    <Link href="/dashboard/boxes">Explore</Link>
-                                </Button>
-                            </div>
-                         )}
+                         <div className="flex items-center justify-between">
+                            <span className="text-2xl font-bold">{stats.activePlans}</span>
+                            <Button asChild size="sm">
+                                <Link href="/dashboard/boxes">Explore</Link>
+                            </Button>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -104,28 +100,26 @@ export default function DashboardPage() {
                     <CardTitle>Recent Subscription Activity</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {isLoading ? <Skeleton className="h-40 w-full" /> : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Veggie Box Plan</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Start Date</TableHead>
-                                    <TableHead className="text-right">Price</TableHead>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Veggie Box Plan</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Start Date</TableHead>
+                                <TableHead className="text-right">Price</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {subscriptions.length > 0 ? subscriptions.map(sub => (
+                                <TableRow key={sub.id}>
+                                    <TableCell className="font-medium">{sub.boxName}</TableCell>
+                                    <TableCell><Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>{sub.status}</Badge></TableCell>
+                                    <TableCell>{format(new Date(sub.startDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
+                                    <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
                                 </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {subscriptions.length > 0 ? subscriptions.map(sub => (
-                                    <TableRow key={sub.id}>
-                                        <TableCell className="font-medium">{sub.boxName}</TableCell>
-                                        <TableCell><Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>{sub.status}</Badge></TableCell>
-                                        <TableCell>{format(new Date(sub.startDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
-                                        <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
-                                    </TableRow>
-                                )) : <TableRow><TableCell colSpan={4} className="text-center h-24">You haven't subscribed to any boxes yet.</TableCell></TableRow>}
-                            </TableBody>
-                        </Table>
-                    )}
+                            )) : <TableRow><TableCell colSpan={4} className="text-center h-24">You haven't subscribed to any boxes yet.</TableCell></TableRow>}
+                        </TableBody>
+                    </Table>
                 </CardContent>
             </Card>
         </div>
