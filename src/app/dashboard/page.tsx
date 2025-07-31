@@ -23,11 +23,14 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!user) return;
 
-        const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'), limit(5));
+        const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid));
         const boxesQuery = query(collection(db, 'boxes'), where('displayOnWebsite', '==', true));
 
         const unsubSubs = onSnapshot(subsQuery, (snapshot) => {
-            setSubscriptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription)));
+            const subsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
+            // Sort and limit on the client side to avoid needing a composite index
+            const sortedSubs = subsData.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()).slice(0, 5);
+            setSubscriptions(sortedSubs);
         });
 
         const unsubBoxes = onSnapshot(boxesQuery, (snapshot) => {
