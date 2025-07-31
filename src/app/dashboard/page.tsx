@@ -47,7 +47,7 @@ export default function DashboardPage() {
         activePlans: boxes.length,
     };
     
-    if (loading) {
+    if (loading || isLoading) {
         return (
             <div className="space-y-6">
                 <Skeleton className="h-8 w-64"/>
