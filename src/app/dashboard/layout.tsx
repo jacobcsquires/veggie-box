@@ -144,7 +144,8 @@ export default function DashboardLayout({
     );
   }
 
-  // Redirect admins to their specific dashboard from the user dashboard layout
+  // A non-admin user should see this layout.
+  // An admin user will be redirected by the /admin layout if they land here.
   if (user.isAdmin) {
     router.replace('/admin/dashboard');
     return null; // Render nothing while redirecting
