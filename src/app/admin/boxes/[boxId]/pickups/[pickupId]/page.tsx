@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, serverTimestamp, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Box, Subscription, Pickup } from '@/lib/types';
@@ -25,6 +26,8 @@ type SubscriberCheckin = Subscription & {
 
 export default function PickupCheckinPage() {
     const params = useParams();
+    const searchParams = useSearchParams();
+    const fromDashboard = searchParams.get('from') === 'dashboard';
     const boxId = params.boxId as string;
     const pickupId = params.pickupId as string;
 
@@ -132,10 +135,19 @@ export default function PickupCheckinPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center text-sm text-muted-foreground">
-                <Link href="/admin/boxes" className="hover:text-primary">Veggie Box Plans</Link>
-                <ChevronRight className="h-4 w-4 mx-1" />
-                <Link href={`/admin/boxes/${boxId}`} className="hover:text-primary truncate max-w-48">{box.name}</Link>
-                <ChevronRight className="h-4 w-4 mx-1" />
+                {fromDashboard ? (
+                    <>
+                        <Link href="/admin/dashboard" className="hover:text-primary">Dashboard</Link>
+                        <ChevronRight className="h-4 w-4 mx-1" />
+                    </>
+                ) : (
+                    <>
+                        <Link href="/admin/boxes" className="hover:text-primary">Veggie Box Plans</Link>
+                        <ChevronRight className="h-4 w-4 mx-1" />
+                        <Link href={`/admin/boxes/${boxId}`} className="hover:text-primary truncate max-w-48">{box.name}</Link>
+                        <ChevronRight className="h-4 w-4 mx-1" />
+                    </>
+                )}
                 <span className="font-medium text-foreground">Check-in</span>
             </div>
 

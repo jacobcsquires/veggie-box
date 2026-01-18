@@ -146,7 +146,7 @@ export default function AdminDashboardPage() {
                                     <p className="text-sm text-muted-foreground">Ready for collection</p>
                                 </div>
                                 <Button asChild size="lg">
-                                    <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}`}>
+                                    <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}?from=dashboard`}>
                                         <UserCheck className="mr-2 h-4 w-4" /> Go to Check-in
                                     </Link>
                                 </Button>
@@ -179,7 +179,7 @@ export default function AdminDashboardPage() {
                                             </div>
                                         </div>
                                         <Button asChild variant="secondary" size="sm" className="w-full">
-                                            <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}`}>
+                                            <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}?from=dashboard`}>
                                                 <UserCheck className="mr-2 h-4 w-4" /> Check-in
                                             </Link>
                                         </Button>
