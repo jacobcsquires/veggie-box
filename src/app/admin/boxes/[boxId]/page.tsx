@@ -754,7 +754,7 @@ export default function AdminBoxDetailPage() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Date</TableHead>
-                            <TableHead>Pickup Notes</TableHead>
+                            <TableHead className="hidden sm:table-cell">Pickup Notes</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -767,7 +767,7 @@ export default function AdminBoxDetailPage() {
                                 return (
                                     <TableRow key={pickup.id}>
                                         <TableCell>{format(pickupDateObj, 'PPPP')}</TableCell>
-                                        <TableCell className="max-w-[300px] truncate">{pickup.note}</TableCell>
+                                        <TableCell className="max-w-[300px] truncate hidden sm:table-cell">{pickup.note}</TableCell>
                                         <TableCell className="text-right space-x-2">
                                             <Button variant="ghost" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
                                                 <FilePen className="h-4 w-4" />
@@ -991,9 +991,9 @@ export default function AdminBoxDetailPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Customer</TableHead>
-                                    <TableHead>Email</TableHead>
+                                    <TableHead className="hidden sm:table-cell">Email</TableHead>
                                     <TableHead>Status</TableHead>
-                                    <TableHead>Start Date</TableHead>
+                                    <TableHead className="hidden md:table-cell">Start Date</TableHead>
                                     <TableHead className="text-right">Price</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -1008,11 +1008,11 @@ export default function AdminBoxDetailPage() {
                                     filteredAndSortedSubscriptions.map(sub => (
                                         <TableRow key={sub.id}>
                                             <TableCell>{sub.customerName || sub.userId}</TableCell>
-                                            <TableCell>{sub.customerEmail || 'N/A'}</TableCell>
+                                            <TableCell className="hidden sm:table-cell">{sub.customerEmail || 'N/A'}</TableCell>
                                             <TableCell>
                                                 <Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>{sub.status}</Badge>
                                             </TableCell>
-                                            <TableCell>{format(new Date(sub.startDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
+                                            <TableCell className="hidden md:table-cell">{format(new Date(sub.startDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
                                             <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
                                         </TableRow>
                                     ))

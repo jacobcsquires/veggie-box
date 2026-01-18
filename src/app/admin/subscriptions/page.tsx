@@ -355,13 +355,14 @@ export default function AdminSubscriptionsPage() {
                                     </Button>
                                 </TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead>
+                                <TableHead className="hidden md:table-cell">
                                      <Button variant="ghost" onClick={() => handleSort('nextPickup')}>
                                         Next Billing {renderSortIcon('nextPickup')}
                                     </Button>
                                 </TableHead>
-                                <TableHead>Last Charged</TableHead>
+                                <TableHead className="hidden lg:table-cell">Last Charged</TableHead>
                                 <TableHead className="text-right">Price</TableHead>
+                                <TableHead><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -371,20 +372,21 @@ export default function AdminSubscriptionsPage() {
                                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                                         <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
                                         <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-9 w-16 ml-auto" /></TableCell>
                                     </TableRow>
                                 ))
                             ) : filteredAndSortedSubscriptions.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
+                                    <TableCell colSpan={7} className="h-24 text-center">
                                         No matching subscriptions found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filteredAndSortedSubscriptions.map((sub) => (
-                                    <TableRow key={sub.id} className="group">
+                                    <TableRow key={sub.id}>
                                         <TableCell className="font-medium">
                                             <Link href={`/admin/customers/${sub.stripeCustomerId}`} className="hover:underline">
                                                 {sub.customerName || sub.userId}
@@ -396,14 +398,14 @@ export default function AdminSubscriptionsPage() {
                                                 {sub.status}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="hidden md:table-cell">
                                             {sub.nextPickup ? format(parseISO(sub.nextPickup), 'PPP') : 'N/A'}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="hidden lg:table-cell">
                                             {sub.lastCharged ? format(parseISO(sub.lastCharged), 'PPP') : 'N/A'}
                                         </TableCell>
                                         <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
-                                        <TableCell className="opacity-0 group-hover:opacity-100 text-right">
+                                        <TableCell className="text-right">
                                             <Button variant="outline" size="sm" onClick={() => router.push(`/admin/subscriptions/${sub.id}`)}>
                                                 View
                                             </Button>

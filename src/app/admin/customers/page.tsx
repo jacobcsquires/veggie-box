@@ -234,10 +234,9 @@ export default function AdminCustomersPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Active Subscriptions</TableHead>
-                                <TableHead>Stripe</TableHead>
+                                <TableHead className="hidden md:table-cell">Email</TableHead>
+                                <TableHead className="hidden sm:table-cell">Status</TableHead>
+                                <TableHead className="hidden sm:table-cell">Active</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -246,16 +245,15 @@ export default function AdminCustomersPage() {
                                 Array.from({ length: 5 }).map((_, i) => (
                                     <TableRow key={i}>
                                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-12" /></TableCell>
-                                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                                        <TableCell className="text-right"><Skeleton className="h-9 w-32 ml-auto" /></TableCell>
+                                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
+                                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-16" /></TableCell>
+                                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-12" /></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-9 w-20 ml-auto" /></TableCell>
                                     </TableRow>
                                 ))
                             ) : filteredCustomers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
+                                    <TableCell colSpan={5} className="h-24 text-center">
                                         No matching customers found.
                                     </TableCell>
                                 </TableRow>
@@ -263,35 +261,37 @@ export default function AdminCustomersPage() {
                                 filteredCustomers.map((customer) => (
                                     <TableRow key={customer.id} onClick={() => router.push(`/admin/customers/${customer.id}`)} className="cursor-pointer">
                                         <TableCell className="font-medium">{customer.name || 'N/A'}</TableCell>
-                                        <TableCell>{customer.email}</TableCell>
-                                        <TableCell>
+                                        <TableCell className="hidden md:table-cell">{customer.email}</TableCell>
+                                        <TableCell className="hidden sm:table-cell">
                                             <Badge variant={customer.status === 'active' ? 'default' : 'secondary'}>{customer.status || 'inactive'}</Badge>
                                         </TableCell>
-                                        <TableCell>{customer.activeSubscriptionCount || 0}</TableCell>
-                                        <TableCell>
-                                            <Button variant="ghost" size="icon" asChild onClick={(e) => e.stopPropagation()}>
-                                                <a href={`https://dashboard.stripe.com/test/customers/${customer.id}`} target="_blank" rel="noopener noreferrer">
-                                                    <ExternalLink className="h-4 w-4" />
-                                                </a>
-                                            </Button>
-                                        </TableCell>
+                                        <TableCell className="hidden sm:table-cell">{customer.activeSubscriptionCount || 0}</TableCell>
                                         <TableCell className="text-right">
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleSendTestEmail(customer);
-                                                }}
-                                                disabled={isSendingEmail === customer.id}
-                                            >
-                                                 {isSendingEmail === customer.id ? (
-                                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <Mail className="mr-2 h-4 w-4" />
-                                                )}
-                                                Send Email
-                                            </Button>
+                                            <div className="flex justify-end items-center space-x-1">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon"
+                                                    className="hover:bg-muted"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleSendTestEmail(customer);
+                                                    }}
+                                                    disabled={isSendingEmail === customer.id}
+                                                >
+                                                     {isSendingEmail === customer.id ? (
+                                                        <RefreshCw className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Mail className="h-4 w-4" />
+                                                    )}
+                                                    <span className="sr-only">Send Test Email</span>
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="hover:bg-muted" asChild onClick={(e) => e.stopPropagation()}>
+                                                    <a href={`https://dashboard.stripe.com/test/customers/${customer.id}`} target="_blank" rel="noopener noreferrer">
+                                                        <ExternalLink className="h-4 w-4" />
+                                                        <span className="sr-only">View in Stripe</span>
+                                                    </a>
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))

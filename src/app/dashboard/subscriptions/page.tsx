@@ -326,7 +326,7 @@ export default function SubscriptionsPage() {
               <TableRow>
                 <TableHead>Veggie Box Plan</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Schedule Dates</TableHead>
+                <TableHead className="hidden md:table-cell">Schedule Dates</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">
                     Actions
@@ -339,9 +339,9 @@ export default function SubscriptionsPage() {
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-48" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
                   </TableRow>
                 ))
               ) : subscriptions.length === 0 ? (
@@ -361,7 +361,7 @@ export default function SubscriptionsPage() {
                         {sub.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                         {scheduleRanges[sub.boxId] 
                             ? `${scheduleRanges[sub.boxId]?.start} - ${scheduleRanges[sub.boxId]?.end}`
                             : 'Schedule TBD'
