@@ -34,7 +34,7 @@ export default function AdminSubscriptionsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedStatus, setSelectedStatus] = useState('active');
+    const [selectedStatus, setSelectedStatus] = useState('all');
     const [selectedBoxFilter, setSelectedBoxFilter] = useState('all');
     const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({ column: 'createdAt', direction: 'desc' });
     const router = useRouter();
