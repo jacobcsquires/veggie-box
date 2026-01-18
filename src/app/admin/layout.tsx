@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from "next/link";
@@ -50,7 +51,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   
   const settingsNavItems = [
     { href: "/admin/profile", icon: User, label: "Profile" },
-    { href: "/admin/users", icon: Users, label: "Users" },
+    { href: "/admin/users", icon: Users, label: "User Management" },
     { href: "/admin/portal", icon: Globe, label: "Customer Portal" },
   ];
 
