@@ -72,7 +72,7 @@ export default function AdminCustomersPage() {
             }
             toast({
                 title: 'Sync Complete',
-                description: `${result.createdCount} new customer(s) created, ${result.updatedCount} updated.`,
+                description: `${result.createdCount} new customer(s) created, ${result.updatedCount} updated, and ${result.deletedCount || 0} deleted.`,
             });
         } catch (error: any) {
             toast({

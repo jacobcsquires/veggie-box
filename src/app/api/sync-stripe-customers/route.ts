@@ -28,6 +28,7 @@ export async function POST() {
 
     let createdCount = 0;
     let updatedCount = 0;
+    let deletedCount = 0;
     const batch = writeBatch(db);
 
     // 3. Iterate through Stripe customers and sync with Firestore
@@ -62,10 +63,10 @@ export async function POST() {
 
     // 4. Any customers remaining in firestoreCustomerMap do not exist in Stripe (or are deleted)
     for (const [id, firestoreCustomer] of firestoreCustomerMap.entries()) {
-        if (firestoreCustomer.localOnly === false) { // Only flag previously synced customers
-             const subRef = doc(db, 'customers', id);
-             batch.update(subRef, { localOnly: true }); 
-             updatedCount++;
+        if (firestoreCustomer.localOnly !== true) {
+             const customerRef = doc(db, 'customers', id);
+             batch.delete(customerRef);
+             deletedCount++;
         }
     }
 
@@ -75,6 +76,7 @@ export async function POST() {
         message: 'Sync complete.',
         createdCount,
         updatedCount,
+        deletedCount,
     });
 
   } catch (error: any) {
