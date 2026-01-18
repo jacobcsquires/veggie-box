@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { collection, onSnapshot, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Customer, Subscription } from '@/lib/types';
-import { Search, RefreshCw, PlusCircle, ExternalLink, Users } from 'lucide-react';
+import { Search, RefreshCw, PlusCircle, ExternalLink, Users, Mail } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -37,6 +37,7 @@ export default function AdminCustomersPage() {
     const [isCreating, setIsCreating] = useState(false);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [isSendingEmail, setIsSendingEmail] = useState<string | null>(null);
 
 
     useEffect(() => {
@@ -116,6 +117,40 @@ export default function AdminCustomersPage() {
         setName('');
         setEmail('');
     }
+
+    const handleSendTestEmail = async (customer: Customer) => {
+        if (!customer.email) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Customer does not have an email address.',
+            });
+            return;
+        }
+        setIsSendingEmail(customer.id);
+        try {
+            await addDoc(collection(db, 'mail'), {
+                to: [customer.email],
+                message: {
+                    subject: 'Test Email from Veggie Box',
+                    html: `Hello ${customer.name || 'there'},<br><br>This is a test email to confirm the email functionality is working.`,
+                },
+            });
+            toast({
+                title: 'Success',
+                description: `Test email sent to ${customer.email}.`,
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to send email.',
+            });
+            console.error('Failed to send email:', error);
+        } finally {
+            setIsSendingEmail(null);
+        }
+    };
 
     const customersWithSubCounts = useMemo(() => {
         const subscriptionCounts = subscriptions.reduce((acc, sub) => {
@@ -229,7 +264,8 @@ export default function AdminCustomersPage() {
                                 <TableHead>Email</TableHead>
                                 <TableHead>Active Subscriptions</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Stripe</TableHead>
+                                <TableHead>Stripe</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -240,12 +276,13 @@ export default function AdminCustomersPage() {
                                         <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                                         <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-9 w-32 ml-auto" /></TableCell>
                                     </TableRow>
                                 ))
                             ) : filteredCustomers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
+                                    <TableCell colSpan={6} className="h-24 text-center">
                                         No matching customers found.
                                     </TableCell>
                                 </TableRow>
@@ -260,11 +297,29 @@ export default function AdminCustomersPage() {
                                                 {customer.localOnly ? 'Local Only' : 'Synced'}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" asChild>
+                                        <TableCell>
+                                            <Button variant="ghost" size="icon" asChild onClick={(e) => e.stopPropagation()}>
                                                 <a href={`https://dashboard.stripe.com/test/customers/${customer.id}`} target="_blank" rel="noopener noreferrer">
                                                     <ExternalLink className="h-4 w-4" />
                                                 </a>
+                                            </Button>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleSendTestEmail(customer);
+                                                }}
+                                                disabled={isSendingEmail === customer.id}
+                                            >
+                                                 {isSendingEmail === customer.id ? (
+                                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Mail className="mr-2 h-4 w-4" />
+                                                )}
+                                                Send Email
                                             </Button>
                                         </TableCell>
                                     </TableRow>
