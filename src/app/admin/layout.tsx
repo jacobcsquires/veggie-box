@@ -10,12 +10,19 @@ import {
   Sprout,
   ShoppingCart,
   User,
-  Globe
+  Globe,
+  Settings,
+  ChevronRight,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
 import { UserNav } from "@/components/user-nav";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   SidebarProvider,
   Sidebar,
@@ -25,6 +32,8 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
   SidebarInset,
   SidebarRail,
   useSidebar,
@@ -37,9 +46,13 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     { href: "/admin/boxes", icon: Package, label: "Veggie Box Plans" },
     { href: "/admin/subscriptions", icon: ShoppingCart, label: "Subscriptions" },
     { href: "/admin/customers", icon: Users, label: "Customers" },
+  ];
+  
+  const settingsNavItems = [
     { href: "/admin/users", icon: User, label: "Users" },
     { href: "/admin/portal", icon: Globe, label: "Customer Portal" },
   ];
+
   return (
       <>
         <Sidebar collapsible="icon">
@@ -61,6 +74,31 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                     </SidebarMenuButton>
                 </SidebarMenuItem>
                 ))}
+                 <SidebarMenuItem>
+                    <Collapsible>
+                        <CollapsibleTrigger asChild>
+                            <SidebarMenuButton tooltip="Settings" className="group w-full justify-start">
+                                <Settings />
+                                <span className="group-data-[collapsible=icon]:hidden">Settings</span>
+                                <ChevronRight className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden group-data-[state=open]:rotate-90" />
+                            </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                            <SidebarMenuSub>
+                                {settingsNavItems.map(item => (
+                                    <SidebarMenuItem key={item.label}>
+                                        <SidebarMenuSubButton asChild>
+                                            <Link href={item.href}>
+                                                <item.icon />
+                                                <span>{item.label}</span>
+                                            </Link>
+                                        </SidebarMenuSubButton>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenuSub>
+                        </CollapsibleContent>
+                    </Collapsible>
+                </SidebarMenuItem>
             </SidebarMenu>
             </SidebarContent>
             <SidebarRail />
