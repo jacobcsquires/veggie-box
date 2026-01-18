@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown, ExternalLink, ChevronRight, Users, DollarSign, CalendarDays, Download } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown, ExternalLink, ChevronRight, Users, DollarSign, CalendarDays, Download, UserCheck } from 'lucide-react';
 import type { Box, Pickup, Subscription, PricingOption, Customer } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addDays, isBefore, startOfToday, addMonths, subDays, subMonths } from 'date-fns';
@@ -732,6 +732,11 @@ export default function AdminBoxDetailPage() {
                                         <p className="text-sm text-muted-foreground truncate">{pickup.note || 'No note for this date.'}</p>
                                     </CardContent>
                                     <CardFooter className="gap-2">
+                                        <Button asChild className="flex-grow">
+                                            <Link href={`/admin/boxes/${boxId}/pickups/${pickup.id}`}>
+                                                <UserCheck className="mr-2 h-4 w-4" /> Check-in
+                                            </Link>
+                                        </Button>
                                         <Button variant="ghost" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
                                             <FilePen className="h-4 w-4"/>
                                             <span className="sr-only">Edit Note</span>
@@ -769,11 +774,18 @@ export default function AdminBoxDetailPage() {
                                         <TableCell>{format(pickupDateObj, 'PPPP')}</TableCell>
                                         <TableCell className="max-w-[300px] truncate hidden sm:table-cell">{pickup.note}</TableCell>
                                         <TableCell className="text-right space-x-2">
+                                            <Button asChild>
+                                                <Link href={`/admin/boxes/${boxId}/pickups/${pickup.id}`}>
+                                                    <UserCheck className="mr-2 h-4 w-4" /> Check-in
+                                                </Link>
+                                            </Button>
                                             <Button variant="ghost" size="icon" onClick={() => openNoteDialog(pickupDateObj)}>
                                                 <FilePen className="h-4 w-4" />
+                                                <span className="sr-only">Edit note</span>
                                             </Button>
                                             <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeletePickupClick(pickup)}}>
                                                 <Trash2 className="h-4 w-4 text-destructive" />
+                                                <span className="sr-only">Delete pickup</span>
                                             </Button>
                                         </TableCell>
                                     </TableRow>
