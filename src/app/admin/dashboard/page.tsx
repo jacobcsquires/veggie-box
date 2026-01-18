@@ -6,11 +6,11 @@ import { collection, onSnapshot, query, orderBy, limit, getDocs, where } from 'f
 import { db } from '@/lib/firebase';
 import type { Subscription, Customer, Box } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { Users, ShoppingCart, Package, ArrowRight, Calendar, UserCheck } from 'lucide-react';
+import { Users, ShoppingCart, Package, ArrowRight, Calendar, UserCheck, AlertTriangle } from 'lucide-react';
 
 
 type UpcomingPickup = {
@@ -27,6 +27,7 @@ export default function AdminDashboardPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [boxes, setBoxes] = useState<Box[]>([]);
     const [upcomingPickups, setUpcomingPickups] = useState<UpcomingPickup[]>([]);
+    const [todaysPickups, setTodaysPickups] = useState<UpcomingPickup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isPickupsLoading, setIsPickupsLoading] = useState(true);
 
@@ -54,28 +55,39 @@ export default function AdminDashboardPage() {
             setBoxes(boxesData);
             
             setIsPickupsLoading(true);
-            const today = format(new Date(), 'yyyy-MM-dd');
-            let allPickups: UpcomingPickup[] = [];
+            const today = new Date();
+            const todayString = format(today, 'yyyy-MM-dd');
+
+            let allTodaysPickups: UpcomingPickup[] = [];
+            let allUpcomingPickups: UpcomingPickup[] = [];
 
             for (const box of boxesData) {
                 if (box.id) {
                     const pickupsRef = collection(db, 'boxes', box.id, 'pickups');
-                    const q = query(pickupsRef, where('pickupDate', '>=', today), orderBy('pickupDate'));
-                    const pickupsSnapshot = await getDocs(q);
-                    const boxPickups: UpcomingPickup[] = pickupsSnapshot.docs.map(doc => {
+                    
+                    // Query for today's pickups
+                    const todayQuery = query(pickupsRef, where('pickupDate', '==', todayString));
+                    const todaySnapshot = await getDocs(todayQuery);
+                    const boxTodaysPickups: UpcomingPickup[] = todaySnapshot.docs.map(doc => {
                         const data = doc.data();
-                        return {
-                            id: doc.id,
-                            pickupDate: data.pickupDate,
-                            boxId: box.id,
-                            boxName: box.name
-                        };
+                        return { id: doc.id, pickupDate: data.pickupDate, boxId: box.id, boxName: box.name };
                     });
-                    allPickups.push(...boxPickups);
+                    allTodaysPickups.push(...boxTodaysPickups);
+                    
+                    // Query for future pickups
+                    const upcomingQuery = query(pickupsRef, where('pickupDate', '>', todayString), orderBy('pickupDate'));
+                    const upcomingSnapshot = await getDocs(upcomingQuery);
+                    const boxUpcomingPickups: UpcomingPickup[] = upcomingSnapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return { id: doc.id, pickupDate: data.pickupDate, boxId: box.id, boxName: box.name };
+                    });
+                    allUpcomingPickups.push(...boxUpcomingPickups);
                 }
             }
 
-            const uniquePickups = allPickups.filter((pickup, index, self) =>
+            setTodaysPickups(allTodaysPickups.sort((a, b) => a.boxName.localeCompare(b.boxName)));
+
+            const uniquePickups = allUpcomingPickups.filter((pickup, index, self) =>
                 index === self.findIndex((p) => (
                     p.pickupDate === pickup.pickupDate && p.boxId === pickup.boxId
                 ))
@@ -109,6 +121,33 @@ export default function AdminDashboardPage() {
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-headline">Dashboard</h1>
             </div>
+
+            {todaysPickups.length > 0 && (
+                <Card className="bg-primary/5 border-primary shadow-lg">
+                    <CardHeader>
+                        <CardTitle className="text-lg flex items-center text-primary">
+                            <AlertTriangle className="mr-2 h-5 w-5" />
+                            Pickup Day!
+                        </CardTitle>
+                        <CardDescription>The following boxes are scheduled for pickup today. Click the check-in button to start tracking collections.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {todaysPickups.map(pickup => (
+                            <div key={`today-${pickup.id}`} className="flex items-center justify-between p-4 rounded-lg bg-background border">
+                                <div>
+                                    <p className="font-semibold">{pickup.boxName}</p>
+                                    <p className="text-sm text-muted-foreground">Ready for collection</p>
+                                </div>
+                                <Button asChild size="lg">
+                                    <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}`}>
+                                        <UserCheck className="mr-2 h-4 w-4" /> Go to Check-in
+                                    </Link>
+                                </Button>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Stat Cards */}
             <div className="grid gap-4 md:grid-cols-3">
