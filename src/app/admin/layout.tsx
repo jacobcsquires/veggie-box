@@ -49,7 +49,8 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   ];
   
   const settingsNavItems = [
-    { href: "/admin/users", icon: User, label: "Users" },
+    { href: "/admin/profile", icon: User, label: "Profile" },
+    { href: "/admin/users", icon: Users, label: "Users" },
     { href: "/admin/portal", icon: Globe, label: "Customer Portal" },
   ];
 
