@@ -57,12 +57,11 @@ export async function POST(req: Request) {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
-
       const subscriptionId = session.metadata?.subscriptionId;
 
       if (!subscriptionId) {
         console.error('Webhook Error: Missing subscriptionId in checkout session metadata.');
-        return NextResponse.json({ received: true });
+        return NextResponse.json({ received: true, message: "No subscriptionId in metadata" });
       }
 
       const subscriptionRef = doc(db, 'subscriptions', subscriptionId);
@@ -70,8 +69,8 @@ export async function POST(req: Request) {
       try {
         const subDoc = await getDoc(subscriptionRef);
         if (!subDoc.exists()) {
-            console.error(`Webhook Error: Could not find subscription ${subscriptionId} to send receipt.`);
-            return NextResponse.json({ received: true }); // Don't retry
+            console.error(`Webhook Error: Could not find subscription ${subscriptionId} to process.`);
+            return NextResponse.json({ received: true, message: `Subscription ${subscriptionId} not found.` }); // Don't retry
         }
         const subscriptionData = subDoc.data() as Subscription;
 
@@ -111,13 +110,12 @@ export async function POST(req: Request) {
             });
             console.log(`Webhook: Receipt email queued for subscription ${subscriptionId}`);
         }
+        return NextResponse.json({ received: true });
 
       } catch (error) {
         console.error(`Webhook Error: Failed to process checkout for subscriptionId: ${subscriptionId}`, error);
         return NextResponse.json({ error: 'Failed to process checkout completion.' }, { status: 500 });
       }
-
-      break;
     }
     case 'customer.subscription.updated': {
         const subscriptionUpdated = event.data.object as Stripe.Subscription;
@@ -134,7 +132,7 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: 'Failed to update subscription in database.' }, { status: 500 });
             }
         }
-        break;
+        return NextResponse.json({ received: true });
     }
 
     case 'customer.subscription.deleted': {
@@ -152,7 +150,7 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: 'Failed to update subscription in database.' }, { status: 500 });
             }
         }
-        break;
+        return NextResponse.json({ received: true });
     }
     
     case 'customer.created': {
@@ -170,16 +168,16 @@ export async function POST(req: Request) {
                 name: customer.name,
                 email: customer.email,
                 createdAt: serverTimestamp(),
-                userId: user?.uid,
+                userId: user?.uid || null,
             };
 
             await setDoc(doc(db, 'customers', customer.id), customerData, { merge: true });
             console.log(`Webhook: Successfully created/merged customer ${customer.id} in Firestore.`);
+            return NextResponse.json({ received: true });
         } catch (error) {
             console.error(`Webhook Error: Failed to create customer ${customer.id}`, error);
             return NextResponse.json({ error: 'Failed to create customer record.' }, { status: 500 });
         }
-        break;
     }
 
     case 'customer.updated': {
@@ -197,7 +195,7 @@ export async function POST(req: Request) {
           await updateDoc(customerRef, {
             name: customer.name,
             email: customer.email,
-            userId: user?.uid,
+            userId: user?.uid || null,
           });
           console.log(`Webhook: Successfully updated customer ${customer.id} in Firestore.`);
         } else {
@@ -208,15 +206,15 @@ export async function POST(req: Request) {
                 name: customer.name,
                 email: customer.email!,
                 createdAt: serverTimestamp(),
-                userId: user?.uid,
+                userId: user?.uid || null,
             };
           await setDoc(customerRef, customerData);
         }
+        return NextResponse.json({ received: true });
       } catch (error) {
         console.error(`Webhook Error: Failed to update/create customer ${customer.id}`, error);
         return NextResponse.json({ error: 'Failed to update customer record.' }, { status: 500 });
       }
-      break;
     }
         
     default:
@@ -227,3 +225,4 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ received: true });
 }
+
