@@ -225,23 +225,25 @@ export default function AdminDashboardPage() {
                         {isPickupsLoading ? <Skeleton className="h-40 w-full" /> : (
                              <div className="space-y-4">
                                 {upcomingPickups.length > 0 ? upcomingPickups.map(pickup => (
-                                    <div key={`${pickup.boxId}-${pickup.id}`} className="flex items-center">
-                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                                            <Calendar className="h-5 w-5 text-primary" />
+                                    <div key={`${pickup.boxId}-${pickup.id}`} className="rounded-lg border p-4 space-y-3">
+                                        <div className="flex items-center">
+                                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                                                <Calendar className="h-5 w-5 text-primary" />
+                                            </div>
+                                            <div className="ml-4 space-y-1">
+                                                <p className="text-sm font-medium leading-none">{pickup.boxName}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="ml-4 space-y-1">
-                                            <p className="text-sm font-medium leading-none">{pickup.boxName}</p>
-                                            <p className="text-sm text-muted-foreground">
-                                                {format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}
-                                            </p>
-                                        </div>
-                                        <Button asChild variant="secondary" size="sm" className="ml-auto">
+                                        <Button asChild variant="secondary" size="sm" className="w-full">
                                             <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}`}>
                                                 <UserCheck className="mr-2 h-4 w-4" /> Check-in
                                             </Link>
                                         </Button>
                                     </div>
-                                )) : <p className="text-sm text-muted-foreground text-center py-10">No upcoming pickups.</p>}
+                                )) : <p className="text-sm text-muted-foreground text-center py-10">No upcoming pickups scheduled.</p>}
                             </div>
                         )}
                     </CardContent>
