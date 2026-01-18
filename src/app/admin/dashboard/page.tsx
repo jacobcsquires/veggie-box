@@ -66,9 +66,6 @@ export default function AdminDashboardPage() {
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-headline">Dashboard</h1>
                 <div className="flex gap-2">
-                    <Button asChild>
-                        <Link href="/admin/boxes"><PlusCircle className="mr-2 h-4 w-4" />New Plan</Link>
-                    </Button>
                     <Button asChild variant="outline">
                         <Link href="/admin/customers"><PlusCircle className="mr-2 h-4 w-4" />New Customer</Link>
                     </Button>
