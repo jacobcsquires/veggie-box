@@ -30,7 +30,7 @@ const findUserByEmail = async (email: string): Promise<AppUser | null> => {
 // Helper function to find a subscription by its Stripe ID
 const findSubscriptionByStripeId = async (stripeSubscriptionId: string): Promise<Subscription | null> => {
     const subsRef = collection(db, 'subscriptions');
-    const q = query(subsRef, where("stripeSubscriptionId", "==", stripeSubscriptionId));
+    const q = query(subsRef, where("stripeSubscriptionId", "==", stripeSubscriptionId), limit(1));
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) {
         console.log(`Webhook: Could not find local subscription for Stripe ID: ${stripeSubscriptionId}`);
@@ -39,6 +39,43 @@ const findSubscriptionByStripeId = async (stripeSubscriptionId: string): Promise
     const doc = querySnapshot.docs[0];
     return { id: doc.id, ...doc.data() } as Subscription;
 }
+
+// Helper to handle subscription cancellation logic idempotently
+const handleSubscriptionCancellation = async (stripeSubscriptionId: string) => {
+    const localSub = await findSubscriptionByStripeId(stripeSubscriptionId);
+
+    // If subscription is not found, or already marked as Cancelled, do nothing.
+    if (!localSub || localSub.status === 'Cancelled') {
+        console.log(`Webhook: Cancellation event for ${stripeSubscriptionId}, but subscription not found or already cancelled locally. No action taken.`);
+        return;
+    }
+
+    const subRef = doc(db, 'subscriptions', localSub.id);
+    const boxRef = doc(db, 'boxes', localSub.boxId);
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const boxDoc = await transaction.get(boxRef);
+            
+            // It's possible the box was deleted, but we should still cancel the subscription.
+            if (boxDoc.exists()) {
+                const boxData = boxDoc.data() as Box;
+                const newSubscribedCount = Math.max(0, (boxData.subscribedCount || 0) - 1);
+                transaction.update(boxRef, { subscribedCount: newSubscribedCount });
+            } else {
+                 console.warn(`Webhook: Box ${localSub.boxId} not found while cancelling sub ${localSub.id}. Count not decremented.`);
+            }
+
+            // Update subscription status to 'Cancelled'
+            transaction.update(subRef, { status: 'Cancelled' });
+        });
+        console.log(`Webhook: Successfully processed cancellation for sub ${localSub.id}.`);
+    } catch (error) {
+        console.error(`Webhook Error: Transaction failed for subscription cancellation ${stripeSubscriptionId}.`, error);
+        throw error; // Re-throw to be handled by the main POST function
+    }
+};
+
 
 export async function POST(req: Request) {
   const body = await req.text();
@@ -145,16 +182,23 @@ export async function POST(req: Request) {
     case 'customer.subscription.updated': {
         const subscriptionUpdated = event.data.object as Stripe.Subscription;
         console.log(`Webhook: Received customer.subscription.updated for ${subscriptionUpdated.id}`);
-        const localSub = await findSubscriptionByStripeId(subscriptionUpdated.id);
         
-        if (localSub) {
-            const newStatus = subscriptionUpdated.status.charAt(0).toUpperCase() + subscriptionUpdated.status.slice(1);
+        // A subscription is considered for cancellation if it's explicitly 'canceled' 
+        // or if it's been set to cancel at the end of the current period.
+        if (subscriptionUpdated.status === 'canceled' || subscriptionUpdated.cancel_at_period_end) {
             try {
-                 await updateDoc(doc(db, 'subscriptions', localSub.id), { status: newStatus });
-                 console.log(`Webhook: Successfully updated status for local subscription ${localSub.id} to ${newStatus}`);
-            } catch(error) {
-                console.error(`Webhook: Failed to update subscription status for ${localSub.id}`, error);
-                return NextResponse.json({ error: 'Failed to update subscription in database.' }, { status: 500 });
+                await handleSubscriptionCancellation(subscriptionUpdated.id);
+            } catch (error) {
+                return NextResponse.json({ error: 'Failed to process subscription cancellation.' }, { status: 500 });
+            }
+        } else {
+            // Handle other status changes (e.g., past_due -> active)
+            const localSub = await findSubscriptionByStripeId(subscriptionUpdated.id);
+            if (localSub) {
+                const newStatus = subscriptionUpdated.status.charAt(0).toUpperCase() + subscriptionUpdated.status.slice(1);
+                if (localSub.status !== newStatus) {
+                    await updateDoc(doc(db, 'subscriptions', localSub.id), { status: newStatus });
+                }
             }
         }
         return NextResponse.json({ received: true });
@@ -163,17 +207,11 @@ export async function POST(req: Request) {
     case 'customer.subscription.deleted': {
         const subscriptionDeleted = event.data.object as Stripe.Subscription;
         console.log(`Webhook: Received customer.subscription.deleted for ${subscriptionDeleted.id}`);
-        const localSub = await findSubscriptionByStripeId(subscriptionDeleted.id);
-
-        if (localSub) {
-             try {
-                // Mark as cancelled, or whatever status makes sense for a hard delete from stripe
-                 await updateDoc(doc(db, 'subscriptions', localSub.id), { status: 'Cancelled' });
-                 console.log(`Webhook: Successfully marked local subscription ${localSub.id} as Cancelled`);
-            } catch(error) {
-                console.error(`Webhook: Failed to mark subscription as cancelled for ${localSub.id}`, error);
-                return NextResponse.json({ error: 'Failed to update subscription in database.' }, { status: 500 });
-            }
+        try {
+            // A deleted subscription is definitively cancelled.
+            await handleSubscriptionCancellation(subscriptionDeleted.id);
+        } catch (error) {
+            return NextResponse.json({ error: 'Failed to process subscription deletion.' }, { status: 500 });
         }
         return NextResponse.json({ received: true });
     }
