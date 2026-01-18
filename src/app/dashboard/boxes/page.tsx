@@ -60,19 +60,12 @@ export default function ExploreBoxesPage() {
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
 
   useEffect(() => {
-    // Only show boxes that have a defined schedule and are available for signup
+    // Only show boxes that are available for signup
     const q = query(collection(db, 'boxes'), where('displayOnWebsite', '==', true));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
       const boxesData = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() } as Box))
-        .filter(box => {
-            const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
-            return endDateObj ? endDateObj >= today : false;
-        });
+        .map((doc) => ({ id: doc.id, ...doc.data() } as Box));
 
       setBoxes(boxesData);
       setIsLoading(false);
