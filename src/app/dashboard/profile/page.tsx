@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LogOut } from "lucide-react";
 
 export default function ProfilePage() {
     const { user } = useAuth();
@@ -30,6 +31,7 @@ export default function ProfilePage() {
 
     const [isInfoSaving, setIsInfoSaving] = useState(false);
     const [isPasswordSaving, setIsPasswordSaving] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -75,7 +77,7 @@ export default function ProfilePage() {
             await updatePassword(user, newPassword);
             toast({ title: "Success", description: "Password updated successfully. You have been logged out for security." });
             
-            await auth.signOut();
+            await signOut(auth);
 
         } catch (error: any) {
             toast({ variant: 'destructive', title: "Error", description: error.message });
@@ -84,6 +86,18 @@ export default function ProfilePage() {
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
+        }
+    };
+    
+    const handleLogout = async () => {
+        setIsLoggingOut(true);
+        try {
+            await signOut(auth);
+            toast({ title: "Logged Out", description: "You have been successfully logged out." });
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: "Error", description: error.message });
+        } finally {
+            setIsLoggingOut(false);
         }
     };
 
@@ -142,6 +156,20 @@ export default function ProfilePage() {
                     <Button type="submit" disabled={isPasswordSaving}>{isPasswordSaving ? 'Updating...' : 'Update Password'}</Button>
                 </CardFooter>
             </form>
+          </Card>
+           <Card>
+            <CardHeader>
+              <CardTitle>Log Out</CardTitle>
+              <CardDescription>
+                Clicking this button will log you out of your account.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="border-t px-6 py-4">
+              <Button variant="destructive" onClick={handleLogout} disabled={isLoggingOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                {isLoggingOut ? 'Logging out...' : 'Log Out'}
+              </Button>
+            </CardFooter>
           </Card>
         </div>
     </div>
