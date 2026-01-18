@@ -140,6 +140,33 @@ export async function POST(req: Request) {
         }
         break;
     }
+    
+    case 'customer.updated': {
+      const customer = event.data.object as Stripe.Customer;
+      console.log(`Webhook: Received customer.updated for ${customer.id}`);
+      
+      const customerRef = doc(db, 'customers', customer.id);
+
+      try {
+        const docSnap = await getDoc(customerRef);
+        if (docSnap.exists()) {
+          // Update the local customer record
+          await updateDoc(customerRef, {
+            name: customer.name,
+            email: customer.email,
+          });
+          console.log(`Webhook: Successfully updated customer ${customer.id} in Firestore.`);
+        } else {
+          // Optionally, create the customer if they don't exist, though this is less common for an 'updated' event.
+          console.warn(`Webhook: Received customer.updated for ${customer.id}, but customer does not exist in Firestore.`);
+        }
+      } catch (error) {
+        console.error(`Webhook Error: Failed to update customer ${customer.id}`, error);
+        // Return a 500 to signal to Stripe that the webhook failed and should be retried.
+        return NextResponse.json({ error: 'Failed to update customer record.' }, { status: 500 });
+      }
+      break;
+    }
         
     default:
       // Temporarily log all unhandled events to see what's coming in
