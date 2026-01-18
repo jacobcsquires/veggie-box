@@ -365,7 +365,7 @@ export default function AdminSubscriptionsPage() {
                                         Last Charged {renderSortIcon('lastCharged')}
                                     </Button>
                                 </TableHead>
-                                <TableHead className="text-right">Price</TableHead>
+                                <TableHead className="hidden sm:table-cell text-right">Price</TableHead>
                                 <TableHead><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -378,7 +378,7 @@ export default function AdminSubscriptionsPage() {
                                         <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                                         <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
                                         <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
-                                        <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                                        <TableCell className="hidden sm:table-cell text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                                         <TableCell className="text-right"><Skeleton className="h-9 w-16 ml-auto" /></TableCell>
                                     </TableRow>
                                 ))
@@ -408,7 +408,7 @@ export default function AdminSubscriptionsPage() {
                                         <TableCell className="hidden lg:table-cell">
                                             {sub.lastCharged ? format(parseISO(sub.lastCharged), 'PPP') : 'N/A'}
                                         </TableCell>
-                                        <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
+                                        <TableCell className="hidden sm:table-cell text-right">${sub.price.toFixed(2)}</TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="outline" size="sm" onClick={() => router.push(`/admin/subscriptions/${sub.id}`)}>
                                                 View
