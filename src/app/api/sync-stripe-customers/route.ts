@@ -2,13 +2,25 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { collection, getDocs, doc, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, serverTimestamp, Timestamp, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Customer } from '@/lib/types';
+import type { Customer, AppUser } from '@/lib/types';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
+
+const findUser = async (email: string): Promise<AppUser | null> => {
+    if (!email) return null;
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where("email", "==", email));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        return { uid: userDoc.id, ...userDoc.data() } as AppUser;
+    }
+    return null;
+}
 
 
 export async function POST() {
@@ -33,29 +45,34 @@ export async function POST() {
 
     // 3. Iterate through Stripe customers and sync with Firestore
     for (const stripeCustomer of stripeCustomers) {
+        if (!stripeCustomer.email) continue;
+
         const existingFirestoreCustomer = firestoreCustomerMap.get(stripeCustomer.id);
-
-        const customerData: Customer = {
-            id: stripeCustomer.id,
-            name: stripeCustomer.name,
-            email: stripeCustomer.email!,
-            createdAt: Timestamp.fromMillis(stripeCustomer.created * 1000),
-            localOnly: false
-        };
-
+        const user = await findUser(stripeCustomer.email);
         const customerRef = doc(db, 'customers', stripeCustomer.id);
 
         if (existingFirestoreCustomer) {
             // Customer exists in both, update if different
-            if (existingFirestoreCustomer.name !== customerData.name || existingFirestoreCustomer.email !== customerData.email || existingFirestoreCustomer.localOnly) {
-                batch.update(customerRef, { name: customerData.name, email: customerData.email, localOnly: false });
+            const updates: { [key: string]: any } = {};
+            if (existingFirestoreCustomer.name !== stripeCustomer.name) updates.name = stripeCustomer.name;
+            if (existingFirestoreCustomer.email !== stripeCustomer.email) updates.email = stripeCustomer.email;
+            if (existingFirestoreCustomer.userId !== user?.uid) updates.userId = user?.uid || null;
+            if (existingFirestoreCustomer.localOnly) updates.localOnly = false;
+
+            if (Object.keys(updates).length > 0) {
+                batch.update(customerRef, updates);
                 updatedCount++;
             }
-            // Remove from map to track remaining Firestore-only customers
             firestoreCustomerMap.delete(stripeCustomer.id);
 
         } else {
             // Customer exists in Stripe but not Firestore -> Create it
+            const customerData: Omit<Customer, 'id'> = {
+                name: stripeCustomer.name,
+                email: stripeCustomer.email,
+                createdAt: Timestamp.fromMillis(stripeCustomer.created * 1000),
+                userId: user?.uid,
+            };
             batch.set(customerRef, customerData);
             createdCount++;
         }
@@ -63,11 +80,9 @@ export async function POST() {
 
     // 4. Any customers remaining in firestoreCustomerMap do not exist in Stripe (or are deleted)
     for (const [id, firestoreCustomer] of firestoreCustomerMap.entries()) {
-        if (firestoreCustomer.localOnly !== true) {
-             const customerRef = doc(db, 'customers', id);
-             batch.delete(customerRef);
-             deletedCount++;
-        }
+        const customerRef = doc(db, 'customers', id);
+        batch.delete(customerRef);
+        deletedCount++;
     }
 
     await batch.commit();

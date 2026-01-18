@@ -2,9 +2,9 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';
-import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, getDoc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, getDoc, setDoc, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription, Box } from '@/lib/types';
+import type { Subscription, Box, AppUser, Customer } from '@/lib/types';
 
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -12,6 +12,20 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+// Helper function to find a user by email
+const findUserByEmail = async (email: string): Promise<AppUser | null> => {
+    if (!email) return null;
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where("email", "==", email), limit(1));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+        console.log(`Webhook: Could not find user for email: ${email}`);
+        return null;
+    }
+    const userDoc = querySnapshot.docs[0];
+    return { uid: userDoc.id, ...userDoc.data() } as AppUser;
+}
 
 // Helper function to find a subscription by its Stripe ID
 const findSubscriptionByStripeId = async (stripeSubscriptionId: string): Promise<Subscription | null> => {
@@ -141,6 +155,33 @@ export async function POST(req: Request) {
         break;
     }
     
+    case 'customer.created': {
+        const customer = event.data.object as Stripe.Customer;
+        console.log(`Webhook: Received customer.created for ${customer.id}`);
+        if (!customer.email) {
+            console.warn(`Webhook: customer.created event for ${customer.id} has no email. Cannot create customer.`);
+            return NextResponse.json({ received: true });
+        }
+        
+        try {
+            const user = await findUserByEmail(customer.email);
+
+            const customerData: Partial<Customer> = {
+                name: customer.name,
+                email: customer.email,
+                createdAt: serverTimestamp(),
+                userId: user?.uid,
+            };
+
+            await setDoc(doc(db, 'customers', customer.id), customerData, { merge: true });
+            console.log(`Webhook: Successfully created/merged customer ${customer.id} in Firestore.`);
+        } catch (error) {
+            console.error(`Webhook Error: Failed to create customer ${customer.id}`, error);
+            return NextResponse.json({ error: 'Failed to create customer record.' }, { status: 500 });
+        }
+        break;
+    }
+
     case 'customer.updated': {
       const customer = event.data.object as Stripe.Customer;
       console.log(`Webhook: Received customer.updated for ${customer.id}`);
@@ -149,20 +190,30 @@ export async function POST(req: Request) {
 
       try {
         const docSnap = await getDoc(customerRef);
+        const user = await findUserByEmail(customer.email!);
+
         if (docSnap.exists()) {
           // Update the local customer record
           await updateDoc(customerRef, {
             name: customer.name,
             email: customer.email,
+            userId: user?.uid,
           });
           console.log(`Webhook: Successfully updated customer ${customer.id} in Firestore.`);
         } else {
-          // Optionally, create the customer if they don't exist, though this is less common for an 'updated' event.
-          console.warn(`Webhook: Received customer.updated for ${customer.id}, but customer does not exist in Firestore.`);
+          // If customer doesn't exist, create it (handles cases where created webhook was missed)
+          console.warn(`Webhook: Received customer.updated for ${customer.id}, but customer does not exist in Firestore. Creating it now.`);
+          
+          const customerData: Omit<Customer, 'id'> = {
+                name: customer.name,
+                email: customer.email!,
+                createdAt: serverTimestamp(),
+                userId: user?.uid,
+            };
+          await setDoc(customerRef, customerData);
         }
       } catch (error) {
-        console.error(`Webhook Error: Failed to update customer ${customer.id}`, error);
-        // Return a 500 to signal to Stripe that the webhook failed and should be retried.
+        console.error(`Webhook Error: Failed to update/create customer ${customer.id}`, error);
         return NextResponse.json({ error: 'Failed to update customer record.' }, { status: 500 });
       }
       break;
