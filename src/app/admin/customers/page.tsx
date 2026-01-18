@@ -19,14 +19,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
-
-type CustomerWithSubCount = Customer & { activeSubscriptionCount: number };
-
 export default function AdminCustomersPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
-    const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState('all');
     const router = useRouter();
@@ -42,21 +39,13 @@ export default function AdminCustomersPage() {
 
     useEffect(() => {
         const unsubscribeCustomers = onSnapshot(collection(db, 'customers'), (snapshot) => {
-            const subsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
-            setCustomers(subsData);
+            const customersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
+            setCustomers(customersData);
             setIsLoading(false);
         });
-
-        const unsubscribeSubscriptions = onSnapshot(
-            query(collection(db, 'subscriptions'), where('status', '==', 'Active')),
-            (snapshot) => {
-                setSubscriptions(snapshot.docs.map(doc => doc.data() as Subscription));
-            }
-        );
         
         return () => {
             unsubscribeCustomers();
-            unsubscribeSubscriptions();
         }
     }, []);
 
@@ -82,6 +71,31 @@ export default function AdminCustomersPage() {
             });
         } finally {
             setIsSyncing(false);
+        }
+    };
+    
+    const handleUpdateStats = async () => {
+        setIsUpdating(true);
+        try {
+            const response = await fetch('/api/update-customer-stats', {
+                method: 'POST',
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to update stats.');
+            }
+            toast({
+                title: 'Update Complete',
+                description: `${result.updatedCount} customers updated.`,
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Update Error',
+                description: error.message,
+            });
+        } finally {
+            setIsUpdating(false);
         }
     };
 
@@ -152,38 +166,23 @@ export default function AdminCustomersPage() {
         }
     };
 
-    const customersWithSubCounts = useMemo(() => {
-        const subscriptionCounts = subscriptions.reduce((acc, sub) => {
-            const customerId = sub.stripeCustomerId;
-            if (customerId) {
-                acc[customerId] = (acc[customerId] || 0) + 1;
-            }
-            return acc;
-        }, {} as Record<string, number>);
-
-        return customers.map(customer => ({
-            ...customer,
-            activeSubscriptionCount: subscriptionCounts[customer.id] || 0
-        }));
-    }, [customers, subscriptions]);
-
     const filteredCustomers = useMemo(() => {
-        return customersWithSubCounts
+        return customers
             .filter(customer => {
                 const nameMatch = customer.name?.toLowerCase().includes(searchTerm.toLowerCase());
                 const emailMatch = customer.email.toLowerCase().includes(searchTerm.toLowerCase());
                 
                 let filterMatch = true;
                 if (filter === 'active') {
-                    filterMatch = customer.activeSubscriptionCount > 0;
+                    filterMatch = customer.status === 'active';
                 } else if (filter === 'inactive') {
-                    filterMatch = customer.activeSubscriptionCount === 0;
+                    filterMatch = customer.status === 'inactive';
                 }
                 
                 return (nameMatch || emailMatch) && filterMatch;
             })
             .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }, [customersWithSubCounts, searchTerm, filter]);
+    }, [customers, searchTerm, filter]);
 
     return (
         <div>
@@ -233,6 +232,10 @@ export default function AdminCustomersPage() {
                         <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
                         {isSyncing ? 'Syncing...' : 'Sync with Stripe'}
                     </Button>
+                    <Button onClick={handleUpdateStats} disabled={isUpdating} variant="outline">
+                        <RefreshCw className={`mr-2 h-4 w-4 ${isUpdating ? 'animate-spin' : ''}`} />
+                        {isUpdating ? 'Updating...' : 'Update Stats (Temp)'}
+                    </Button>
                 </div>
             </div>
 
@@ -262,6 +265,7 @@ export default function AdminCustomersPage() {
                             <TableRow>
                                 <TableHead>Name</TableHead>
                                 <TableHead>Email</TableHead>
+                                <TableHead>Status</TableHead>
                                 <TableHead>Active Subscriptions</TableHead>
                                 <TableHead>Stripe</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
@@ -273,6 +277,7 @@ export default function AdminCustomersPage() {
                                     <TableRow key={i}>
                                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                                         <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                                         <TableCell className="text-right"><Skeleton className="h-9 w-32 ml-auto" /></TableCell>
@@ -280,7 +285,7 @@ export default function AdminCustomersPage() {
                                 ))
                             ) : filteredCustomers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
+                                    <TableCell colSpan={6} className="h-24 text-center">
                                         No matching customers found.
                                     </TableCell>
                                 </TableRow>
@@ -289,7 +294,10 @@ export default function AdminCustomersPage() {
                                     <TableRow key={customer.id} onClick={() => router.push(`/admin/customers/${customer.id}`)} className="cursor-pointer">
                                         <TableCell className="font-medium">{customer.name || 'N/A'}</TableCell>
                                         <TableCell>{customer.email}</TableCell>
-                                        <TableCell>{customer.activeSubscriptionCount}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={customer.status === 'active' ? 'default' : 'secondary'}>{customer.status || 'inactive'}</Badge>
+                                        </TableCell>
+                                        <TableCell>{customer.activeSubscriptionCount || 0}</TableCell>
                                         <TableCell>
                                             <Button variant="ghost" size="icon" asChild onClick={(e) => e.stopPropagation()}>
                                                 <a href={`https://dashboard.stripe.com/test/customers/${customer.id}`} target="_blank" rel="noopener noreferrer">
@@ -325,6 +333,4 @@ export default function AdminCustomersPage() {
         </div>
     );
 }
-    
-
     

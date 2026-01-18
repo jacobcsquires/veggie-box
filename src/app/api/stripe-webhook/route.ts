@@ -169,6 +169,8 @@ export async function POST(req: Request) {
                 email: customer.email,
                 createdAt: serverTimestamp(),
                 userId: user?.uid || null,
+                activeSubscriptionCount: 0,
+                status: 'inactive',
             };
 
             await setDoc(doc(db, 'customers', customer.id), customerData, { merge: true });
@@ -207,6 +209,8 @@ export async function POST(req: Request) {
                 email: customer.email!,
                 createdAt: serverTimestamp(),
                 userId: user?.uid || null,
+                status: 'inactive',
+                activeSubscriptionCount: 0,
             };
           await setDoc(customerRef, customerData);
         }
@@ -225,4 +229,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ received: true });
 }
-

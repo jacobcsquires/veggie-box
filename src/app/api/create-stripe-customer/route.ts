@@ -29,6 +29,8 @@ export async function POST(request: Request) {
         name,
         email,
         createdAt: serverTimestamp() as any,
+        activeSubscriptionCount: 0,
+        status: 'inactive',
     };
     // Use stripeCustomer.id as the document ID in Firestore
     await setDoc(doc(db, 'customers', stripeCustomer.id), customerData);

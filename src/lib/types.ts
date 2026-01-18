@@ -66,4 +66,6 @@ export type Customer = {
     name: string | null;
     email: string;
     createdAt: Timestamp;
+    status: 'active' | 'inactive';
+    activeSubscriptionCount: number;
 }

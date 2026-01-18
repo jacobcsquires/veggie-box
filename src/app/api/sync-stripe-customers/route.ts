@@ -71,6 +71,8 @@ export async function POST() {
                 email: stripeCustomer.email,
                 createdAt: Timestamp.fromMillis(stripeCustomer.created * 1000),
                 userId: user?.uid,
+                activeSubscriptionCount: 0,
+                status: 'inactive',
             };
             batch.set(customerRef, customerData);
             createdCount++;
