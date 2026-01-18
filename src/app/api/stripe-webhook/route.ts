@@ -2,9 +2,9 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';
-import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription } from '@/lib/types';
+import type { Subscription, Box } from '@/lib/types';
 
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -44,19 +44,28 @@ export async function POST(req: Request) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      // This is where we fulfill the order.
-      // The subscriptionId was passed in the metadata from the checkout session creation.
       const subscriptionId = session.metadata?.subscriptionId;
 
       if (!subscriptionId) {
         console.error('Webhook Error: Missing subscriptionId in checkout session metadata.');
-        // Return 200 to Stripe so it doesn't retry, as this is a permanent error on our side.
         return NextResponse.json({ received: true });
       }
 
       const subscriptionRef = doc(db, 'subscriptions', subscriptionId);
 
       try {
+        const subDoc = await getDoc(subscriptionRef);
+        if (!subDoc.exists()) {
+            console.error(`Webhook Error: Could not find subscription ${subscriptionId} to send receipt.`);
+            return NextResponse.json({ received: true }); // Don't retry
+        }
+        const subscriptionData = subDoc.data() as Subscription;
+
+        const boxRef = doc(db, 'boxes', subscriptionData.boxId);
+        const boxDoc = await getDoc(boxRef);
+        const boxData = boxDoc.exists() ? boxDoc.data() as Box : null;
+        
+        // Update subscription status
         await updateDoc(subscriptionRef, {
           status: 'Active',
           stripeSubscriptionId: session.subscription,
@@ -64,10 +73,34 @@ export async function POST(req: Request) {
           stripeSessionId: session.id,
         });
         console.log(`Webhook: Successfully activated subscription ${subscriptionId}`);
+
+        // Send receipt email via Trigger Email extension
+        const customerEmail = session.customer_details?.email;
+        if (customerEmail) {
+            const mailRef = doc(collection(db, "mail"));
+            await setDoc(mailRef, {
+                to: [customerEmail],
+                message: {
+                    subject: `Your subscription to ${subscriptionData.boxName} is confirmed!`,
+                    html: `
+                    <h1>Thank you, ${subscriptionData.customerName || 'there'}!</h1>
+                    <p>Your subscription to the <strong>${subscriptionData.boxName}</strong> is confirmed.</p>
+                    <p>
+                        <strong>Plan:</strong> ${subscriptionData.priceName || ''}<br>
+                        <strong>Price:</strong> $${subscriptionData.price.toFixed(2)} per ${boxData?.frequency.replace('-ly','')}
+                    </p>
+                    <p>Your first pickup date is scheduled for <strong>${subscriptionData.startDate}</strong>.</p>
+                    <p>You can manage your subscription anytime by visiting your dashboard.</p>
+                    <p>Thanks for supporting local!</p>
+                    `,
+                },
+            });
+            console.log(`Webhook: Receipt email queued for subscription ${subscriptionId}`);
+        }
+
       } catch (error) {
-        console.error(`Webhook Error: Failed to update Firestore for subscriptionId: ${subscriptionId}`, error);
-        // This is a server error, so we return a 500 to let Stripe know it should retry.
-        return NextResponse.json({ error: 'Failed to update subscription in database.' }, { status: 500 });
+        console.error(`Webhook Error: Failed to process checkout for subscriptionId: ${subscriptionId}`, error);
+        return NextResponse.json({ error: 'Failed to process checkout completion.' }, { status: 500 });
       }
 
       break;
