@@ -155,7 +155,7 @@ export default function AdminDashboardPage() {
                 </Card>
             )}
 
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-6">
                 {/* Upcoming Pickups */}
                 <Card>
                     <CardHeader>
@@ -190,7 +190,7 @@ export default function AdminDashboardPage() {
                 </Card>
 
                 {/* Recent Subscriptions */}
-                <Card className="md:col-span-2">
+                <Card>
                     <CardHeader>
                         <CardTitle>Recent Subscriptions</CardTitle>
                     </CardHeader>
