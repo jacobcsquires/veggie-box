@@ -27,6 +27,7 @@ export default function AdminCustomersPage() {
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isSubSyncing, setIsSubSyncing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState('all');
     const router = useRouter();
@@ -85,6 +86,31 @@ export default function AdminCustomersPage() {
         }
     };
     
+    const handleSyncSubscriptions = async () => {
+        setIsSubSyncing(true);
+        try {
+            const response = await fetch('/api/sync-stripe-subscriptions', {
+                method: 'POST',
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to sync subscriptions.');
+            }
+            toast({
+                title: 'Sync Complete',
+                description: `Subscriptions synced. ${result.createdCount} new, ${result.updatedCount} updated. Counts are now up-to-date.`,
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Sync Error',
+                description: error.message,
+            });
+        } finally {
+            setIsSubSyncing(false);
+        }
+    };
+
     const handleCreateCustomer = async () => {
         if (!name || !email) {
             toast({ variant: 'destructive', title: 'Error', description: 'Please fill out all fields.'});
@@ -233,6 +259,10 @@ export default function AdminCustomersPage() {
                         <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
                         {isSyncing ? 'Syncing...' : 'Sync with Stripe'}
                     </Button>
+                    <Button onClick={handleSyncSubscriptions} disabled={isSubSyncing} variant="secondary">
+                        <RefreshCw className={`mr-2 h-4 w-4 ${isSubSyncing ? 'animate-spin' : ''}`} />
+                        {isSubSyncing ? 'Updating...' : 'Update Counts'}
+                    </Button>
                 </div>
             </div>
 
@@ -332,4 +362,6 @@ export default function AdminCustomersPage() {
         </div>
     );
 }
+    
+
     
