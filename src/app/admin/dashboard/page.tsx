@@ -2,31 +2,71 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription, Customer, Box } from '@/lib/types';
+import type { Subscription, Customer, Box, Pickup } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
-import { Users, ShoppingCart, Package, PlusCircle, ArrowRight } from 'lucide-react';
+import { Users, ShoppingCart, Package, ArrowRight, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+
+type AugmentedPickup = Pickup & { customerName: string | null };
 
 export default function AdminDashboardPage() {
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+    const [allSubscriptions, setAllSubscriptions] = useState<Subscription[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [boxes, setBoxes] = useState<Box[]>([]);
+    const [upcomingPickups, setUpcomingPickups] = useState<AugmentedPickup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const subsQuery = query(collection(db, 'subscriptions'), orderBy('createdAt', 'desc'), limit(5));
-        const customersQuery = query(collection(db, 'customers'), orderBy('createdAt', 'desc'), limit(5));
+        const subsQuery = query(collection(db, 'subscriptions'), orderBy('createdAt', 'desc'));
+        const customersQuery = query(collection(db, 'customers'), orderBy('createdAt', 'desc'));
         const boxesQuery = query(collection(db, 'boxes'));
 
-        const unsubSubs = onSnapshot(subsQuery, (snapshot) => {
-            setSubscriptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription)));
+        const unsubSubs = onSnapshot(subsQuery, async (snapshot) => {
+            const allSubs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
+            setSubscriptions(allSubs.slice(0, 5));
+            setAllSubscriptions(allSubs);
+            
+            const activeSubs = allSubs.filter(s => s.status === 'Active');
+            if (activeSubs.length > 0) {
+                const today = format(new Date(), 'yyyy-MM-dd');
+                let allPickups: AugmentedPickup[] = [];
+
+                for (const sub of activeSubs) {
+                    const pickupsRef = collection(db, 'boxes', sub.boxId, 'pickups');
+                    const q = query(pickupsRef, where('pickupDate', '>=', today), orderBy('pickupDate'));
+                    const pickupsSnapshot = await getDocs(q);
+
+                    const subPickups: AugmentedPickup[] = pickupsSnapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return {
+                            id: doc.id,
+                            pickupDate: data.pickupDate,
+                            note: data.note,
+                            boxId: sub.boxId,
+                            boxName: sub.boxName,
+                            customerName: sub.customerName
+                        };
+                    });
+                    allPickups.push(...subPickups);
+                }
+
+                const sortedAndLimitedPickups = allPickups
+                    .sort((a, b) => new Date(a.pickupDate.replace(/-/g, '\/')).getTime() - new Date(b.pickupDate.replace(/-/g, '\/')).getTime())
+                    .slice(0, 5); 
+                
+                setUpcomingPickups(sortedAndLimitedPickups);
+            } else {
+                setUpcomingPickups([]);
+            }
+
             setIsLoading(false);
         });
 
@@ -46,7 +86,7 @@ export default function AdminDashboardPage() {
     }, []);
 
     const stats = {
-        totalSubscriptions: subscriptions.filter(s => s.status === 'Active').length,
+        totalSubscriptions: allSubscriptions.filter(s => s.status === 'Active').length,
         totalCustomers: customers.length,
         activePlans: boxes.filter(b => b.displayOnWebsite).length,
     };
@@ -97,9 +137,9 @@ export default function AdminDashboardPage() {
                 </Card>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-3">
                 {/* Recent Subscriptions */}
-                <Card>
+                <Card className="md:col-span-2">
                     <CardHeader>
                         <CardTitle>Recent Subscriptions</CardTitle>
                     </CardHeader>
@@ -127,30 +167,30 @@ export default function AdminDashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* New Customers */}
+                {/* Upcoming Pickups */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>New Customers</CardTitle>
+                        <CardTitle>Upcoming Pickups</CardTitle>
                     </CardHeader>
                     <CardContent>
-                         {isLoading ? <Skeleton className="h-40 w-full" /> : (
-                            <div className="space-y-4">
-                               {customers.length > 0 ? customers.map(customer => (
-                                   <div key={customer.id} className="flex items-center">
-                                       <Avatar className="h-9 w-9">
-                                            <AvatarFallback>{getInitials(customer.name)}</AvatarFallback>
-                                       </Avatar>
-                                       <div className="ml-4 space-y-1">
-                                           <p className="text-sm font-medium leading-none">{customer.name}</p>
-                                           <p className="text-sm text-muted-foreground">{customer.email}</p>
-                                       </div>
-                                       <div className="ml-auto font-medium text-xs text-muted-foreground">
-                                           {formatDistanceToNow(customer.createdAt.toDate(), { addSuffix: true })}
-                                       </div>
-                                   </div>
-                               )) : <p className="text-sm text-muted-foreground text-center py-10">No new customers yet</p>}
-                           </div>
-                         )}
+                        {isLoading ? <Skeleton className="h-40 w-full" /> : (
+                             <div className="space-y-4">
+                                {upcomingPickups.length > 0 ? upcomingPickups.map(pickup => (
+                                    <div key={pickup.id + (pickup.customerName || '')} className="flex items-center">
+                                        <Avatar className="h-9 w-9">
+                                            <AvatarFallback>{getInitials(pickup.customerName)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="ml-4 space-y-1">
+                                            <p className="text-sm font-medium leading-none">{pickup.customerName}</p>
+                                            <p className="text-sm text-muted-foreground">{pickup.boxName}</p>
+                                        </div>
+                                        <div className="ml-auto font-medium text-xs text-muted-foreground">
+                                            {format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'MMM d')}
+                                        </div>
+                                    </div>
+                                )) : <p className="text-sm text-muted-foreground text-center py-10">No upcoming pickups.</p>}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
