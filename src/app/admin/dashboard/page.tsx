@@ -4,82 +4,95 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { collection, onSnapshot, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription, Customer, Box, Pickup } from '@/lib/types';
+import type { Subscription, Customer, Box } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, formatDistanceToNow } from 'date-fns';
-import { Users, ShoppingCart, Package, ArrowRight, Calendar } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import { Users, ShoppingCart, Package, ArrowRight, Calendar, UserCheck } from 'lucide-react';
 
-type AugmentedPickup = Pickup & { customerName: string | null };
+
+type UpcomingPickup = {
+  id: string;
+  boxId: string;
+  boxName: string;
+  pickupDate: string;
+};
+
 
 export default function AdminDashboardPage() {
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [allSubscriptions, setAllSubscriptions] = useState<Subscription[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [boxes, setBoxes] = useState<Box[]>([]);
-    const [upcomingPickups, setUpcomingPickups] = useState<AugmentedPickup[]>([]);
+    const [upcomingPickups, setUpcomingPickups] = useState<UpcomingPickup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isPickupsLoading, setIsPickupsLoading] = useState(true);
 
     useEffect(() => {
-        const subsQuery = query(collection(db, 'subscriptions'), orderBy('createdAt', 'desc'));
-        const customersQuery = query(collection(db, 'customers'), orderBy('createdAt', 'desc'));
-        const boxesQuery = query(collection(db, 'boxes'));
+        setIsLoading(true);
 
-        const unsubSubs = onSnapshot(subsQuery, async (snapshot) => {
-            const allSubs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
-            setSubscriptions(allSubs.slice(0, 5));
-            setAllSubscriptions(allSubs);
-            
-            const activeSubs = allSubs.filter(s => s.status === 'Active');
-            if (activeSubs.length > 0) {
-                const today = format(new Date(), 'yyyy-MM-dd');
-                let allPickups: AugmentedPickup[] = [];
-
-                for (const sub of activeSubs) {
-                    const pickupsRef = collection(db, 'boxes', sub.boxId, 'pickups');
-                    const q = query(pickupsRef, where('pickupDate', '>=', today), orderBy('pickupDate'));
-                    const pickupsSnapshot = await getDocs(q);
-
-                    const subPickups: AugmentedPickup[] = pickupsSnapshot.docs.map(doc => {
-                        const data = doc.data();
-                        return {
-                            id: doc.id,
-                            pickupDate: data.pickupDate,
-                            note: data.note,
-                            boxId: sub.boxId,
-                            boxName: sub.boxName,
-                            customerName: sub.customerName
-                        };
-                    });
-                    allPickups.push(...subPickups);
-                }
-
-                const sortedAndLimitedPickups = allPickups
-                    .sort((a, b) => new Date(a.pickupDate.replace(/-/g, '\/')).getTime() - new Date(b.pickupDate.replace(/-/g, '\/')).getTime())
-                    .slice(0, 5); 
-                
-                setUpcomingPickups(sortedAndLimitedPickups);
-            } else {
-                setUpcomingPickups([]);
-            }
-
-            setIsLoading(false);
+        const subsQuery = query(collection(db, 'subscriptions'), orderBy('createdAt', 'desc'), limit(5));
+        const unsubSubs = onSnapshot(subsQuery, (snapshot) => {
+            setSubscriptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription)));
         });
 
+        const allSubsQuery = query(collection(db, 'subscriptions'));
+        const unsubAllSubs = onSnapshot(allSubsQuery, (snapshot) => {
+            setAllSubscriptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription)));
+        });
+
+        const customersQuery = query(collection(db, 'customers'));
         const unsubCustomers = onSnapshot(customersQuery, (snapshot) => {
             setCustomers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer)));
         });
 
-        const unsubBoxes = onSnapshot(boxesQuery, (snapshot) => {
-            setBoxes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Box)));
+        const boxesQuery = query(collection(db, 'boxes'));
+        const unsubBoxes = onSnapshot(boxesQuery, async (snapshot) => {
+            const boxesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Box));
+            setBoxes(boxesData);
+            
+            setIsPickupsLoading(true);
+            const today = format(new Date(), 'yyyy-MM-dd');
+            let allPickups: UpcomingPickup[] = [];
+
+            for (const box of boxesData) {
+                if (box.id) {
+                    const pickupsRef = collection(db, 'boxes', box.id, 'pickups');
+                    const q = query(pickupsRef, where('pickupDate', '>=', today), orderBy('pickupDate'));
+                    const pickupsSnapshot = await getDocs(q);
+                    const boxPickups: UpcomingPickup[] = pickupsSnapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return {
+                            id: doc.id,
+                            pickupDate: data.pickupDate,
+                            boxId: box.id,
+                            boxName: box.name
+                        };
+                    });
+                    allPickups.push(...boxPickups);
+                }
+            }
+
+            const uniquePickups = allPickups.filter((pickup, index, self) =>
+                index === self.findIndex((p) => (
+                    p.pickupDate === pickup.pickupDate && p.boxId === pickup.boxId
+                ))
+            );
+
+            const sortedAndLimitedPickups = uniquePickups
+                .sort((a, b) => new Date(a.pickupDate.replace(/-/g, '\/')).getTime() - new Date(b.pickupDate.replace(/-/g, '\/')).getTime())
+                .slice(0, 5); 
+            
+            setUpcomingPickups(sortedAndLimitedPickups);
+            setIsPickupsLoading(false);
+            setIsLoading(false);
         });
 
         return () => {
             unsubSubs();
+            unsubAllSubs();
             unsubCustomers();
             unsubBoxes();
         };
@@ -89,15 +102,6 @@ export default function AdminDashboardPage() {
         totalSubscriptions: allSubscriptions.filter(s => s.status === 'Active').length,
         totalCustomers: customers.length,
         activePlans: boxes.filter(b => b.displayOnWebsite).length,
-    };
-
-    const getInitials = (name: string | null) => {
-        if (!name) return '??';
-        const names = name.split(' ');
-        if (names.length > 1) {
-            return names[0][0] + names[names.length - 1][0];
-        }
-        return name.substring(0, 2);
     };
 
     return (
@@ -170,23 +174,27 @@ export default function AdminDashboardPage() {
                 {/* Upcoming Pickups */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Upcoming Pickups</CardTitle>
+                        <CardTitle>Upcoming Pickups Check-in</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {isLoading ? <Skeleton className="h-40 w-full" /> : (
+                        {isPickupsLoading ? <Skeleton className="h-40 w-full" /> : (
                              <div className="space-y-4">
                                 {upcomingPickups.length > 0 ? upcomingPickups.map(pickup => (
-                                    <div key={pickup.id + (pickup.customerName || '')} className="flex items-center">
-                                        <Avatar className="h-9 w-9">
-                                            <AvatarFallback>{getInitials(pickup.customerName)}</AvatarFallback>
-                                        </Avatar>
+                                    <div key={`${pickup.boxId}-${pickup.id}`} className="flex items-center">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                                            <Calendar className="h-5 w-5 text-primary" />
+                                        </div>
                                         <div className="ml-4 space-y-1">
-                                            <p className="text-sm font-medium leading-none">{pickup.customerName}</p>
-                                            <p className="text-sm text-muted-foreground">{pickup.boxName}</p>
+                                            <p className="text-sm font-medium leading-none">{pickup.boxName}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                {format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}
+                                            </p>
                                         </div>
-                                        <div className="ml-auto font-medium text-xs text-muted-foreground">
-                                            {format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'MMM d')}
-                                        </div>
+                                        <Button asChild variant="secondary" size="sm" className="ml-auto">
+                                            <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}`}>
+                                                <UserCheck className="mr-2 h-4 w-4" /> Check-in
+                                            </Link>
+                                        </Button>
                                     </div>
                                 )) : <p className="text-sm text-muted-foreground text-center py-10">No upcoming pickups.</p>}
                             </div>
