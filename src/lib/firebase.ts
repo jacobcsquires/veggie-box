@@ -4,12 +4,12 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAVTrBBhduUSuFxRZ_8okvS0JjV0EV2YuY",
-  authDomain: "veggie-box-p5g13.firebaseapp.com",
-  projectId: "veggie-box-p5g13",
-  storageBucket: "veggie-box-p5g13.firebasestorage.app",
-  messagingSenderId: "135857161584",
-  appId: "1:135857161584:web:17dee613a48ddf8f913bb5"
+  apiKey: "AIzaSyDA4QzG5XMPBKoMrm7WPKNN9s1Uvbt-mfw",
+  authDomain: "veggie-box-app-25433570-29ebb.firebaseapp.com",
+  projectId: "veggie-box-app-25433570-29ebb",
+  storageBucket: "veggie-box-app-25433570-29ebb.firebasestorage.app",
+  messagingSenderId: "468927648474",
+  appId: "1:468927648474:web:c30b2994fd93823c758be3"
 };
 
 // Initialize Firebase
