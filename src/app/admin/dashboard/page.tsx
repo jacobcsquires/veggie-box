@@ -187,35 +187,6 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="grid gap-6 md:grid-cols-3">
-                {/* Recent Subscriptions */}
-                <Card className="md:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Recent Subscriptions</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? <Skeleton className="h-40 w-full" /> : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Customer</TableHead>
-                                        <TableHead>Plan</TableHead>
-                                        <TableHead className="text-right">Amount</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {subscriptions.length > 0 ? subscriptions.map(sub => (
-                                        <TableRow key={sub.id}>
-                                            <TableCell>{sub.customerName}</TableCell>
-                                            <TableCell>{sub.boxName}</TableCell>
-                                            <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
-                                        </TableRow>
-                                    )) : <TableRow><TableCell colSpan={3} className="text-center h-24">No recent subscriptions</TableCell></TableRow>}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </CardContent>
-                </Card>
-
                 {/* Upcoming Pickups */}
                 <Card>
                     <CardHeader>
@@ -245,6 +216,35 @@ export default function AdminDashboardPage() {
                                     </div>
                                 )) : <p className="text-sm text-muted-foreground text-center py-10">No upcoming pickups scheduled.</p>}
                             </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Recent Subscriptions */}
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle>Recent Subscriptions</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoading ? <Skeleton className="h-40 w-full" /> : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Customer</TableHead>
+                                        <TableHead>Plan</TableHead>
+                                        <TableHead className="text-right">Amount</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {subscriptions.length > 0 ? subscriptions.map(sub => (
+                                        <TableRow key={sub.id}>
+                                            <TableCell>{sub.customerName}</TableCell>
+                                            <TableCell>{sub.boxName}</TableCell>
+                                            <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
+                                        </TableRow>
+                                    )) : <TableRow><TableCell colSpan={3} className="text-center h-24">No recent subscriptions</TableCell></TableRow>}
+                                </TableBody>
+                            </Table>
                         )}
                     </CardContent>
                 </Card>
