@@ -132,76 +132,6 @@ export default function SubscriptionsPage() {
         setIsManaging(false);
     }
   };
-
-   const handleCompletePayment = async (sub: Subscription) => {
-    if (!user) return;
-    setIsActionLoading(sub.id);
-    try {
-        // This is a simplified retry. A more robust implementation might re-verify box availability.
-        const response = await fetch('/api/checkout_sessions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                boxId: sub.boxId,
-                userId: user.uid,
-                customerName: user.displayName,
-                email: user.email,
-                startDate: sub.startDate,
-                subscriptionId: sub.id, // Pass existing subscription ID to reuse it
-                priceId: sub.priceId,
-                price: sub.price,
-                priceName: sub.priceName,
-            }),
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to create checkout session');
-        }
-
-        const { url } = await response.json();
-        window.location.href = url;
-
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: error.message,
-        });
-    } finally {
-        setIsActionLoading(null);
-    }
-  };
-
-  const handleCancelPending = async (sub: Subscription) => {
-    setIsActionLoading(sub.id);
-    try {
-        const response = await fetch('/api/cancel-pending-subscription', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ subscriptionId: sub.id, boxId: sub.boxId }),
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to cancel subscription.');
-        }
-        
-        toast({
-            title: 'Success',
-            description: 'Your pending subscription has been cancelled.',
-        });
-
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: error.message,
-        });
-    } finally {
-        setIsActionLoading(null);
-    }
-  };
   
   const handleCancelActiveSubscription = async (sub: Subscription) => {
     setIsActionLoading(sub.id);
@@ -263,37 +193,6 @@ export default function SubscriptionsPage() {
                             <AlertDialogCancel>Back</AlertDialogCancel>
                             <AlertDialogAction onClick={() => handleCancelActiveSubscription(sub)}>
                                 Yes, cancel my subscription
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </>
-        )
-    }
-    if (sub.status === 'Pending') {
-        return (
-             <>
-                <Button variant="default" size="sm" onClick={() => handleCompletePayment(sub)} disabled={isLoadingThis}>
-                    {isLoadingThis ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                    Complete Payment
-                </Button>
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" disabled={isLoadingThis}>
-                            Cancel
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will cancel your pending subscription for the {sub.boxName}. This action cannot be undone.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Back</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleCancelPending(sub)}>
-                                Yes, cancel
                             </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>

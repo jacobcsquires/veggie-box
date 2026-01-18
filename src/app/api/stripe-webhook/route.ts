@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';
-import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, getDoc, setDoc, limit } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, getDoc, setDoc, limit, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Box, AppUser, Customer } from '@/lib/types';
 
@@ -57,63 +57,88 @@ export async function POST(req: Request) {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
-      const subscriptionId = session.metadata?.subscriptionId;
+      const { boxId, userId, customerName, price, priceId, priceName, startDate, boxName } = session.metadata || {};
 
-      if (!subscriptionId) {
-        console.error('Webhook Error: Missing subscriptionId in checkout session metadata.');
-        return NextResponse.json({ received: true, message: "No subscriptionId in metadata" });
+      if (!boxId || !userId || !priceId || !price || !startDate) {
+        console.error('Webhook Error: Missing required metadata in checkout session.');
+        return NextResponse.json({ received: true, message: "Missing metadata" });
       }
 
-      const subscriptionRef = doc(db, 'subscriptions', subscriptionId);
+      const subscriptionRef = doc(collection(db, 'subscriptions'));
+      const boxRef = doc(db, 'boxes', boxId);
 
       try {
-        const subDoc = await getDoc(subscriptionRef);
-        if (!subDoc.exists()) {
-            console.error(`Webhook Error: Could not find subscription ${subscriptionId} to process.`);
-            return NextResponse.json({ received: true, message: `Subscription ${subscriptionId} not found.` }); // Don't retry
-        }
-        const subscriptionData = subDoc.data() as Subscription;
+        // Use a transaction to create the subscription and update the box count atomically
+        await runTransaction(db, async (transaction) => {
+            const boxDoc = await transaction.get(boxRef);
+            if (!boxDoc.exists()) {
+                throw new Error(`Webhook Error: Veggie Box Plan with ID ${boxId} not found.`);
+            }
 
-        const boxRef = doc(db, 'boxes', subscriptionData.boxId);
-        const boxDoc = await getDoc(boxRef);
-        const boxData = boxDoc.exists() ? boxDoc.data() as Box : null;
-        
-        // Update subscription status
-        await updateDoc(subscriptionRef, {
-          status: 'Active',
-          stripeSubscriptionId: session.subscription,
-          stripeCustomerId: session.customer,
-          stripeSessionId: session.id,
+            const currentBoxData = boxDoc.data() as Box;
+            const newSubscribedCount = (currentBoxData.subscribedCount || 0) + 1;
+
+            if (newSubscribedCount > currentBoxData.quantity) {
+                console.error(`Webhook Race Condition: Box ${boxId} sold out. Cannot create subscription.`);
+                if (session.subscription) {
+                     await stripe.subscriptions.cancel(session.subscription as string);
+                     console.log(`Webhook: Canceled Stripe subscription ${session.subscription} due to sold out box.`);
+                }
+                throw new Error(`Veggie Box Plan "${currentBoxData.name}" is sold out.`);
+            }
+            
+            transaction.update(boxRef, { subscribedCount: newSubscribedCount });
+            
+            const subscriptionData: Omit<Subscription, 'id'> = {
+                userId,
+                customerName: customerName || session.customer_details?.name || 'N/A',
+                boxId,
+                boxName: currentBoxData.name,
+                price: parseFloat(price),
+                priceId,
+                priceName: priceName || '',
+                status: 'Active',
+                startDate,
+                nextPickup: startDate,
+                createdAt: serverTimestamp(),
+                stripeCustomerId: session.customer as string,
+                stripeSubscriptionId: session.subscription as string,
+                stripeSessionId: session.id,
+            };
+            transaction.set(subscriptionRef, subscriptionData);
         });
-        console.log(`Webhook: Successfully activated subscription ${subscriptionId}`);
+
+        console.log(`Webhook: Successfully created and activated subscription ${subscriptionRef.id}`);
 
         // Send receipt email via Trigger Email extension
         const customerEmail = session.customer_details?.email;
         if (customerEmail) {
+            const boxDoc = await getDoc(boxRef);
+            const freshBoxData = boxDoc.data() as Box;
             const mailRef = doc(collection(db, "mail"));
             await setDoc(mailRef, {
                 to: [customerEmail],
                 message: {
-                    subject: `Your subscription to ${subscriptionData.boxName} is confirmed!`,
+                    subject: `Your subscription to ${freshBoxData.name} is confirmed!`,
                     html: `
-                    <h1>Thank you, ${subscriptionData.customerName || 'there'}!</h1>
-                    <p>Your subscription to the <strong>${subscriptionData.boxName}</strong> is confirmed.</p>
+                    <h1>Thank you, ${customerName || 'there'}!</h1>
+                    <p>Your subscription to the <strong>${freshBoxData.name}</strong> is confirmed.</p>
                     <p>
-                        <strong>Plan:</strong> ${subscriptionData.priceName || ''}<br>
-                        <strong>Price:</strong> $${subscriptionData.price.toFixed(2)} per ${boxData?.frequency.replace('-ly','')}
+                        <strong>Plan:</strong> ${priceName || ''}<br>
+                        <strong>Price:</strong> $${parseFloat(price).toFixed(2)} per ${freshBoxData.frequency.replace('-ly','')}
                     </p>
-                    <p>Your first pickup date is scheduled for <strong>${subscriptionData.startDate}</strong>.</p>
+                    <p>Your first pickup date is scheduled for <strong>${startDate}</strong>.</p>
                     <p>You can manage your subscription anytime by visiting your dashboard.</p>
                     <p>Thanks for supporting local!</p>
                     `,
                 },
             });
-            console.log(`Webhook: Receipt email queued for subscription ${subscriptionId}`);
+            console.log(`Webhook: Receipt email queued for subscription ${subscriptionRef.id}`);
         }
         return NextResponse.json({ received: true });
 
       } catch (error) {
-        console.error(`Webhook Error: Failed to process checkout for subscriptionId: ${subscriptionId}`, error);
+        console.error(`Webhook Error: Failed to process checkout for session: ${session.id}`, error);
         return NextResponse.json({ error: 'Failed to process checkout completion.' }, { status: 500 });
       }
     }
