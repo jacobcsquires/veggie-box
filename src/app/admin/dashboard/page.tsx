@@ -93,11 +93,17 @@ export default function AdminDashboardPage() {
                 ))
             );
 
-            const sortedAndLimitedPickups = uniquePickups
-                .sort((a, b) => new Date(a.pickupDate.replace(/-/g, '\/')).getTime() - new Date(b.pickupDate.replace(/-/g, '\/')).getTime())
-                .slice(0, 5); 
+            const sortedPickups = uniquePickups
+                .sort((a, b) => new Date(a.pickupDate.replace(/-/g, '\/')).getTime() - new Date(b.pickupDate.replace(/-/g, '\/')).getTime());
+
+            if (sortedPickups.length > 0) {
+                const nextPickupDate = sortedPickups[0].pickupDate;
+                const nextUpcomingPickups = sortedPickups.filter(p => p.pickupDate === nextPickupDate);
+                setUpcomingPickups(nextUpcomingPickups);
+            } else {
+                setUpcomingPickups([]);
+            }
             
-            setUpcomingPickups(sortedAndLimitedPickups);
             setIsPickupsLoading(false);
             setIsLoading(false);
         });
