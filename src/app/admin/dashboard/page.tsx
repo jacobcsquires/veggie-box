@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -159,7 +160,7 @@ export default function AdminDashboardPage() {
                 {/* Upcoming Pickups */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Upcoming Pickups Check-in</CardTitle>
+                        <CardTitle>Next Pickup</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {isPickupsLoading ? <Skeleton className="h-40 w-full" /> : (
