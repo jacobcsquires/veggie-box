@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile, getAdditionalUserInfo } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -54,6 +54,7 @@ export default function SignupPage() {
                 displayName: fullName,
                 email: user.email,
                 createdAt: serverTimestamp(),
+                isAdmin: false,
             });
 
             router.push("/dashboard");
@@ -74,13 +75,23 @@ export default function SignupPage() {
         try {
             const result = await signInWithPopup(auth, provider);
             const user = result.user;
+            const additionalInfo = getAdditionalUserInfo(result);
 
-            await setDoc(doc(db, "users", user.uid), {
-                uid: user.uid,
-                displayName: user.displayName,
-                email: user.email,
-                createdAt: serverTimestamp(),
-            }, { merge: true });
+            if (additionalInfo?.isNewUser) {
+                await setDoc(doc(db, "users", user.uid), {
+                    uid: user.uid,
+                    displayName: user.displayName,
+                    email: user.email,
+                    createdAt: serverTimestamp(),
+                    isAdmin: false,
+                });
+            } else {
+                // For existing users, we just want to ensure their profile info is up to date
+                // in case it changed in their Google account. We don't touch isAdmin.
+                await setDoc(doc(db, "users", user.uid), {
+                    displayName: user.displayName,
+                }, { merge: true });
+            }
 
             router.push('/dashboard');
         } catch (error: any) {
