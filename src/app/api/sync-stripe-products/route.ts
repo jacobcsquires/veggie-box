@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Box, PricingOption } from '@/lib/types';
+import type { Box, PricingOption, Subscription } from '@/lib/types';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
@@ -29,7 +29,7 @@ function getStripeInterval(frequency: string): { interval: Stripe.PriceCreatePar
 
 export async function POST() {
   try {
-    const batch = writeBatch(db);
+    const productSyncBatch = writeBatch(db);
     let createdCount = 0;
     let updatedCount = 0;
 
@@ -110,7 +110,7 @@ export async function POST() {
             }
             
             const boxRef = doc(db, 'boxes', box.id);
-            batch.update(boxRef, {
+            productSyncBatch.update(boxRef, {
                 stripeProductId: newStripeProduct.id,
                 pricingOptions: newPricingOptions
             });
@@ -118,12 +118,41 @@ export async function POST() {
          }
     }
 
-    await batch.commit();
+    await productSyncBatch.commit();
+
+    // 5. Recalculate and sync subscriber counts for all boxes
+    const boxesSnapshotAfterSync = await getDocs(collection(db, 'boxes'));
+    const allBoxes = boxesSnapshotAfterSync.docs.map(doc => ({ id: doc.id, ...doc.data() } as Box));
+    
+    const subscriptionsSnapshot = await getDocs(query(collection(db, 'subscriptions'), where('status', '==', 'Active')));
+    const activeSubscriptions = subscriptionsSnapshot.docs.map(doc => doc.data() as Subscription);
+
+    const subscriptionCounts = activeSubscriptions.reduce((acc, sub) => {
+        if(sub.boxId) {
+            acc[sub.boxId] = (acc[sub.boxId] || 0) + 1;
+        }
+        return acc;
+    }, {} as Record<string, number>);
+    
+    const countUpdateBatch = writeBatch(db);
+    let countsUpdated = 0;
+    
+    for (const box of allBoxes) {
+        const correctCount = subscriptionCounts[box.id] || 0;
+        if ((box.subscribedCount || 0) !== correctCount) {
+            const boxRef = doc(db, 'boxes', box.id);
+            countUpdateBatch.update(boxRef, { subscribedCount: correctCount });
+            countsUpdated++;
+        }
+    }
+
+    await countUpdateBatch.commit();
 
     return NextResponse.json({
         message: 'Sync complete.',
         createdCount,
         updatedCount,
+        countsUpdated,
     });
 
   } catch (error: any) {

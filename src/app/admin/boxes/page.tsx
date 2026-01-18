@@ -390,7 +390,7 @@ export default function AdminBoxesPage() {
             }
             toast({
                 title: 'Sync Complete',
-                description: `${result.createdCount} new plan(s) created, ${result.updatedCount} updated.`,
+                description: `${result.createdCount} new plan(s) created, ${result.updatedCount} updated. Subscriber counts for ${result.countsUpdated} plan(s) were corrected.`,
             });
         } catch (error: any) {
             toast({
