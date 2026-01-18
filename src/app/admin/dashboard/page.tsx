@@ -155,37 +155,6 @@ export default function AdminDashboardPage() {
                 </Card>
             )}
 
-            {/* Stat Cards */}
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
-                        <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? <Skeleton className="h-8 w-16"/> : <div className="text-2xl font-bold">{stats.totalSubscriptions}</div>}
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? <Skeleton className="h-8 w-16"/> : <div className="text-2xl font-bold">{stats.totalCustomers}</div>}
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active Plans</CardTitle>
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                         {isLoading ? <Skeleton className="h-8 w-16"/> : <div className="text-2xl font-bold">{stats.activePlans}</div>}
-                    </CardContent>
-                </Card>
-            </div>
-
             <div className="grid gap-6 md:grid-cols-3">
                 {/* Upcoming Pickups */}
                 <Card>
