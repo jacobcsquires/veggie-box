@@ -66,5 +66,4 @@ export type Customer = {
     name: string | null;
     email: string;
     createdAt: Timestamp;
-    localOnly?: boolean; // Flag to indicate if customer only exists locally
 }

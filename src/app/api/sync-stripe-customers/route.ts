@@ -57,7 +57,6 @@ export async function POST() {
             if (existingFirestoreCustomer.name !== stripeCustomer.name) updates.name = stripeCustomer.name;
             if (existingFirestoreCustomer.email !== stripeCustomer.email) updates.email = stripeCustomer.email;
             if (existingFirestoreCustomer.userId !== user?.uid) updates.userId = user?.uid || null;
-            if (existingFirestoreCustomer.localOnly) updates.localOnly = false;
 
             if (Object.keys(updates).length > 0) {
                 batch.update(customerRef, updates);

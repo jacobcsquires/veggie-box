@@ -149,7 +149,6 @@ export async function POST() {
                     name: customer.name,
                     email: customer.email,
                     createdAt: serverTimestamp(),
-                    localOnly: false,
                 });
             }
 

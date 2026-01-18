@@ -27,7 +27,6 @@ export default function AdminCustomersPage() {
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
-    const [isSubSyncing, setIsSubSyncing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState('all');
     const router = useRouter();
@@ -83,31 +82,6 @@ export default function AdminCustomersPage() {
             });
         } finally {
             setIsSyncing(false);
-        }
-    };
-    
-    const handleSyncSubscriptions = async () => {
-        setIsSubSyncing(true);
-        try {
-            const response = await fetch('/api/sync-stripe-subscriptions', {
-                method: 'POST',
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                throw new Error(result.message || 'Failed to sync subscriptions.');
-            }
-            toast({
-                title: 'Sync Complete',
-                description: `Subscriptions synced. ${result.createdCount} new, ${result.updatedCount} updated. Counts are now up-to-date.`,
-            });
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Sync Error',
-                description: error.message,
-            });
-        } finally {
-            setIsSubSyncing(false);
         }
     };
 
@@ -259,10 +233,6 @@ export default function AdminCustomersPage() {
                         <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
                         {isSyncing ? 'Syncing...' : 'Sync with Stripe'}
                     </Button>
-                    <Button onClick={handleSyncSubscriptions} disabled={isSubSyncing} variant="secondary">
-                        <RefreshCw className={`mr-2 h-4 w-4 ${isSubSyncing ? 'animate-spin' : ''}`} />
-                        {isSubSyncing ? 'Updating...' : 'Update Counts'}
-                    </Button>
                 </div>
             </div>
 
@@ -293,7 +263,6 @@ export default function AdminCustomersPage() {
                                 <TableHead>Name</TableHead>
                                 <TableHead>Email</TableHead>
                                 <TableHead>Active Subscriptions</TableHead>
-                                <TableHead>Status</TableHead>
                                 <TableHead>Stripe</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
@@ -305,14 +274,13 @@ export default function AdminCustomersPage() {
                                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-12" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                                         <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                                         <TableCell className="text-right"><Skeleton className="h-9 w-32 ml-auto" /></TableCell>
                                     </TableRow>
                                 ))
                             ) : filteredCustomers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
+                                    <TableCell colSpan={5} className="h-24 text-center">
                                         No matching customers found.
                                     </TableCell>
                                 </TableRow>
@@ -322,11 +290,6 @@ export default function AdminCustomersPage() {
                                         <TableCell className="font-medium">{customer.name || 'N/A'}</TableCell>
                                         <TableCell>{customer.email}</TableCell>
                                         <TableCell>{customer.activeSubscriptionCount}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={customer.localOnly ? 'destructive' : 'default'} className="capitalize">
-                                                {customer.localOnly ? 'Local Only' : 'Synced'}
-                                            </Badge>
-                                        </TableCell>
                                         <TableCell>
                                             <Button variant="ghost" size="icon" asChild onClick={(e) => e.stopPropagation()}>
                                                 <a href={`https://dashboard.stripe.com/test/customers/${customer.id}`} target="_blank" rel="noopener noreferrer">
