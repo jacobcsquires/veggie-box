@@ -327,7 +327,7 @@ export default function SubscriptionsPage() {
                 <TableHead>Veggie Box Plan</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden md:table-cell">Schedule Dates</TableHead>
-                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="hidden sm:table-cell text-right">Price</TableHead>
                 <TableHead className="text-right">
                     Actions
                 </TableHead>
@@ -340,7 +340,7 @@ export default function SubscriptionsPage() {
                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-48" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                    <TableCell className="hidden sm:table-cell text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
                   </TableRow>
                 ))
@@ -367,7 +367,7 @@ export default function SubscriptionsPage() {
                             : 'Schedule TBD'
                         }
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="hidden sm:table-cell text-right">
                       ${sub.price.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right space-x-2">

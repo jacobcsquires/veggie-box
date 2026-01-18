@@ -349,7 +349,7 @@ export default function AdminSubscriptionsPage() {
                                         Customer {renderSortIcon('customerName')}
                                     </Button>
                                 </TableHead>
-                                <TableHead>
+                                <TableHead className="hidden sm:table-cell">
                                      <Button variant="ghost" onClick={() => handleSort('boxName')}>
                                         Plan {renderSortIcon('boxName')}
                                     </Button>
@@ -360,7 +360,11 @@ export default function AdminSubscriptionsPage() {
                                         Next Billing {renderSortIcon('nextPickup')}
                                     </Button>
                                 </TableHead>
-                                <TableHead className="hidden lg:table-cell">Last Charged</TableHead>
+                                <TableHead className="hidden lg:table-cell">
+                                    <Button variant="ghost" onClick={() => handleSort('lastCharged')}>
+                                        Last Charged {renderSortIcon('lastCharged')}
+                                    </Button>
+                                </TableHead>
                                 <TableHead className="text-right">Price</TableHead>
                                 <TableHead><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
@@ -370,7 +374,7 @@ export default function AdminSubscriptionsPage() {
                                 Array.from({ length: 5 }).map((_, i) => (
                                     <TableRow key={i}>
                                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
                                         <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                                         <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
                                         <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
@@ -392,7 +396,7 @@ export default function AdminSubscriptionsPage() {
                                                 {sub.customerName || sub.userId}
                                             </Link>
                                         </TableCell>
-                                        <TableCell>{sub.boxName}</TableCell>
+                                        <TableCell className="hidden sm:table-cell">{sub.boxName}</TableCell>
                                         <TableCell>
                                             <Badge variant={getStatusVariant(sub.status)} className="capitalize">
                                                 {sub.status}
