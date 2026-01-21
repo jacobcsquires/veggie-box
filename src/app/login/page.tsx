@@ -1,9 +1,8 @@
-
 'use client';
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -17,10 +16,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sprout } from "lucide-react";
+import { Loader2, Sprout } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
-export default function LoginPage() {
+function LoginComponent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -133,3 +132,14 @@ export default function LoginPage() {
   )
 }
     
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <LoginComponent />
+    </Suspense>
+  )
+}
