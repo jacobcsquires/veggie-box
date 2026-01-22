@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
@@ -384,12 +382,12 @@ function HomeComponent() {
 
 export default function HomePage() {
   return (
-      <Suspense fallback={
-          <div className="flex items-center justify-center min-h-screen">
-              <Icons.Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-      }>
-          <HomeComponent />
-      </Suspense>
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+          <Icons.Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+        <HomeComponent />
+    </Suspense>
   );
 }
