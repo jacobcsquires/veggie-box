@@ -2,6 +2,8 @@ import { Suspense } from 'react';
 import * as Icons from 'lucide-react';
 import { HomeComponent } from '@/app/home-component';
 
+export const dynamic = 'force-dynamic';
+
 export default function HomePage() {
   return (
     <Suspense fallback={
