@@ -101,7 +101,7 @@ export async function POST() {
   try {
     // 1. Fetch all subscriptions from Stripe
     const stripeSubscriptions: Stripe.Subscription[] = [];
-    for await (const sub of stripe.subscriptions.list({ status: 'all', limit: 100, expand: ['data.customer', 'latest_invoice'] })) {
+    for await (const sub of stripe.subscriptions.list({ status: 'all', limit: 100, expand: ['data.customer', 'data.latest_invoice'] })) {
       stripeSubscriptions.push(sub);
     }
     
