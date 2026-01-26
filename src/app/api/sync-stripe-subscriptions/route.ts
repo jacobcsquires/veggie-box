@@ -112,6 +112,7 @@ export async function POST() {
 
     let createdCount = 0;
     let updatedCount = 0;
+    let deletedCount = 0;
     const batch = writeBatch(db);
 
     // 3. Iterate through Stripe subscriptions and sync with Firestore
@@ -123,7 +124,7 @@ export async function POST() {
         if (customer.deleted || !customer.email) continue;
         const newStatus = stripeSub.status.charAt(0).toUpperCase() + stripeSub.status.slice(1);
         const latestInvoice = stripeSub.latest_invoice as Stripe.Invoice;
-        const lastChargedDate = latestInvoice?.status === 'paid' && latestInvoice?.created ? new Date(latestInvoice.created * 1000).toISOString().split('T')[0] : undefined;
+        const lastChargedDate = latestInvoice?.status === 'paid' && latestInvoice?.created ? new Date(latestInvoice.created * 1000).toISOString().split('T')[0] : null;
 
         if (existingFirestoreSub) {
             // Subscription exists in both, update if different
@@ -132,7 +133,7 @@ export async function POST() {
                 batch.update(subRef, { 
                     status: newStatus, 
                     customerName: customer.name,
-                    lastCharged: lastChargedDate || null,
+                    lastCharged: lastChargedDate,
                 });
                 updatedCount++;
             }
@@ -172,7 +173,7 @@ export async function POST() {
                     createdAt: serverTimestamp(),
                     stripeSubscriptionId: stripeSub.id,
                     stripeCustomerId: customer.id,
-                    lastCharged: lastChargedDate || null,
+                    lastCharged: lastChargedDate,
                 };
                 batch.set(newSubRef, newSubData);
                 createdCount++;
@@ -180,23 +181,54 @@ export async function POST() {
         }
     }
 
-    // 4. Any subscriptions remaining in firestoreSubMap do not exist in Stripe
+    // 4. Any subscriptions remaining in firestoreSubMap do not exist in Stripe and should be removed.
     for (const [stripeId, firestoreSub] of firestoreSubMap.entries()) {
         // We only care about subscriptions that have a stripeId but were not found in the Stripe loop.
-        // Subscriptions without a stripeId are 'Pending' or manually created.
-        if (stripeId && firestoreSub.status !== 'Unknown') { 
+        // Subscriptions without a stripeId are 'Pending' or manually created and should not be touched.
+        if (stripeId) { 
              const subRef = doc(db, 'subscriptions', firestoreSub.id);
-             batch.update(subRef, { status: 'Unknown' });
-             updatedCount++;
+             batch.delete(subRef);
+             deletedCount++;
         }
     }
 
     await batch.commit();
+    
+    // 5. Recalculate subscriber counts for all boxes to ensure data integrity
+    const boxesSnapshot = await getDocs(collection(db, 'boxes'));
+    const allBoxes = boxesSnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Box));
+    
+    const activeSubscriptionsSnapshot = await getDocs(query(collection(db, 'subscriptions'), where('status', '==', 'Active')));
+    const activeSubscriptions = activeSubscriptionsSnapshot.docs.map(docSnap => docSnap.data() as Subscription);
+
+    const subscriptionCounts = activeSubscriptions.reduce((acc, sub) => {
+        if(sub.boxId) {
+            acc[sub.boxId] = (acc[sub.boxId] || 0) + 1;
+        }
+        return acc;
+    }, {} as Record<string, number>);
+    
+    const countUpdateBatch = writeBatch(db);
+    let countsUpdated = 0;
+    
+    for (const box of allBoxes) {
+        const correctCount = subscriptionCounts[box.id] || 0;
+        if ((box.subscribedCount || 0) !== correctCount) {
+            const boxRef = doc(db, 'boxes', box.id);
+            countUpdateBatch.update(boxRef, { subscribedCount: correctCount });
+            countsUpdated++;
+        }
+    }
+    
+    await countUpdateBatch.commit();
+    console.log(`Recalculated subscriber counts for ${countsUpdated} boxes.`);
+
 
     return NextResponse.json({
         message: 'Sync complete.',
         createdCount,
         updatedCount,
+        deletedCount,
     });
 
   } catch (error: any) {

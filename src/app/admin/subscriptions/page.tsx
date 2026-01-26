@@ -85,7 +85,7 @@ export default function AdminSubscriptionsPage() {
             }
             toast({
                 title: 'Sync Complete',
-                description: `${result.createdCount} new subscription(s) created, ${result.updatedCount} updated.`,
+                description: `${result.createdCount} created, ${result.updatedCount} updated, and ${result.deletedCount} removed.`,
             });
         } catch (error: any) {
             toast({
