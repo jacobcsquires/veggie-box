@@ -227,12 +227,12 @@ export function HomeComponent() {
                     Choose from our selection of fresh, locally-sourced produce boxes.
                   </p>
                 </div>
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="flex flex-wrap items-stretch justify-center gap-6">
                     {isLoading
                     ? Array.from({ length: 3 }).map((_, i) => (
-                        <Card key={i} className="flex flex-col">
+                        <Card key={i} className="flex flex-col w-full max-w-sm">
                             <CardHeader className="p-0">
-                            <Skeleton className="rounded-t-lg aspect-video" />
+                            <Skeleton className="rounded-t-lg aspect-video w-full" />
                             </CardHeader>
                             <CardContent className="p-6 flex-1">
                             <Skeleton className="h-7 w-48" />
@@ -256,7 +256,7 @@ export function HomeComponent() {
                         const basePrice = box.pricingOptions?.[0]?.price ?? 0;
 
                         return (
-                            <Card key={box.id} className="flex flex-col">
+                            <Card key={box.id} className="flex flex-col w-full max-w-sm">
                                 <CardHeader className="p-0">
                                     <Image
                                     src={box.image}
@@ -264,7 +264,7 @@ export function HomeComponent() {
                                     width={600}
                                     height={400}
                                     data-ai-hint={box.hint}
-                                    className="rounded-t-lg aspect-video object-cover"
+                                    className="rounded-t-lg aspect-video object-cover w-full"
                                     />
                                 </CardHeader>
                             <CardContent className="p-6 flex-1">
