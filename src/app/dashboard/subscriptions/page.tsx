@@ -190,7 +190,7 @@ export default function SubscriptionsPage() {
 
 
   const renderSubscriptionActions = (sub: Subscription) => {
-    if (sub.status === 'Active') {
+    if (sub.status === 'Active' || sub.status === 'Trialing') {
         const hasActiveSkip = sub.trialEnd && sub.trialEnd > (Date.now() / 1000);
         return (
             <>
@@ -265,9 +265,13 @@ export default function SubscriptionsPage() {
                     <TableCell className="font-medium">{sub.boxName}</TableCell>
                     <TableCell>
                       <Badge
-                        variant={sub.status === 'Active' ? 'default' : sub.status === 'Pending' ? 'secondary' : 'outline'}
+                        variant={
+                          sub.status === 'Active' ? 'default'
+                          : (sub.status === 'Pending' || sub.status === 'Trialing') ? 'secondary'
+                          : 'outline'
+                        }
                       >
-                        {sub.status}
+                        {sub.status === 'Trialing' ? 'Paused' : sub.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">

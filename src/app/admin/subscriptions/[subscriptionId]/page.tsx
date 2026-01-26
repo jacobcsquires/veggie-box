@@ -85,7 +85,7 @@ export default function SubscriptionDetailPage() {
         // If there's a subscription but no stripe ID, we're not loading stripe data.
         setIsStripeLoading(false);
     }
-  }, [subscription, toast]);
+  }, [subscription]);
 
 
   const handleManageSubscription = async (customerId?: string) => {
@@ -223,7 +223,7 @@ export default function SubscriptionDetailPage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Status</Label>
-                      <p><Badge variant={getStripeStatusBadgeVariant(subscription.status)} className="capitalize">{subscription.status}</Badge></p>
+                      <p><Badge variant={getStripeStatusBadgeVariant(subscription.status)} className="capitalize">{subscription.status === 'Trialing' ? 'Paused' : subscription.status}</Badge></p>
                     </div>
                 </div>
                 </CardContent>
@@ -277,7 +277,7 @@ export default function SubscriptionDetailPage() {
                         <>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Stripe Status</span>
-                                <Badge variant={getStripeStatusBadgeVariant(stripeData.subscription.status)} className="capitalize">{stripeData.subscription.status.replace('_', ' ')}</Badge>
+                                <Badge variant={getStripeStatusBadgeVariant(stripeData.subscription.status)} className="capitalize">{stripeData.subscription.status === 'trialing' ? 'Paused' : stripeData.subscription.status.replace('_', ' ')}</Badge>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Next Billing</span>

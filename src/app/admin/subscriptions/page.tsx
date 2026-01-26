@@ -197,6 +197,7 @@ export default function AdminSubscriptionsPage() {
         switch (status?.toLowerCase()) {
             case 'active': return 'default';
             case 'pending': return 'secondary';
+            case 'trialing': return 'secondary';
             case 'past due':
             case 'unpaid': return 'destructive';
             case 'localonly': return 'outline';
@@ -331,6 +332,7 @@ export default function AdminSubscriptionsPage() {
                             <SelectContent>
                                 <SelectItem value="all">All Statuses</SelectItem>
                                 <SelectItem value="active">Active</SelectItem>
+                                <SelectItem value="trialing">Paused</SelectItem>
                                 <SelectItem value="pending">Pending</SelectItem>
                                 <SelectItem value="past due">Past Due</SelectItem>
                                 <SelectItem value="unpaid">Unpaid</SelectItem>
@@ -399,7 +401,7 @@ export default function AdminSubscriptionsPage() {
                                         <TableCell className="hidden sm:table-cell">{sub.boxName}</TableCell>
                                         <TableCell>
                                             <Badge variant={getStatusVariant(sub.status)} className="capitalize">
-                                                {sub.status}
+                                                {sub.status === 'Trialing' ? 'Paused' : sub.status}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="hidden md:table-cell">
