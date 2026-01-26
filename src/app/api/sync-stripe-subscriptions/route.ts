@@ -96,6 +96,32 @@ const findOrCreateBoxAndPrice = async (priceId: string): Promise<{box: Box, pric
     }
 }
 
+function mapStripeStatusToSubscriptionStatus(status: Stripe.Subscription.Status, cancelAtPeriodEnd: boolean | null): Subscription['status'] {
+    if (cancelAtPeriodEnd) {
+        return 'Cancelled';
+    }
+    switch (status) {
+        case 'active':
+            return 'Active';
+        case 'canceled':
+            return 'Cancelled';
+        case 'incomplete':
+            return 'Pending';
+        case 'incomplete_expired':
+            return 'Cancelled';
+        case 'past_due':
+            return 'Past Due';
+        case 'trialing':
+            return 'Trialing';
+        case 'unpaid':
+            return 'Unpaid';
+        case 'paused':
+            return 'Trialing'; // Treat paused as trialing for UI purposes
+        default:
+            return 'Unknown';
+    }
+}
+
 
 export async function POST() {
   try {
@@ -122,7 +148,7 @@ export async function POST() {
         const existingFirestoreSub = firestoreSubMap.get(stripeSub.id);
         const customer = stripeSub.customer as Stripe.Customer;
         if (customer.deleted || !customer.email) continue;
-        const newStatus = stripeSub.status.charAt(0).toUpperCase() + stripeSub.status.slice(1);
+        const newStatus = mapStripeStatusToSubscriptionStatus(stripeSub.status, stripeSub.cancel_at_period_end);
         const latestInvoice = stripeSub.latest_invoice as Stripe.Invoice;
         const lastChargedDate = latestInvoice?.status === 'paid' && latestInvoice?.created ? new Date(latestInvoice.created * 1000).toISOString().split('T')[0] : null;
 
@@ -165,7 +191,7 @@ export async function POST() {
                     boxId: box.id,
                     boxName: box.name,
                     startDate: new Date(stripeSub.start_date * 1000).toISOString().split('T')[0],
-                    status: newStatus as Subscription['status'],
+                    status: newStatus,
                     nextPickup: new Date(stripeSub.current_period_end * 1000).toISOString().split('T')[0],
                     price: priceOption.price,
                     priceId: priceOption.id,
