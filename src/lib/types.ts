@@ -43,6 +43,7 @@ export type Subscription = {
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
     customerEmail?: string;
+    notes?: string;
 }
 
 export type Pickup = {

@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
-import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Pickup } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Pencil } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +40,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
@@ -52,6 +55,13 @@ export default function SubscriptionsPage() {
   const [scheduleRanges, setScheduleRanges] = useState<{[boxId: string]: {start: string, end: string} | null}>({});
   const [isManaging, setIsManaging] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState<string | null>(null);
+
+  // State for the notes dialog
+  const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+  const [selectedSubForNote, setSelectedSubForNote] = useState<Subscription | null>(null);
+  const [noteContent, setNoteContent] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+
 
   useEffect(() => {
     if (!user) {
@@ -162,6 +172,29 @@ export default function SubscriptionsPage() {
     }
   };
 
+  const handleOpenNoteDialog = (sub: Subscription) => {
+    setSelectedSubForNote(sub);
+    setNoteContent(sub.notes || '');
+    setIsNoteDialogOpen(true);
+  };
+
+  const handleSaveNote = async () => {
+      if (!selectedSubForNote) return;
+      setIsSavingNote(true);
+      try {
+          const subRef = doc(db, 'subscriptions', selectedSubForNote.id);
+          await updateDoc(subRef, {
+              notes: noteContent
+          });
+          toast({ title: 'Success', description: 'Your note has been saved.' });
+          setIsNoteDialogOpen(false);
+      } catch (error: any) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Could not save your note.' });
+      } finally {
+          setIsSavingNote(false);
+      }
+  };
+
 
   const renderSubscriptionActions = (sub: Subscription) => {
     const isLoadingThis = isActionLoading === sub.id;
@@ -169,6 +202,10 @@ export default function SubscriptionsPage() {
     if (sub.status === 'Active') {
         return (
             <>
+                <Button variant="outline" size="sm" onClick={() => handleOpenNoteDialog(sub)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Note
+                </Button>
                 <Button asChild variant="outline" size="sm">
                     <Link href={`/dashboard/schedule/${sub.boxId}`}>View Schedule</Link>
                 </Button>
@@ -279,6 +316,32 @@ export default function SubscriptionsPage() {
           </Table>
         </CardContent>
       </Card>
+
+        <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add a note for {selectedSubForNote?.boxName}</DialogTitle>
+                    <DialogDescription>
+                        Add a note for the farmer. For example, any preferences or allergies.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Label htmlFor="note-content" className="sr-only">Note</Label>
+                    <Textarea
+                        id="note-content"
+                        value={noteContent}
+                        onChange={(e) => setNoteContent(e.target.value)}
+                        placeholder="e.g. I'm allergic to tomatoes."
+                    />
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleSaveNote} disabled={isSavingNote}>
+                        {isSavingNote ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Save Note
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }

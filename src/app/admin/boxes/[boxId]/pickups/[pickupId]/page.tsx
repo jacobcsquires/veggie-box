@@ -221,7 +221,12 @@ export default function PickupCheckinPage() {
                                                 aria-label={`Mark ${sub.customerName} as collected`}
                                             />
                                         </TableCell>
-                                        <TableCell className="font-medium">{sub.customerName}</TableCell>
+                                        <TableCell className="font-medium">
+                                            {sub.customerName}
+                                            {sub.notes && (
+                                                <p className="text-xs text-muted-foreground font-normal pt-1">{sub.notes}</p>
+                                            )}
+                                        </TableCell>
                                         <TableCell className="hidden md:table-cell">{sub.customerEmail}</TableCell>
                                         <TableCell className="hidden sm:table-cell">
                                             <div className="flex items-center gap-2">
