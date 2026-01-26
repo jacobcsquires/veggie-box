@@ -2,7 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, addDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, addDoc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Box, AppUser, PricingOption, Customer } from '@/lib/types';
 
@@ -183,12 +183,27 @@ export async function POST() {
 
     // 4. Any subscriptions remaining in firestoreSubMap do not exist in Stripe and should be removed.
     for (const [stripeId, firestoreSub] of firestoreSubMap.entries()) {
-        // We only care about subscriptions that have a stripeId but were not found in the Stripe loop.
-        // Subscriptions without a stripeId are 'Pending' or manually created and should not be touched.
+        // This part handles subscriptions that HAVE a stripeId but were not found in Stripe.
         if (stripeId) { 
              const subRef = doc(db, 'subscriptions', firestoreSub.id);
              batch.delete(subRef);
              deletedCount++;
+        }
+    }
+
+    // 4.5. Separately, handle expired 'Pending' subscriptions that never got a stripeId.
+    const pendingSubs = firestoreSubs.filter(s => s.status === 'Pending' && !s.stripeSubscriptionId);
+    const twentyFourHoursAgo = new Date();
+    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
+    for (const sub of pendingSubs) {
+        if (sub.createdAt) { // ensure createdAt exists
+            const createdAtDate = (sub.createdAt as Timestamp).toDate();
+            if (createdAtDate < twentyFourHoursAgo) {
+                const subRef = doc(db, 'subscriptions', sub.id);
+                batch.delete(subRef);
+                deletedCount++;
+            }
         }
     }
 
