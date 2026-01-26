@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';
-import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, getDoc, setDoc, limit, runTransaction } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, getDoc, setDoc, limit, runTransaction, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Box, AppUser, Customer } from '@/lib/types';
 
@@ -39,6 +39,20 @@ const findSubscriptionByStripeId = async (stripeSubscriptionId: string): Promise
     const doc = querySnapshot.docs[0];
     return { id: doc.id, ...doc.data() } as Subscription;
 }
+
+// Helper function to get the next pickup date for a subscription
+const getNextPickupForSubscription = async (boxId: string, currentNextPickup: string): Promise<string | null> => {
+    if (!boxId || !currentNextPickup) return null;
+
+    const pickupsRef = collection(db, 'boxes', boxId, 'pickups');
+    const q = query(pickupsRef, where('pickupDate', '>', currentNextPickup), orderBy('pickupDate', 'asc'), limit(1));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+        return null;
+    }
+    return querySnapshot.docs[0].data().pickupDate;
+};
 
 // Helper to handle subscription cancellation logic idempotently
 const handleSubscriptionCancellation = async (stripeSubscriptionId: string) => {
@@ -179,6 +193,82 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Failed to process checkout completion.' }, { status: 500 });
       }
     }
+    case 'invoice.payment_succeeded': {
+      const invoice = event.data.object as Stripe.Invoice;
+      console.log(`Webhook: Received invoice.payment_succeeded for invoice ${invoice.id}`);
+      
+      const stripeSubscriptionId = invoice.subscription as string;
+      if (!stripeSubscriptionId) {
+        console.warn(`Webhook: invoice.payment_succeeded ${invoice.id} had no subscription ID.`);
+        return NextResponse.json({ received: true });
+      }
+
+      // We only care about this for recurring payments, not the first payment of a subscription
+      // which is handled by checkout.session.completed.
+      if (invoice.billing_reason === 'subscription_create') {
+        console.log(`Webhook: Skipping invoice.payment_succeeded for subscription creation, handled by checkout.session.completed.`);
+        return NextResponse.json({ received: true });
+      }
+
+      try {
+        const localSub = await findSubscriptionByStripeId(stripeSubscriptionId);
+
+        if (localSub) {
+          const newNextPickup = await getNextPickupForSubscription(localSub.boxId, localSub.nextPickup);
+          const lastCharged = new Date(invoice.created * 1000).toISOString().split('T')[0];
+
+          const updateData: Partial<Subscription> = {
+            status: 'Active', // Ensure status is active
+            lastCharged: lastCharged,
+          };
+
+          if (newNextPickup) {
+            updateData.nextPickup = newNextPickup;
+          } else {
+            console.warn(`Webhook: Could not find next pickup date for subscription ${localSub.id}`);
+          }
+          
+          await updateDoc(doc(db, 'subscriptions', localSub.id), updateData as any);
+          console.log(`Webhook: Updated subscription ${localSub.id} from invoice ${invoice.id}.`);
+        } else {
+          console.warn(`Webhook: Received invoice.payment_succeeded for unknown subscription ${stripeSubscriptionId}`);
+        }
+      } catch (error) {
+        console.error(`Webhook Error: Failed to process invoice.payment_succeeded for subscription ${stripeSubscriptionId}`, error);
+        return NextResponse.json({ error: 'Failed to process successful payment.' }, { status: 500 });
+      }
+      return NextResponse.json({ received: true });
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object as Stripe.Invoice;
+      console.log(`Webhook: Received invoice.payment_failed for invoice ${invoice.id}`);
+      
+      const stripeSubscriptionId = invoice.subscription as string;
+      if (!stripeSubscriptionId) {
+        return NextResponse.json({ received: true });
+      }
+
+      try {
+        const localSub = await findSubscriptionByStripeId(stripeSubscriptionId);
+        if (localSub) {
+          // Stripe will also send a `customer.subscription.updated` event which will set the status.
+          // However, we can do it here to be more immediate. The status on the subscription
+          // will be 'past_due'.
+          const stripeSub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+          const newStatus = stripeSub.status.charAt(0).toUpperCase() + stripeSub.status.slice(1);
+          
+          await updateDoc(doc(db, 'subscriptions', localSub.id), { status: newStatus as Subscription['status'] });
+          console.log(`Webhook: Updated subscription ${localSub.id} status to ${newStatus} due to failed payment.`);
+        }
+      } catch (error: any) {
+         console.error(`Webhook Error: Failed to process invoice.payment_failed for subscription ${stripeSubscriptionId}`, error);
+         return NextResponse.json({ error: 'Failed to process failed payment.' }, { status: 500 });
+      }
+      
+      return NextResponse.json({ received: true });
+    }
+
     case 'customer.subscription.updated': {
         const subscriptionUpdated = event.data.object as Stripe.Subscription;
         console.log(`Webhook: Received customer.subscription.updated for ${subscriptionUpdated.id}`);
@@ -197,7 +287,7 @@ export async function POST(req: Request) {
             if (localSub) {
                 const newStatus = subscriptionUpdated.status.charAt(0).toUpperCase() + subscriptionUpdated.status.slice(1);
                 if (localSub.status !== newStatus) {
-                    await updateDoc(doc(db, 'subscriptions', localSub.id), { status: newStatus });
+                    await updateDoc(doc(db, 'subscriptions', localSub.id), { status: newStatus as Subscription['status'] });
                 }
             }
         }
