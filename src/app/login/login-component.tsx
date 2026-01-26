@@ -71,6 +71,7 @@ export function LoginComponent() {
     }
   };
 
+  const redirectTo = searchParams.get('redirect_to');
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/40">
@@ -122,7 +123,7 @@ export function LoginComponent() {
           </form>
           <div className="mt-4 text-center text-sm">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="underline">
+            <Link href={redirectTo ? `/signup?redirect_to=${encodeURIComponent(redirectTo)}` : "/signup"} className="underline">
               Sign up
             </Link>
           </div>

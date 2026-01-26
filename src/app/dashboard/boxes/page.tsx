@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/auth-context';
@@ -48,6 +48,7 @@ export default function ExploreBoxesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +59,25 @@ export default function ExploreBoxesPage() {
   const [selectedPriceId, setSelectedPriceId] = useState<string | null>(null);
   const [upcomingPickups, setUpcomingPickups] = useState<PickupInternal[]>([]);
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
+
+  const handleSubscribeClick = useCallback((box: Box) => {
+    setSelectedBox(box);
+    setIsDialogOpen(true);
+  }, []);
+
+  useEffect(() => {
+    const subscribeToId = searchParams.get('subscribe_to');
+    if (subscribeToId && boxes.length > 0) {
+      const boxToSubscribe = boxes.find(b => b.id === subscribeToId);
+      if (boxToSubscribe) {
+        handleSubscribeClick(boxToSubscribe);
+        // Clean up URL to avoid re-triggering on refresh
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('subscribe_to');
+        router.replace(newUrl.toString(), { scroll: false });
+      }
+    }
+  }, [searchParams, boxes, router, handleSubscribeClick]);
 
   useEffect(() => {
     // Only show boxes that are available for signup
@@ -95,11 +115,6 @@ export default function ExploreBoxesPage() {
       setSelectedPriceId(null);
     }
   }, [selectedBox, isDialogOpen]);
-
-  const handleSubscribeClick = (box: Box) => {
-    setSelectedBox(box);
-    setIsDialogOpen(true);
-  };
 
   const handleConfirmSubscription = async () => {
     if (!user) {

@@ -116,7 +116,7 @@ export function HomeComponent() {
   const handleSubscribeClick = (box: Box) => {
     if (!user) {
         const loginUrl = new URL('/login', window.location.origin);
-        loginUrl.searchParams.set('redirect_to', '/?subscribe_to=' + box.id);
+        loginUrl.searchParams.set('redirect_to', '/dashboard/boxes?subscribe_to=' + box.id);
         router.push(loginUrl.toString());
         return;
     }

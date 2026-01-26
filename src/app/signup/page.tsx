@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile, getAdditionalUserInfo } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -22,6 +22,7 @@ import { Sprout } from "lucide-react";
 
 export default function SignupPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { toast } = useToast();
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
@@ -56,8 +57,9 @@ export default function SignupPage() {
                 createdAt: serverTimestamp(),
                 isAdmin: false,
             });
-
-            router.push("/dashboard");
+            
+            const redirectTo = searchParams.get('redirect_to');
+            router.push(redirectTo || "/dashboard");
         } catch (error: any) {
             toast({
                 variant: "destructive",
@@ -93,7 +95,8 @@ export default function SignupPage() {
                 }, { merge: true });
             }
 
-            router.push('/dashboard');
+            const redirectTo = searchParams.get('redirect_to');
+            router.push(redirectTo || '/dashboard');
         } catch (error: any) {
             toast({
                 variant: "destructive",
