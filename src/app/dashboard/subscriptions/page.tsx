@@ -32,6 +32,7 @@ import { Loader2, Pencil } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
@@ -49,6 +50,11 @@ export default function SubscriptionsPage() {
   const [selectedSubForNote, setSelectedSubForNote] = useState<Subscription | null>(null);
   const [noteContent, setNoteContent] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
+
+  // State for skip pickup dialog
+  const [isSkipDialogOpen, setIsSkipDialogOpen] = useState(false);
+  const [subToSkip, setSubToSkip] = useState<Subscription | null>(null);
+  const [isSkipping, setIsSkipping] = useState(false);
 
 
   useEffect(() => {
@@ -154,11 +160,42 @@ export default function SubscriptionsPage() {
       }
   };
 
+  const handleSkipClick = (sub: Subscription) => {
+    setSubToSkip(sub);
+    setIsSkipDialogOpen(true);
+  };
+
+  const confirmSkipPickup = async () => {
+      if (!subToSkip) return;
+      setIsSkipping(true);
+      try {
+          const response = await fetch('/api/skip-pickup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscriptionId: subToSkip.id }),
+          });
+          if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.message || 'Failed to skip pickup.');
+          }
+          toast({ title: 'Success', description: 'Your next pickup has been skipped. Your subscription will resume automatically.' });
+          setIsSkipDialogOpen(false);
+      } catch (error: any) {
+          toast({ variant: 'destructive', title: 'Error', description: error.message });
+      } finally {
+          setIsSkipping(false);
+          setSubToSkip(null);
+      }
+  };
+
 
   const renderSubscriptionActions = (sub: Subscription) => {
     if (sub.status === 'Active') {
         return (
             <>
+                <Button variant="outline" size="sm" onClick={() => handleSkipClick(sub)}>
+                  Skip Next Pickup
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => handleOpenNoteDialog(sub)}>
                     <Pencil className="mr-2 h-4 w-4" />
                     Note
@@ -277,6 +314,22 @@ export default function SubscriptionsPage() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        <AlertDialog open={isSkipDialogOpen} onOpenChange={setIsSkipDialogOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure you want to skip your next pickup?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      This will pause your subscription for one billing cycle. You won't be charged, and your subscription will automatically resume afterwards.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setSubToSkip(null)}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={confirmSkipPickup} disabled={isSkipping}>
+                      {isSkipping ? 'Processing...' : 'Yes, Skip Pickup'}
+                  </AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
