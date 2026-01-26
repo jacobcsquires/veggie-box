@@ -172,7 +172,7 @@ export async function POST() {
                     createdAt: serverTimestamp(),
                     stripeSubscriptionId: stripeSub.id,
                     stripeCustomerId: customer.id,
-                    lastCharged: lastChargedDate,
+                    lastCharged: lastChargedDate || null,
                 };
                 batch.set(newSubRef, newSubData);
                 createdCount++;
