@@ -191,10 +191,11 @@ export default function SubscriptionsPage() {
 
   const renderSubscriptionActions = (sub: Subscription) => {
     if (sub.status === 'Active') {
+        const hasActiveSkip = sub.trialEnd && sub.trialEnd > (Date.now() / 1000);
         return (
             <>
-                <Button variant="outline" size="sm" onClick={() => handleSkipClick(sub)}>
-                  Skip Next Pickup
+                <Button variant="outline" size="sm" onClick={() => handleSkipClick(sub)} disabled={hasActiveSkip}>
+                  {hasActiveSkip ? 'Pickup Skipped' : 'Skip Next Pickup'}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => handleOpenNoteDialog(sub)}>
                     <Pencil className="mr-2 h-4 w-4" />

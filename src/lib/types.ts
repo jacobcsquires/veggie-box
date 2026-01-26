@@ -44,6 +44,7 @@ export type Subscription = {
     stripeSubscriptionId?: string;
     customerEmail?: string;
     notes?: string;
+    trialEnd?: number | null;
 }
 
 export type Pickup = {

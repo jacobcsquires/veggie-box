@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Box } from '@/lib/types';
 import { addWeeks, addMonths } from 'date-fns';
@@ -57,12 +57,18 @@ export async function POST(request: Request) {
 
         const currentPeriodEnd = new Date(stripeSub.current_period_end * 1000);
         const nextBillingDate = getNextBillingDate(currentPeriodEnd, boxData.frequency);
+        const newTrialEndTimestamp = Math.floor(nextBillingDate.getTime() / 1000);
 
         await stripe.subscriptions.update(stripeSub.id, {
-            trial_end: Math.floor(nextBillingDate.getTime() / 1000),
+            trial_end: newTrialEndTimestamp,
             proration_behavior: 'none',
         });
         
+        // Also update our local record
+        await updateDoc(subRef, {
+            trialEnd: newTrialEndTimestamp,
+        });
+
         return NextResponse.json({ success: true, message: 'Subscription successfully scheduled to skip next payment.' });
 
     } catch (error: any) {

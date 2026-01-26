@@ -286,8 +286,21 @@ export async function POST(req: Request) {
             const localSub = await findSubscriptionByStripeId(subscriptionUpdated.id);
             if (localSub) {
                 const newStatus = subscriptionUpdated.status.charAt(0).toUpperCase() + subscriptionUpdated.status.slice(1);
+                
+                const updateData: Partial<Subscription> = {};
                 if (localSub.status !== newStatus) {
-                    await updateDoc(doc(db, 'subscriptions', localSub.id), { status: newStatus as Subscription['status'] });
+                    updateData.status = newStatus as Subscription['status'];
+                }
+                
+                // Sync trial_end. If it's in the past, Stripe sets it to null.
+                // We compare to avoid unnecessary writes.
+                if (localSub.trialEnd !== subscriptionUpdated.trial_end) {
+                    updateData.trialEnd = subscriptionUpdated.trial_end;
+                }
+
+                if (Object.keys(updateData).length > 0) {
+                     await updateDoc(doc(db, 'subscriptions', localSub.id), updateData as any);
+                     console.log(`Webhook: Updated subscription ${localSub.id} with data:`, updateData);
                 }
             }
         }
