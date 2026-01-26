@@ -29,17 +29,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Pencil } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -54,7 +43,6 @@ export default function SubscriptionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [scheduleRanges, setScheduleRanges] = useState<{[boxId: string]: {start: string, end: string} | null}>({});
   const [isManaging, setIsManaging] = useState(false);
-  const [isActionLoading, setIsActionLoading] = useState<string | null>(null);
 
   // State for the notes dialog
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
@@ -142,35 +130,6 @@ export default function SubscriptionsPage() {
         setIsManaging(false);
     }
   };
-  
-  const handleCancelActiveSubscription = async (sub: Subscription) => {
-    setIsActionLoading(sub.id);
-    try {
-      const response = await fetch('/api/cancel-subscription', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscriptionId: sub.id }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to cancel subscription.');
-      }
-
-      toast({
-        title: 'Success',
-        description: 'Your subscription has been cancelled.',
-      });
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message,
-      });
-    } finally {
-      setIsActionLoading(null);
-    }
-  };
 
   const handleOpenNoteDialog = (sub: Subscription) => {
     setSelectedSubForNote(sub);
@@ -197,8 +156,6 @@ export default function SubscriptionsPage() {
 
 
   const renderSubscriptionActions = (sub: Subscription) => {
-    const isLoadingThis = isActionLoading === sub.id;
-
     if (sub.status === 'Active') {
         return (
             <>
@@ -212,28 +169,6 @@ export default function SubscriptionsPage() {
                 <Button variant="outline" size="sm" onClick={() => handleManageSubscription(sub.stripeCustomerId)} disabled={isManaging}>
                     {isManaging ? 'Redirecting...' : 'Manage'}
                 </Button>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" disabled={isLoadingThis}>
-                            {isLoadingThis ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                            Cancel
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will cancel your subscription for the {sub.boxName} at the end of your current billing period. This action cannot be undone.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Back</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleCancelActiveSubscription(sub)}>
-                                Yes, cancel my subscription
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
             </>
         )
     }
