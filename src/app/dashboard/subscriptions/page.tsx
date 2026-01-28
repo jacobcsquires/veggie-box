@@ -272,7 +272,7 @@ export default function SubscriptionsPage() {
                           : 'outline'
                         }
                       >
-                        {sub.status === 'Trialing' ? 'Paused' : sub.status}
+                        {sub.status === 'Trialing' ? 'Skipped' : sub.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">

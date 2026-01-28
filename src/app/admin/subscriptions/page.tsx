@@ -332,7 +332,7 @@ export default function AdminSubscriptionsPage() {
                             <SelectContent>
                                 <SelectItem value="all">All Statuses</SelectItem>
                                 <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="trialing">Paused</SelectItem>
+                                <SelectItem value="trialing">Skipped</SelectItem>
                                 <SelectItem value="pending">Pending</SelectItem>
                                 <SelectItem value="past due">Past Due</SelectItem>
                                 <SelectItem value="unpaid">Unpaid</SelectItem>
@@ -401,7 +401,7 @@ export default function AdminSubscriptionsPage() {
                                         <TableCell className="hidden sm:table-cell">{sub.boxName}</TableCell>
                                         <TableCell>
                                             <Badge variant={getStatusVariant(sub.status)} className="capitalize">
-                                                {sub.status === 'Trialing' ? 'Paused' : sub.status}
+                                                {sub.status === 'Trialing' ? 'Skipped' : sub.status}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="hidden md:table-cell">
