@@ -1022,7 +1022,7 @@ export default function AdminBoxDetailPage() {
                                             <TableCell>{sub.customerName || sub.userId}</TableCell>
                                             <TableCell className="hidden sm:table-cell">{sub.customerEmail || 'N/A'}</TableCell>
                                             <TableCell>
-                                                <Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>{sub.status}</Badge>
+                                                <Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>{sub.status === 'Trialing' ? 'Skipped' : sub.status}</Badge>
                                             </TableCell>
                                             <TableCell className="hidden md:table-cell">{format(new Date(sub.startDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
                                             <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
