@@ -187,7 +187,11 @@ export default function DashboardPage() {
                                 {recentSubscriptions.length > 0 ? recentSubscriptions.map(sub => (
                                     <TableRow key={sub.id}>
                                         <TableCell className="font-medium">{sub.boxName}</TableCell>
-                                        <TableCell><Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>{sub.status}</Badge></TableCell>
+                                        <TableCell>
+                                            <Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>
+                                                {sub.status === 'Trialing' ? 'Skipped' : sub.status}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell>{format(new Date(sub.startDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
                                         <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
                                     </TableRow>
