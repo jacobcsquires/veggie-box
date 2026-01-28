@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 import { HomeComponent } from '@/app/home-component';
 
-export default function HomePage() {
+export default function Page() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center min-h-screen">

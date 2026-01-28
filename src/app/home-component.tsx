@@ -1,16 +1,14 @@
-
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { collection, onSnapshot, query, orderBy, getDocs, where, doc } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
+import Image from 'next/image';
+import { collection, doc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import * as Icons from 'lucide-react';
-
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -28,15 +26,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
 import type { Box, PricingOption } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
+import { Sprout } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Sprout } from 'lucide-react';
 
 type PickupInternal = {
   id: string;
@@ -68,39 +66,39 @@ export function HomeComponent() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    // Only show boxes that are available for signup
     const q = query(collection(db, 'boxes'), where('displayOnWebsite', '==', true));
-    
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const boxesData = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() } as Box));
-
+      const boxesData = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Box)
+      );
       setBoxes(boxesData);
       setIsLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  const handleSubscribeClick = useCallback((box: Box) => {
+  const handleSubscribeClick = (box: Box) => {
     if (!user) {
+        const currentPath = new URL(window.location.href);
+        currentPath.searchParams.set('subscribe_to', box.id);
         const loginUrl = new URL('/login', window.location.origin);
-        loginUrl.searchParams.set('redirect_to', '/dashboard/boxes?subscribe_to=' + box.id);
+        loginUrl.searchParams.set('redirect_to', currentPath.pathname + currentPath.search);
         router.push(loginUrl.toString());
         return;
     }
     setSelectedBox(box);
     setIsDialogOpen(true);
-  }, [user, router]);
-
+  };
+    
   useEffect(() => {
     const subscribeToId = searchParams.get('subscribe_to');
-    if (subscribeToId && boxes.length > 0 && user) { // only trigger if user is now logged in
+    if (subscribeToId && boxes.length > 0) {
       const boxToSubscribe = boxes.find(b => b.id === subscribeToId);
       if (boxToSubscribe) {
         handleSubscribeClick(boxToSubscribe);
       }
     }
-  }, [searchParams, boxes, user, handleSubscribeClick]);
+  }, [searchParams, boxes]);
 
   useEffect(() => {
     if (selectedBox && isDialogOpen) {
@@ -125,7 +123,6 @@ export function HomeComponent() {
     }
   }, [selectedBox, isDialogOpen]);
 
-
   const handleConfirmSubscription = async () => {
     if (!user) {
       toast({
@@ -133,7 +130,6 @@ export function HomeComponent() {
         title: 'Not Logged In',
         description: 'You need to be logged in to subscribe.',
       });
-      router.push('/login');
       return;
     }
     if (!selectedBox || !selectedPriceId) {
@@ -196,8 +192,8 @@ export function HomeComponent() {
         setIsSubscribing(false);
     }
   };
-  
-  if (authLoading || (!authLoading && user)) {
+
+  if (authLoading || user) {
     return (
         <div className="flex items-center justify-center min-h-screen">
             <Icons.Loader2 className="h-8 w-8 animate-spin" />
@@ -206,98 +202,118 @@ export function HomeComponent() {
   }
   
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <header className="px-4 lg:px-6 h-14 flex items-center border-b">
+    <div className="flex flex-col min-h-screen">
+      <header className="px-4 lg:px-6 h-14 flex items-center bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 border-b">
         <Link href="#" className="flex items-center justify-center" prefetch={false}>
           <Sprout className="h-6 w-6 text-primary" />
-          <span className="font-headline ml-2 font-semibold">Veggie Box</span>
+          <span className="sr-only">Veggie Box Customer Portal</span>
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Button asChild>
-              <Link href="/login">Login</Link>
-          </Button>
+          {authLoading ? (
+            <Skeleton className="h-8 w-20" />
+          ) : user ? (
+            <Button asChild>
+                <Link href={user.isAdmin ? '/admin/dashboard' : '/dashboard'}>Dashboard</Link>
+            </Button>
+          ) : (
+            <Button asChild>
+                <Link href="/login">Login</Link>
+            </Button>
+          )}
         </nav>
       </header>
       <main className="flex-1">
+        <section className="w-full py-12 md:py-24 lg:py-32 bg-primary/10">
+          <div className="container px-4 md:px-6">
+            <div className="flex flex-col items-center space-y-4 text-center">
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none font-headline">
+                  Welcome to the Veggie Box Customer Portal
+                </h1>
+                <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
+                  Discover the best seasonal produce, sourced from local farms and delivered straight to your door.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
         <section id="boxes" className="w-full py-12 md:py-24 lg:py-32">
-             <div className="container mx-auto px-4 md:px-6">
-                <div className="text-center mb-12">
-                  <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none font-headline">
-                    Explore Veggie Boxes
-                  </h1>
-                  <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl mt-4">
-                    Choose from our selection of fresh, locally-sourced produce boxes.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-stretch justify-center gap-6">
-                    {isLoading
-                    ? Array.from({ length: 3 }).map((_, i) => (
-                        <Card key={i} className="flex flex-col w-full max-w-sm">
-                            <CardHeader className="p-0">
-                            <Skeleton className="rounded-t-lg aspect-video w-full" />
-                            </CardHeader>
-                            <CardContent className="p-6 flex-1">
-                            <Skeleton className="h-7 w-48" />
-                            <Skeleton className="h-4 w-full mt-2" />
-                            <Skeleton className="h-4 w-2/3 mt-2" />
-                            </CardContent>
-                            <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
-                                <div className="flex justify-between items-center">
-                                    <Skeleton className="h-8 w-24" />
-                                    <Skeleton className="h-6 w-20" />
-                                </div>
-                                <Skeleton className="h-10 w-full mt-2" />
-                            </CardFooter>
-                        </Card>
-                        ))
-                    : boxes.map((box) => {
-                        const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
-                        const hasSchedule = box.startDate && box.endDate;
-                        const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
-                        const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
-                        const basePrice = box.pricingOptions?.[0]?.price ?? 0;
+             <div className="container px-4 md:px-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {isLoading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <Card key={i} className="flex flex-col">
+                        <CardHeader className="p-0">
+                        <Skeleton className="rounded-t-lg aspect-video" />
+                        </CardHeader>
+                        <CardContent className="p-6 flex-1">
+                        <Skeleton className="h-7 w-48" />
+                        <Skeleton className="h-4 w-full mt-2" />
+                        <Skeleton className="h-4 w-2/3 mt-2" />
+                        </CardContent>
+                        <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
+                            <div className="flex justify-between items-center">
+                                <Skeleton className="h-8 w-24" />
+                                <Skeleton className="h-6 w-20" />
+                            </div>
+                            <Skeleton className="h-10 w-full mt-2" />
+                        </CardFooter>
+                    </Card>
+                    ))
+                : boxes.map((box) => {
+                    const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
+                    const hasSchedule = box.startDate && box.endDate;
+                    const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
+                    const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
+                    const basePrice = box.pricingOptions?.[0]?.price ?? 0;
 
-                        return (
-                            <Card key={box.id} className="flex flex-col w-full max-w-sm">
-                                <CardHeader className="p-0">
-                                    <Image
-                                    src={box.image}
-                                    alt={box.name}
-                                    width={600}
-                                    height={400}
-                                    data-ai-hint={box.hint}
-                                    className="rounded-t-lg aspect-video object-cover w-full"
-                                    />
-                                </CardHeader>
-                            <CardContent className="p-6 flex-1">
-                                <CardTitle className="font-headline">{box.name}</CardTitle>
-                                <CardDescription className="mt-2">{box.description}</CardDescription>
-                                {hasSchedule && startDateObj && endDateObj && (
-                                    <p className="text-xs text-muted-foreground pt-2">
-                                    Available from {format(startDateObj, 'PPP')} to {format(endDateObj, 'PPP')}
-                                    </p>
-                                )}
-                            </CardContent>
-                            <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
-                                <div className="flex justify-between items-center">
-                                <p className="text-2xl font-bold">
-                                    ${basePrice.toFixed(2)}{box.pricingOptions.length > 1 ? '+' : ''}
+                    return (
+                        <Card key={box.id} className="flex flex-col">
+                            <CardHeader className="p-0">
+                                <Image
+                                src={box.image}
+                                alt={box.name}
+                                width={600}
+                                height={400}
+                                data-ai-hint={box.hint}
+                                className="rounded-t-lg aspect-video object-cover"
+                                />
+                            </CardHeader>
+                        <CardContent className="p-6 flex-1">
+                            <CardTitle className="font-headline">{box.name}</CardTitle>
+                            <CardDescription className="mt-2">{box.description}</CardDescription>
+                            {hasSchedule && startDateObj && endDateObj && (
+                                <p className="text-xs text-muted-foreground pt-2">
+                                Available from {format(startDateObj, 'PPP')} to {format(endDateObj, 'PPP')}
                                 </p>
-                                <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
-                                </div>
-                                <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.pricingOptions || box.pricingOptions.length === 0 || box.manualSignupCutoff}>
-                                    {isSoldOut ? 'Sold Out' : !box.pricingOptions || box.pricingOptions.length === 0 ? 'Not Available' : box.manualSignupCutoff ? 'Sign-ups Closed' : 'Subscribe'}
-                                </Button>
-                            </CardFooter>
-                            </Card>
-                        );
-                        })}
-                </div>
+                            )}
+                        </CardContent>
+                        <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
+                            <div className="flex justify-between items-center">
+                            <p className="text-2xl font-bold">
+                                ${basePrice.toFixed(2)}{box.pricingOptions.length > 1 ? '+' : ''}
+                            </p>
+                            <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
+                            </div>
+                            <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.pricingOptions || box.pricingOptions.length === 0 || box.manualSignupCutoff}>
+                                {isSoldOut ? 'Sold Out' : !box.pricingOptions || box.pricingOptions.length === 0 ? 'Not Available' : box.manualSignupCutoff ? 'Sign-ups Closed' : 'Subscribe'}
+                            </Button>
+                        </CardFooter>
+                        </Card>
+                    );
+                    })}
             </div>
         </section>
       </main>
       <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
         <p className="text-xs text-muted-foreground">&copy; 2024 Veggie Box. All rights reserved.</p>
+        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
+          <Link href="#" className="text-xs hover:underline underline-offset-4" prefetch={false}>
+            Terms of Service
+          </Link>
+          <Link href="#" className="text-xs hover:underline underline-offset-4" prefetch={false}>
+            Privacy
+          </Link>
+        </nav>
       </footer>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
