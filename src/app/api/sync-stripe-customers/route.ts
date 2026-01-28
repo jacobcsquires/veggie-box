@@ -25,13 +25,17 @@ const findUser = async (email: string): Promise<AppUser | null> => {
 
 export async function POST() {
   try {
-    // 1. Fetch all active subscriptions from Stripe to calculate counts
-    const activeStripeSubscriptions: Stripe.Subscription[] = [];
-    for await (const sub of stripe.subscriptions.list({ status: 'active', limit: 100 })) {
-        activeStripeSubscriptions.push(sub);
+    // 1. Fetch all subscriptions from Stripe to calculate counts
+    const allStripeSubscriptions: Stripe.Subscription[] = [];
+    for await (const sub of stripe.subscriptions.list({ status: 'all', limit: 100 })) {
+        allStripeSubscriptions.push(sub);
     }
     
-    const subscriptionCounts = activeStripeSubscriptions.reduce((acc, sub) => {
+    const countableStripeSubscriptions = allStripeSubscriptions.filter(s =>
+        ['active', 'trialing', 'past_due', 'unpaid', 'paused'].includes(s.status) && !s.cancel_at_period_end
+    );
+
+    const subscriptionCounts = countableStripeSubscriptions.reduce((acc, sub) => {
         const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
         if (customerId) {
             acc[customerId] = (acc[customerId] || 0) + 1;
