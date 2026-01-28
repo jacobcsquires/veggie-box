@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/auth-context';
@@ -80,6 +81,17 @@ export function HomeComponent() {
     return () => unsubscribe();
   }, []);
 
+  const handleSubscribeClick = useCallback((box: Box) => {
+    if (!user) {
+        const loginUrl = new URL('/login', window.location.origin);
+        loginUrl.searchParams.set('redirect_to', '/dashboard/boxes?subscribe_to=' + box.id);
+        router.push(loginUrl.toString());
+        return;
+    }
+    setSelectedBox(box);
+    setIsDialogOpen(true);
+  }, [user, router]);
+
   useEffect(() => {
     const subscribeToId = searchParams.get('subscribe_to');
     if (subscribeToId && boxes.length > 0 && user) { // only trigger if user is now logged in
@@ -88,7 +100,7 @@ export function HomeComponent() {
         handleSubscribeClick(boxToSubscribe);
       }
     }
-  }, [searchParams, boxes, user]);
+  }, [searchParams, boxes, user, handleSubscribeClick]);
 
   useEffect(() => {
     if (selectedBox && isDialogOpen) {
@@ -113,16 +125,6 @@ export function HomeComponent() {
     }
   }, [selectedBox, isDialogOpen]);
 
-  const handleSubscribeClick = (box: Box) => {
-    if (!user) {
-        const loginUrl = new URL('/login', window.location.origin);
-        loginUrl.searchParams.set('redirect_to', '/dashboard/boxes?subscribe_to=' + box.id);
-        router.push(loginUrl.toString());
-        return;
-    }
-    setSelectedBox(box);
-    setIsDialogOpen(true);
-  };
 
   const handleConfirmSubscription = async () => {
     if (!user) {
