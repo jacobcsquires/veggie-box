@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 import { collection, doc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
@@ -47,7 +47,6 @@ export function HomeComponent() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
   
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,26 +78,16 @@ export function HomeComponent() {
 
   const handleSubscribeClick = (box: Box) => {
     if (!user) {
-        const currentPath = new URL(window.location.href);
-        currentPath.searchParams.set('subscribe_to', box.id);
         const loginUrl = new URL('/login', window.location.origin);
-        loginUrl.searchParams.set('redirect_to', currentPath.pathname + currentPath.search);
+        const redirectTo = new URL('/dashboard/boxes', window.location.origin);
+        redirectTo.searchParams.set('subscribe_to', box.id);
+        loginUrl.searchParams.set('redirect_to', redirectTo.pathname + redirectTo.search);
         router.push(loginUrl.toString());
         return;
     }
     setSelectedBox(box);
     setIsDialogOpen(true);
   };
-    
-  useEffect(() => {
-    const subscribeToId = searchParams.get('subscribe_to');
-    if (subscribeToId && boxes.length > 0) {
-      const boxToSubscribe = boxes.find(b => b.id === subscribeToId);
-      if (boxToSubscribe) {
-        handleSubscribeClick(boxToSubscribe);
-      }
-    }
-  }, [searchParams, boxes]);
 
   useEffect(() => {
     if (selectedBox && isDialogOpen) {
@@ -238,69 +227,71 @@ export function HomeComponent() {
           </div>
         </section>
         <section id="boxes" className="w-full py-12 md:py-24 lg:py-32">
-             <div className="container px-4 md:px-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {isLoading
-                ? Array.from({ length: 3 }).map((_, i) => (
-                    <Card key={i} className="flex flex-col">
-                        <CardHeader className="p-0">
-                        <Skeleton className="rounded-t-lg aspect-video" />
-                        </CardHeader>
-                        <CardContent className="p-6 flex-1">
-                        <Skeleton className="h-7 w-48" />
-                        <Skeleton className="h-4 w-full mt-2" />
-                        <Skeleton className="h-4 w-2/3 mt-2" />
-                        </CardContent>
-                        <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
-                            <div className="flex justify-between items-center">
-                                <Skeleton className="h-8 w-24" />
-                                <Skeleton className="h-6 w-20" />
-                            </div>
-                            <Skeleton className="h-10 w-full mt-2" />
-                        </CardFooter>
-                    </Card>
-                    ))
-                : boxes.map((box) => {
-                    const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
-                    const hasSchedule = box.startDate && box.endDate;
-                    const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
-                    const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
-                    const basePrice = box.pricingOptions?.[0]?.price ?? 0;
-
-                    return (
-                        <Card key={box.id} className="flex flex-col">
+             <div className="container justify-center flex px-4 md:px-6">
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {isLoading
+                    ? Array.from({ length: 3 }).map((_, i) => (
+                        <Card key={i} className="flex flex-col">
                             <CardHeader className="p-0">
-                                <Image
-                                src={box.image}
-                                alt={box.name}
-                                width={600}
-                                height={400}
-                                data-ai-hint={box.hint}
-                                className="rounded-t-lg aspect-video object-cover"
-                                />
+                            <Skeleton className="rounded-t-lg aspect-video" />
                             </CardHeader>
-                        <CardContent className="p-6 flex-1">
-                            <CardTitle className="font-headline">{box.name}</CardTitle>
-                            <CardDescription className="mt-2">{box.description}</CardDescription>
-                            {hasSchedule && startDateObj && endDateObj && (
-                                <p className="text-xs text-muted-foreground pt-2">
-                                Available from {format(startDateObj, 'PPP')} to {format(endDateObj, 'PPP')}
-                                </p>
-                            )}
-                        </CardContent>
-                        <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
-                            <div className="flex justify-between items-center">
-                            <p className="text-2xl font-bold">
-                                ${basePrice.toFixed(2)}{box.pricingOptions.length > 1 ? '+' : ''}
-                            </p>
-                            <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
-                            </div>
-                            <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.pricingOptions || box.pricingOptions.length === 0 || box.manualSignupCutoff}>
-                                {isSoldOut ? 'Sold Out' : !box.pricingOptions || box.pricingOptions.length === 0 ? 'Not Available' : box.manualSignupCutoff ? 'Sign-ups Closed' : 'Subscribe'}
-                            </Button>
-                        </CardFooter>
+                            <CardContent className="p-6 flex-1">
+                            <Skeleton className="h-7 w-48" />
+                            <Skeleton className="h-4 w-full mt-2" />
+                            <Skeleton className="h-4 w-2/3 mt-2" />
+                            </CardContent>
+                            <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
+                                <div className="flex justify-between items-center">
+                                    <Skeleton className="h-8 w-24" />
+                                    <Skeleton className="h-6 w-20" />
+                                </div>
+                                <Skeleton className="h-10 w-full mt-2" />
+                            </CardFooter>
                         </Card>
-                    );
-                    })}
+                        ))
+                    : boxes.map((box) => {
+                        const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
+                        const hasSchedule = box.startDate && box.endDate;
+                        const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
+                        const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
+                        const basePrice = box.pricingOptions?.[0]?.price ?? 0;
+
+                        return (
+                            <Card key={box.id} className="flex flex-col">
+                                <CardHeader className="p-0">
+                                    <Image
+                                    src={box.image}
+                                    alt={box.name}
+                                    width={600}
+                                    height={400}
+                                    data-ai-hint={box.hint}
+                                    className="rounded-t-lg aspect-video object-cover"
+                                    />
+                                </CardHeader>
+                            <CardContent className="p-6 flex-1">
+                                <CardTitle className="font-headline">{box.name}</CardTitle>
+                                <CardDescription className="mt-2">{box.description}</CardDescription>
+                                {hasSchedule && startDateObj && endDateObj && (
+                                    <p className="text-xs text-muted-foreground pt-2">
+                                    Available from {format(startDateObj, 'PPP')} to {format(endDateObj, 'PPP')}
+                                    </p>
+                                )}
+                            </CardContent>
+                            <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
+                                <div className="flex justify-between items-center">
+                                <p className="text-2xl font-bold">
+                                    ${basePrice.toFixed(2)}{box.pricingOptions.length > 1 ? '+' : ''}
+                                </p>
+                                <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
+                                </div>
+                                <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.pricingOptions || box.pricingOptions.length === 0 || box.manualSignupCutoff}>
+                                    {isSoldOut ? 'Sold Out' : !box.pricingOptions || box.pricingOptions.length === 0 ? 'Not Available' : box.manualSignupCutoff ? 'Sign-ups Closed' : 'Subscribe'}
+                                </Button>
+                            </CardFooter>
+                            </Card>
+                        );
+                        })}
+                </div>
             </div>
         </section>
       </main>
