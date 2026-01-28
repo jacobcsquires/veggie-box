@@ -65,7 +65,8 @@ export default function SubscriptionsPage() {
 
     const q = query(
       collection(db, 'subscriptions'),
-      where('userId', '==', user.uid)
+      where('userId', '==', user.uid),
+      where('status', '!=', 'Cancelled')
     );
 
     const unsubscribeSubs = onSnapshot(q, async (snapshot) => {

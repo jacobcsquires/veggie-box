@@ -29,7 +29,7 @@ export default function DashboardPage() {
             return;
         }
 
-        const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid));
+        const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), where('status', '!=', 'Cancelled'));
         const boxesQuery = query(collection(db, 'boxes'), where('displayOnWebsite', '==', true));
 
         const unsubSubs = onSnapshot(subsQuery, async (snapshot) => {
