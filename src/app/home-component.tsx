@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 import { collection, doc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
@@ -47,6 +48,7 @@ export function HomeComponent() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,18 +78,15 @@ export function HomeComponent() {
     return () => unsubscribe();
   }, []);
 
-  const handleSubscribeClick = (box: Box) => {
-    if (!user) {
-        const loginUrl = new URL('/login', window.location.origin);
-        const redirectTo = new URL('/dashboard/boxes', window.location.origin);
-        redirectTo.searchParams.set('subscribe_to', box.id);
-        loginUrl.searchParams.set('redirect_to', redirectTo.pathname + redirectTo.search);
-        router.push(loginUrl.toString());
-        return;
+  useEffect(() => {
+    const subscribeToId = searchParams.get('subscribe_to');
+    if (subscribeToId && boxes.length > 0) {
+      const boxToSubscribe = boxes.find(b => b.id === subscribeToId);
+      if (boxToSubscribe) {
+        handleSubscribeClick(boxToSubscribe);
+      }
     }
-    setSelectedBox(box);
-    setIsDialogOpen(true);
-  };
+  }, [searchParams, boxes]);
 
   useEffect(() => {
     if (selectedBox && isDialogOpen) {
@@ -111,6 +110,19 @@ export function HomeComponent() {
       setSelectedPriceId(null);
     }
   }, [selectedBox, isDialogOpen]);
+
+  const handleSubscribeClick = (box: Box) => {
+    if (!user) {
+        const currentPath = new URL(window.location.href);
+        currentPath.searchParams.set('subscribe_to', box.id);
+        const loginUrl = new URL('/login', window.location.origin);
+        loginUrl.searchParams.set('redirect_to', currentPath.pathname + currentPath.search);
+        router.push(loginUrl.toString());
+        return;
+    }
+    setSelectedBox(box);
+    setIsDialogOpen(true);
+  };
 
   const handleConfirmSubscription = async () => {
     if (!user) {
