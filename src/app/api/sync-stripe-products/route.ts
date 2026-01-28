@@ -124,10 +124,10 @@ export async function POST() {
     const boxesSnapshotAfterSync = await getDocs(collection(db, 'boxes'));
     const allBoxes = boxesSnapshotAfterSync.docs.map(doc => ({ id: doc.id, ...doc.data() } as Box));
     
-    const subscriptionsSnapshot = await getDocs(query(collection(db, 'subscriptions'), where('status', '==', 'Active')));
-    const activeSubscriptions = subscriptionsSnapshot.docs.map(doc => doc.data() as Subscription);
+    const subscriptionsSnapshot = await getDocs(query(collection(db, 'subscriptions'), where('status', 'in', ['Active', 'Trialing', 'Past Due', 'Unpaid'])));
+    const countableSubscriptions = subscriptionsSnapshot.docs.map(doc => doc.data() as Subscription);
 
-    const subscriptionCounts = activeSubscriptions.reduce((acc, sub) => {
+    const subscriptionCounts = countableSubscriptions.reduce((acc, sub) => {
         if(sub.boxId) {
             acc[sub.boxId] = (acc[sub.boxId] || 0) + 1;
         }

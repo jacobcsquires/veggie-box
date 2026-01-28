@@ -10,13 +10,13 @@ export async function POST() {
 
     const [customersSnapshot, subscriptionsSnapshot] = await Promise.all([
       getDocs(customersRef),
-      getDocs(query(subscriptionsRef, where('status', '==', 'Active'))),
+      getDocs(query(subscriptionsRef, where('status', 'in', ['Active', 'Trialing', 'Past Due', 'Unpaid']))),
     ]);
 
     const allCustomers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
-    const activeSubscriptions = subscriptionsSnapshot.docs.map(doc => doc.data() as Subscription);
+    const countableSubscriptions = subscriptionsSnapshot.docs.map(doc => doc.data() as Subscription);
 
-    const subscriptionCounts = activeSubscriptions.reduce((acc, sub) => {
+    const subscriptionCounts = countableSubscriptions.reduce((acc, sub) => {
       const customerId = sub.stripeCustomerId;
       if (customerId) {
         acc[customerId] = (acc[customerId] || 0) + 1;
