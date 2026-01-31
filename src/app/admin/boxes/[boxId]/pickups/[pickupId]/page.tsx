@@ -22,7 +22,6 @@ import { cn } from '@/lib/utils';
 type SubscriberCheckin = Subscription & {
   collected: boolean;
   collectedAt: Date | null;
-  otherBoxes?: string[];
 };
 
 export default function PickupCheckinPage() {
@@ -35,7 +34,6 @@ export default function PickupCheckinPage() {
     const [box, setBox] = useState<Box | null>(null);
     const [pickup, setPickup] = useState<Pickup | null>(null);
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-    const [allSubscriptions, setAllSubscriptions] = useState<Subscription[]>([]);
     const [collectionStatuses, setCollectionStatuses] = useState<Map<string, {collected: boolean, collectedAt: Date | null}>>(new Map());
     const [isLoading, setIsLoading] = useState(true);
 
@@ -81,11 +79,6 @@ export default function PickupCheckinPage() {
             setSubscriptions(enrichedSubs);
             setIsLoading(false);
         });
-        
-        const allSubsQuery = query(collection(db, 'subscriptions'), where('status', '==', 'Active'));
-        const unsubAllSubs = onSnapshot(allSubsQuery, (snapshot) => {
-            setAllSubscriptions(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Subscription));
-        });
 
         const collectionsRef = collection(db, 'boxes', boxId, 'pickups', pickupId, 'collections');
         const unsubCollections = onSnapshot(collectionsRef, (snapshot) => {
@@ -102,7 +95,6 @@ export default function PickupCheckinPage() {
             unsubPickup();
             unsubSubs();
             unsubCollections();
-            unsubAllSubs();
         };
     }, [boxId, pickupId]);
 
@@ -127,27 +119,14 @@ export default function PickupCheckinPage() {
     }, [boxId, pickupId]);
 
     const subscribersWithStatus: SubscriberCheckin[] = useMemo(() => {
-        const otherBoxSubscriptionsByUserId = allSubscriptions.reduce((acc, sub) => {
-            if (!sub.userId) return acc;
-            if (!acc[sub.userId]) {
-                acc[sub.userId] = [];
-            }
-            if (!acc[sub.userId].includes(sub.boxName)) {
-                acc[sub.userId].push(sub.boxName);
-            }
-            return acc;
-        }, {} as Record<string, string[]>);
-
         return subscriptions.map(sub => {
-            const otherBoxes = sub.userId ? otherBoxSubscriptionsByUserId[sub.userId]?.filter(boxName => boxName !== sub.boxName) || [] : [];
             return {
                 ...sub,
                 collected: collectionStatuses.has(sub.id),
                 collectedAt: collectionStatuses.get(sub.id)?.collectedAt || null,
-                otherBoxes,
             };
         }).sort((a,b) => (a.customerName || '').localeCompare(b.customerName || ''));
-    }, [subscriptions, collectionStatuses, allSubscriptions]);
+    }, [subscriptions, collectionStatuses]);
     
     const filteredSubscribers = useMemo(() => {
         return subscribersWithStatus.filter(sub => {
@@ -265,12 +244,6 @@ export default function PickupCheckinPage() {
                                                 <span>{sub.customerName}</span>
                                                 {sub.notes && (
                                                     <p className="text-xs text-muted-foreground font-normal pt-1">{sub.notes}</p>
-                                                )}
-                                                {sub.otherBoxes && sub.otherBoxes.length > 0 && (
-                                                    <div className="flex items-center text-xs text-muted-foreground pt-1">
-                                                        <Package className="mr-1.5 h-3 w-3" />
-                                                        <span>Also in: {sub.otherBoxes.join(', ')}</span>
-                                                    </div>
                                                 )}
                                             </div>
                                         </TableCell>
