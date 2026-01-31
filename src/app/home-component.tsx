@@ -45,16 +45,23 @@ type PickupInternal = {
 
 function SubscribeFromQueryParams({ boxes, onSubscribe }: { boxes: Box[], onSubscribe: (box: Box) => void }) {
   const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const handleSubscribe = useCallback(onSubscribe, [onSubscribe]);
 
   useEffect(() => {
     const subscribeToId = searchParams.get('subscribe_to');
     if (subscribeToId && boxes.length > 0) {
       const boxToSubscribe = boxes.find(b => b.id === subscribeToId);
       if (boxToSubscribe) {
-        onSubscribe(boxToSubscribe);
+        handleSubscribe(boxToSubscribe);
+        // Clean up URL to avoid re-triggering on refresh
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('subscribe_to');
+        router.replace(newUrl.toString(), { scroll: false });
       }
     }
-  }, [searchParams, boxes, onSubscribe]);
+  }, [searchParams, boxes, router, handleSubscribe]);
 
   return null;
 }
@@ -198,7 +205,15 @@ export function HomeComponent() {
     }
   };
 
-  if (authLoading || user) {
+  if (authLoading) {
+    return (
+        <div className="flex items-center justify-center min-h-screen">
+            <Icons.Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    )
+  }
+
+  if (user) {
     return (
         <div className="flex items-center justify-center min-h-screen">
             <Icons.Loader2 className="h-8 w-8 animate-spin" />
