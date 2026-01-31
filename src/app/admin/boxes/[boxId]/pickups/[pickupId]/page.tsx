@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
-import { ChevronRight, Search, Users, CheckCircle, XCircle, UserCheck } from 'lucide-react';
+import { ChevronRight, Search, Users, CheckCircle, XCircle, UserCheck, Package } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 type SubscriberCheckin = Subscription & {
   collected: boolean;
   collectedAt: Date | null;
+  otherBoxes?: string[];
 };
 
 export default function PickupCheckinPage() {
@@ -34,6 +35,7 @@ export default function PickupCheckinPage() {
     const [box, setBox] = useState<Box | null>(null);
     const [pickup, setPickup] = useState<Pickup | null>(null);
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+    const [allSubscriptions, setAllSubscriptions] = useState<Subscription[]>([]);
     const [collectionStatuses, setCollectionStatuses] = useState<Map<string, {collected: boolean, collectedAt: Date | null}>>(new Map());
     const [isLoading, setIsLoading] = useState(true);
 
@@ -58,10 +60,31 @@ export default function PickupCheckinPage() {
         });
 
         const subsQuery = query(collection(db, 'subscriptions'), where('boxId', '==', boxId), where('status', '==', 'Active'));
-        const unsubSubs = onSnapshot(subsQuery, (snapshot) => {
+        const unsubSubs = onSnapshot(subsQuery, async (snapshot) => {
             const subsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Subscription);
-            setSubscriptions(subsData);
+            
+            const enrichedSubs = await Promise.all(subsData.map(async (sub) => {
+                if (sub.customerEmail) return sub;
+                if (!sub.stripeCustomerId) return sub;
+                try {
+                    const customerRef = doc(db, 'customers', sub.stripeCustomerId);
+                    const customerSnap = await getDoc(customerRef);
+                    if (customerSnap.exists()) {
+                        return { ...sub, customerEmail: customerSnap.data().email };
+                    }
+                } catch (error) {
+                    console.error(`Failed to fetch customer data for sub ${sub.id}`, error);
+                }
+                return sub;
+            }));
+
+            setSubscriptions(enrichedSubs);
             setIsLoading(false);
+        });
+        
+        const allSubsQuery = query(collection(db, 'subscriptions'), where('status', '==', 'Active'));
+        const unsubAllSubs = onSnapshot(allSubsQuery, (snapshot) => {
+            setAllSubscriptions(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Subscription));
         });
 
         const collectionsRef = collection(db, 'boxes', boxId, 'pickups', pickupId, 'collections');
@@ -79,6 +102,7 @@ export default function PickupCheckinPage() {
             unsubPickup();
             unsubSubs();
             unsubCollections();
+            unsubAllSubs();
         };
     }, [boxId, pickupId]);
 
@@ -103,12 +127,27 @@ export default function PickupCheckinPage() {
     }, [boxId, pickupId]);
 
     const subscribersWithStatus: SubscriberCheckin[] = useMemo(() => {
-        return subscriptions.map(sub => ({
-            ...sub,
-            collected: collectionStatuses.has(sub.id),
-            collectedAt: collectionStatuses.get(sub.id)?.collectedAt || null
-        })).sort((a,b) => (a.customerName || '').localeCompare(b.customerName || ''));
-    }, [subscriptions, collectionStatuses]);
+        const otherBoxSubscriptionsByUserId = allSubscriptions.reduce((acc, sub) => {
+            if (!sub.userId) return acc;
+            if (!acc[sub.userId]) {
+                acc[sub.userId] = [];
+            }
+            if (!acc[sub.userId].includes(sub.boxName)) {
+                acc[sub.userId].push(sub.boxName);
+            }
+            return acc;
+        }, {} as Record<string, string[]>);
+
+        return subscriptions.map(sub => {
+            const otherBoxes = sub.userId ? otherBoxSubscriptionsByUserId[sub.userId]?.filter(boxName => boxName !== sub.boxName) || [] : [];
+            return {
+                ...sub,
+                collected: collectionStatuses.has(sub.id),
+                collectedAt: collectionStatuses.get(sub.id)?.collectedAt || null,
+                otherBoxes,
+            };
+        }).sort((a,b) => (a.customerName || '').localeCompare(b.customerName || ''));
+    }, [subscriptions, collectionStatuses, allSubscriptions]);
     
     const filteredSubscribers = useMemo(() => {
         return subscribersWithStatus.filter(sub => {
@@ -222,10 +261,18 @@ export default function PickupCheckinPage() {
                                             />
                                         </TableCell>
                                         <TableCell className="font-medium">
-                                            {sub.customerName}
-                                            {sub.notes && (
-                                                <p className="text-xs text-muted-foreground font-normal pt-1">{sub.notes}</p>
-                                            )}
+                                            <div className="flex flex-col">
+                                                <span>{sub.customerName}</span>
+                                                {sub.notes && (
+                                                    <p className="text-xs text-muted-foreground font-normal pt-1">{sub.notes}</p>
+                                                )}
+                                                {sub.otherBoxes && sub.otherBoxes.length > 0 && (
+                                                    <div className="flex items-center text-xs text-muted-foreground pt-1">
+                                                        <Package className="mr-1.5 h-3 w-3" />
+                                                        <span>Also in: {sub.otherBoxes.join(', ')}</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </TableCell>
                                         <TableCell className="hidden md:table-cell">{sub.customerEmail}</TableCell>
                                         <TableCell className="hidden sm:table-cell">
