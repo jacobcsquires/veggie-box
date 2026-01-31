@@ -168,7 +168,7 @@ export async function POST(req: Request) {
             const freshBoxData = boxDoc.data() as Box;
             const mailRef = doc(collection(db, "mail"));
             await setDoc(mailRef, {
-                to: [customerEmail],
+                to: customerEmail,
                 message: {
                     subject: `Your subscription to ${freshBoxData.name} is confirmed!`,
                     html: `

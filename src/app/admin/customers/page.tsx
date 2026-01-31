@@ -118,7 +118,7 @@ export default function AdminCustomersPage() {
         setIsSendingEmail(customer.id);
         try {
             await addDoc(collection(db, 'mail'), {
-                to: [customer.email],
+                to: customer.email,
                 message: {
                     subject: 'Test Email from Veggie Box',
                     html: `Hello ${customer.name || 'there'},<br><br>This is a test email to confirm the email functionality is working.`,
@@ -263,7 +263,7 @@ export default function AdminCustomersPage() {
                                         <TableCell className="font-medium">{customer.name || 'N/A'}</TableCell>
                                         <TableCell className="hidden md:table-cell">{customer.email}</TableCell>
                                         <TableCell className="hidden sm:table-cell">
-                                            <Badge variant={customer.status === 'active' ? 'default' : 'secondary'} className="capitalize">{customer.status || 'inactive'}</Badge>
+                                            <Badge variant={customer.status === 'active' ? 'default' : 'secondary'} className="capitalize">{customer.status?.charAt(0).toUpperCase() + customer.status?.slice(1) || 'Inactive'}</Badge>
                                         </TableCell>
                                         <TableCell className="hidden sm:table-cell">{customer.activeSubscriptionCount || 0}</TableCell>
                                         <TableCell className="text-right">
