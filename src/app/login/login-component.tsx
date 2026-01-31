@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -19,22 +19,29 @@ import { Label } from "@/components/ui/label";
 import { Sprout } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
+function Redirecter() {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        if (!loading && user) {
+            const redirectTo = searchParams.get('redirect_to');
+            router.replace(redirectTo || '/dashboard');
+        }
+    }, [user, loading, router, searchParams]);
+
+    return null;
+}
+
 export function LoginComponent() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   
-  useEffect(() => {
-    if (!loading && user) {
-        const redirectTo = searchParams.get('redirect_to');
-        router.replace(redirectTo || '/dashboard');
-    }
-  }, [user, loading, router, searchParams]);
+  const searchParams = useSearchParams();
 
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -42,7 +49,7 @@ export function LoginComponent() {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // Let the useEffect handle redirection
+      // Let the Redirecter handle redirection
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -59,7 +66,7 @@ export function LoginComponent() {
     const provider = new GoogleAuthProvider();
     try {
         await signInWithPopup(auth, provider);
-        // Let the useEffect handle redirection
+        // Let the Redirecter handle redirection
     } catch (error: any) {
         toast({
             variant: "destructive",
@@ -75,6 +82,9 @@ export function LoginComponent() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/40">
+        <Suspense fallback={null}>
+            <Redirecter />
+        </Suspense>
       <Card className="mx-auto max-w-sm w-full">
         <CardHeader>
           <div className="flex justify-center mb-4">

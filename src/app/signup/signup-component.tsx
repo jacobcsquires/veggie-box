@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile, getAdditionalUserInfo } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -19,16 +19,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sprout } from "lucide-react";
 
+function RedirectUrlHandler({ onRedirectUrl }: { onRedirectUrl: (url: string | null) => void}) {
+    const searchParams = useSearchParams();
+    useEffect(() => {
+        onRedirectUrl(searchParams.get('redirect_to'));
+    }, [searchParams, onRedirectUrl]);
+    return null;
+}
+
 
 export function SignupComponent() {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const { toast } = useToast();
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+    const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
     const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -58,7 +66,6 @@ export function SignupComponent() {
                 isAdmin: false,
             });
             
-            const redirectTo = searchParams.get('redirect_to');
             router.push(redirectTo || "/dashboard");
         } catch (error: any) {
             toast({
@@ -95,7 +102,6 @@ export function SignupComponent() {
                 }, { merge: true });
             }
 
-            const redirectTo = searchParams.get('redirect_to');
             router.push(redirectTo || '/dashboard');
         } catch (error: any) {
             toast({
@@ -108,10 +114,11 @@ export function SignupComponent() {
         }
     };
 
-  const redirectTo = searchParams.get('redirect_to');
-
   return (
      <div className="flex items-center justify-center min-h-screen bg-muted/40">
+        <Suspense fallback={null}>
+            <RedirectUrlHandler onRedirectUrl={setRedirectTo} />
+        </Suspense>
         <Card className="mx-auto max-w-sm w-full">
          <CardHeader>
             <div className="flex justify-center mb-4">
