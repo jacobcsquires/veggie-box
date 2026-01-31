@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
@@ -83,8 +82,11 @@ export function HomeComponent() {
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && user) {
+    if (authLoading) return;
+    if (user) {
       router.replace(user.isAdmin ? '/admin/dashboard' : '/dashboard');
+    } else {
+      router.replace('/login');
     }
   }, [user, authLoading, router]);
 
