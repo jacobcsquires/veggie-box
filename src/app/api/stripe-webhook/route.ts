@@ -6,8 +6,6 @@ import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, wri
 import { db } from '@/lib/firebase';
 import type { Subscription, Box, AppUser, Customer } from '@/lib/types';
 
-export const dynamic = 'force-dynamic';
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
@@ -411,5 +409,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ received: true });
 }
-
-    
