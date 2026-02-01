@@ -10,13 +10,10 @@ export function HomeComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    // Wait until the authentication status is determined.
     if (authLoading) {
-      return;
+      return; // Wait for the auth state to be determined
     }
 
-    // If a user is logged in, redirect to their dashboard.
-    // Otherwise, redirect to the login page.
     if (user) {
       router.replace(user.isAdmin ? '/admin/dashboard' : '/dashboard');
     } else {
@@ -24,10 +21,15 @@ export function HomeComponent() {
     }
   }, [user, authLoading, router]);
 
-  // Render a loading spinner while the redirection is in progress.
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <Loader2 className="h-8 w-8 animate-spin" />
-    </div>
-  );
+  // Only show the spinner while auth is loading. After that, the redirect
+  // has been initiated and we can render nothing.
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  return null;
 }
