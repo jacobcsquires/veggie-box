@@ -114,6 +114,14 @@ export async function POST(req: Request) {
         console.error('Webhook Error: Missing required metadata in checkout session.');
         return NextResponse.json({ received: true, message: "Missing metadata" });
       }
+      
+      // IDEMPOTENCY CHECK: See if we've already processed this session
+      const subsQuery = query(collection(db, 'subscriptions'), where('stripeSessionId', '==', session.id), limit(1));
+      const existingSubSnapshot = await getDocs(subsQuery);
+      if (!existingSubSnapshot.empty) {
+          console.log(`Webhook: Subscription for session ${session.id} already processed. Skipping.`);
+          return NextResponse.json({ received: true, message: "Already processed." });
+      }
 
       const subscriptionRef = doc(collection(db, 'subscriptions'));
       const boxRef = doc(db, 'boxes', boxId);
