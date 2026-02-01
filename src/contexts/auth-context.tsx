@@ -28,19 +28,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (authUser) => {
       if (authUser) {
          const userDocRef = doc(db, 'users', authUser.uid);
-         const unsubSnapshot = onSnapshot(userDocRef, (docSnap) => {
-            // Start with the authentic Firebase User object
-            const userWithAdminFlag: AppUser = authUser;
-            
-            if (docSnap.exists()) {
-                // Augment it with custom data from Firestore without destroying the original object
-                const userData = docSnap.data();
-                userWithAdminFlag.isAdmin = userData.isAdmin || false;
+         const unsubSnapshot = onSnapshot(userDocRef, 
+            (docSnap) => {
+                const userWithAdminFlag: AppUser = authUser;
+                
+                if (docSnap.exists()) {
+                    const userData = docSnap.data();
+                    userWithAdminFlag.isAdmin = userData.isAdmin || false;
+                } else {
+                    // Handle case where user exists in Auth but not Firestore
+                    userWithAdminFlag.isAdmin = false;
+                }
+                
+                setUser(userWithAdminFlag);
+                setLoading(false);
+            },
+            (error) => {
+                // This is the crucial error handler
+                console.error("Error fetching user data:", error);
+                // Set user without admin flag and stop loading
+                setUser(authUser); 
+                setLoading(false);
             }
-            
-            setUser(userWithAdminFlag);
-            setLoading(false);
-         });
+         );
          return () => unsubSnapshot();
       } else {
         setUser(null);
