@@ -19,16 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sprout } from "lucide-react";
 
-function RedirectUrlHandler({ onRedirectUrl }: { onRedirectUrl: (url: string | null) => void}) {
-    const searchParams = useSearchParams();
-    useEffect(() => {
-        onRedirectUrl(searchParams.get('redirect_to'));
-    }, [searchParams, onRedirectUrl]);
-    return null;
-}
-
-
-export function SignupComponent() {
+function SignupForm({ redirectTo }: { redirectTo: string | null }) {
     const router = useRouter();
     const { toast } = useToast();
     const [fullName, setFullName] = useState("");
@@ -36,7 +27,6 @@ export function SignupComponent() {
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-    const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
     const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -95,8 +85,6 @@ export function SignupComponent() {
                     isAdmin: false,
                 });
             } else {
-                // For existing users, we just want to ensure their profile info is up to date
-                // in case it changed in their Google account. We don't touch isAdmin.
                 await setDoc(doc(db, "users", user.uid), {
                     displayName: user.displayName,
                 }, { merge: true });
@@ -116,9 +104,6 @@ export function SignupComponent() {
 
   return (
      <div className="flex items-center justify-center min-h-screen bg-muted/40">
-        <Suspense fallback={null}>
-            <RedirectUrlHandler onRedirectUrl={setRedirectTo} />
-        </Suspense>
         <Card className="mx-auto max-w-sm w-full">
          <CardHeader>
             <div className="flex justify-center mb-4">
@@ -171,4 +156,11 @@ export function SignupComponent() {
         </Card>
     </div>
   )
+}
+
+export function SignupComponent() {
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect_to');
+
+  return <SignupForm redirectTo={redirectTo} />;
 }

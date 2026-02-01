@@ -34,15 +34,28 @@ function Redirecter() {
     return null;
 }
 
+function SignupLink() {
+    const searchParams = useSearchParams();
+    const redirectTo = searchParams.get('redirect_to');
+    
+    const signupUrl = redirectTo ? `/signup?redirect_to=${encodeURIComponent(redirectTo)}` : "/signup";
+
+    return (
+        <div className="mt-4 text-center text-sm">
+            Don&apos;t have an account?{" "}
+            <Link href={signupUrl} className="underline">
+              Sign up
+            </Link>
+        </div>
+    );
+}
+
 export function LoginComponent() {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  
-  const searchParams = useSearchParams();
-
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -77,8 +90,6 @@ export function LoginComponent() {
         setIsGoogleLoading(false);
     }
   };
-
-  const redirectTo = searchParams.get('redirect_to');
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/40">
@@ -131,12 +142,9 @@ export function LoginComponent() {
                 {isGoogleLoading ? "Logging in..." : "Login with Google"}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{" "}
-            <Link href={redirectTo ? `/signup?redirect_to=${encodeURIComponent(redirectTo)}` : "/signup"} className="underline">
-              Sign up
-            </Link>
-          </div>
+           <Suspense fallback={<div className="mt-4 text-center text-sm h-5" />}>
+             <SignupLink />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

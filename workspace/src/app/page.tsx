@@ -1,8 +1,6 @@
-
-
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -45,12 +43,27 @@ type PickupInternal = {
   note: string;
 };
 
+function SubscribeFromQuery({ boxes, onSubscribe }: { boxes: Box[], onSubscribe: (box: Box) => void }) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const subscribeToId = searchParams.get('subscribe_to');
+    if (subscribeToId && boxes.length > 0) {
+      const boxToSubscribe = boxes.find(b => b.id === subscribeToId);
+      if (boxToSubscribe) {
+        onSubscribe(boxToSubscribe);
+      }
+    }
+  }, [searchParams, boxes, onSubscribe]);
+
+  return null;
+}
+
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
   
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,15 +93,18 @@ export default function HomePage() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const subscribeToId = searchParams.get('subscribe_to');
-    if (subscribeToId && boxes.length > 0) {
-      const boxToSubscribe = boxes.find(b => b.id === subscribeToId);
-      if (boxToSubscribe) {
-        handleSubscribeClick(boxToSubscribe);
-      }
+  const handleSubscribeClick = useCallback((box: Box) => {
+    if (!user) {
+        const currentPath = new URL(window.location.href);
+        currentPath.searchParams.set('subscribe_to', box.id);
+        const loginUrl = new URL('/login', window.location.origin);
+        loginUrl.searchParams.set('redirect_to', currentPath.pathname + currentPath.search);
+        router.push(loginUrl.toString());
+        return;
     }
-  }, [searchParams, boxes]);
+    setSelectedBox(box);
+    setIsDialogOpen(true);
+  }, [user, router]);
 
   useEffect(() => {
     if (selectedBox && isDialogOpen) {
@@ -112,19 +128,6 @@ export default function HomePage() {
       setSelectedPriceId(null);
     }
   }, [selectedBox, isDialogOpen]);
-
-  const handleSubscribeClick = (box: Box) => {
-    if (!user) {
-        const currentPath = new URL(window.location.href);
-        currentPath.searchParams.set('subscribe_to', box.id);
-        const loginUrl = new URL('/login', window.location.origin);
-        loginUrl.searchParams.set('redirect_to', currentPath.pathname + currentPath.search);
-        router.push(loginUrl.toString());
-        return;
-    }
-    setSelectedBox(box);
-    setIsDialogOpen(true);
-  };
 
   const handleConfirmSubscription = async () => {
     if (!user) {
@@ -206,6 +209,9 @@ export default function HomePage() {
   
   return (
     <div className="flex flex-col min-h-screen">
+      <Suspense fallback={null}>
+          <SubscribeFromQuery boxes={boxes} onSubscribe={handleSubscribeClick} />
+      </Suspense>
       <header className="px-4 lg:px-6 h-14 flex items-center bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 border-b">
         <Link href="#" className="flex items-center justify-center" prefetch={false}>
           <Sprout className="h-6 w-6 text-primary" />
