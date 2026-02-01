@@ -12,6 +12,16 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
+// Helper function to convert readable stream to buffer, as required by Stripe webhook verification
+async function buffer(readable: ReadableStream<any>) {
+  const chunks = [];
+  for await (const chunk of readable) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+
 // Helper function to find a user by email
 const findUserByEmail = async (email: string): Promise<AppUser | null> => {
     if (!email) return null;
@@ -91,13 +101,13 @@ const handleSubscriptionCancellation = async (stripeSubscriptionId: string) => {
 
 
 export async function POST(req: Request) {
-  const body = await req.text();
+  const rawBody = await buffer(req.body!);
   const signature = headers().get('Stripe-Signature') as string;
 
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (err: any) {
     console.error(`??  Webhook signature verification failed.`, err.message);
     return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
