@@ -38,7 +38,7 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (user) {
-        const q = query(collection(db, 'subscriptions'), where('userId', '==', user.uid));
+        const q = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), where('status', 'in', ['Active', 'Pending', 'Past Due', 'Unpaid', 'Trialing', 'Unknown']));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setSubscriptionsCount(snapshot.size);
         });
