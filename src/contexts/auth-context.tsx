@@ -2,7 +2,7 @@
 
 import type { User } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, Unsubscribe } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot } from "firebase/firestore";
 
@@ -25,10 +25,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+    let unsubSnapshot: Unsubscribe | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (authUser) => {
+      // First, unsubscribe from any previous snapshot listener
+      if (unsubSnapshot) {
+        unsubSnapshot();
+      }
+
       if (authUser) {
          const userDocRef = doc(db, 'users', authUser.uid);
-         const unsubSnapshot = onSnapshot(userDocRef, 
+         // Assign the new unsubscribe function
+         unsubSnapshot = onSnapshot(userDocRef, 
             (docSnap) => {
                 const userWithAdminFlag: AppUser = authUser;
                 
@@ -44,20 +52,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setLoading(false);
             },
             (error) => {
-                // This is the crucial error handler
                 console.error("Error fetching user data:", error);
                 // Set user without admin flag and stop loading
                 setUser(authUser); 
                 setLoading(false);
             }
          );
-         return () => unsubSnapshot();
       } else {
         setUser(null);
         setLoading(false);
       }
     });
-    return () => unsubscribe();
+
+    // Return a cleanup function that unsubscribes from both listeners
+    return () => {
+        unsubscribeAuth();
+        if (unsubSnapshot) {
+            unsubSnapshot();
+        }
+    };
   }, []);
 
   const value = { user, loading };
