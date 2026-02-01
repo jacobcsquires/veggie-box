@@ -6,6 +6,7 @@ import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, wri
 import { db } from '@/lib/firebase';
 import type { Subscription, Box, AppUser, Customer } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
@@ -201,6 +202,13 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Failed to process checkout completion.' }, { status: 500 });
       }
     }
+    
+    case 'customer.subscription.created': {
+      const subscription = event.data.object as Stripe.Subscription;
+      console.log(`Webhook: Received customer.subscription.created for ${subscription.id}. This event is handled by checkout.session.completed, no action taken.`);
+      return NextResponse.json({ received: true });
+    }
+
     case 'invoice.payment_succeeded': {
       const invoice = event.data.object as Stripe.Invoice;
       console.log(`Webhook: Received invoice.payment_succeeded for invoice ${invoice.id}`);
@@ -403,3 +411,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ received: true });
 }
+
+    
