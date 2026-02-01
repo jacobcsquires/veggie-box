@@ -10,7 +10,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 // Helper function to convert readable stream to buffer, as required by Stripe webhook verification
 async function buffer(readable: ReadableStream<any>) {
@@ -101,6 +101,12 @@ const handleSubscriptionCancellation = async (stripeSubscriptionId: string) => {
 
 
 export async function POST(req: Request) {
+  if (!webhookSecret) {
+    const errorMessage = "Webhook secret is not configured. Please set the STRIPE_WEBHOOK_SECRET environment variable.";
+    console.error(errorMessage);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
+  
   const rawBody = await buffer(req.body!);
   const signature = headers().get('Stripe-Signature') as string;
 
