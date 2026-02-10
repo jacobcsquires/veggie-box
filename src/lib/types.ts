@@ -64,7 +64,7 @@ export type AppUser = {
 
 export type Customer = {
     id: string; // This will be the Stripe Customer ID
-    userId?: string; // Link to Firebase Auth user if they exist
+    userId?: string | null; // Link to Firebase Auth user if they exist
     name: string | null;
     email: string;
     createdAt: Timestamp;

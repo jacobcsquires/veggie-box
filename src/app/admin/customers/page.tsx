@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, onSnapshot, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Customer, Subscription } from '@/lib/types';
+import type { Customer, Subscription, AppUser } from '@/lib/types';
 import { Search, RefreshCw, PlusCircle, ExternalLink, Users, Mail, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -33,6 +33,7 @@ import {
 
 export default function AdminCustomersPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [users, setUsers] = useState<AppUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -65,9 +66,16 @@ export default function AdminCustomersPage() {
             setCustomers(customersData);
             setIsLoading(false);
         });
+
+        // Fetch users to cross-reference display names
+        const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+            const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
+            setUsers(usersData);
+        });
         
         return () => {
             unsubscribeCustomers();
+            unsubscribeUsers();
         }
     }, []);
 
@@ -207,7 +215,21 @@ export default function AdminCustomersPage() {
     };
 
     const filteredCustomers = useMemo(() => {
-        return customers
+        // Create a map of users by UID for efficient lookup
+        const usersMap = new Map(users.map(u => [u.uid, u]));
+
+        // Enrich customer data with displayName from users collection if name is missing
+        const enrichedCustomers = customers.map(customer => {
+            if (!customer.name && customer.userId) {
+                const user = usersMap.get(customer.userId);
+                if (user?.displayName) {
+                    return { ...customer, name: user.displayName };
+                }
+            }
+            return customer;
+        });
+
+        return enrichedCustomers
             .filter(customer => {
                 const nameMatch = customer.name?.toLowerCase().includes(searchTerm.toLowerCase());
                 const emailMatch = customer.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -222,7 +244,7 @@ export default function AdminCustomersPage() {
                 return (nameMatch || emailMatch) && filterMatch;
             })
             .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }, [customers, searchTerm, filter]);
+    }, [customers, users, searchTerm, filter]);
 
     return (
         <div>
