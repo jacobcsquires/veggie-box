@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { EmailTemplate } from '@/lib/types';
 import { PlusCircle, Trash2, FilePen, RefreshCw } from 'lucide-react';
