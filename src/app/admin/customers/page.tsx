@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, onSnapshot, addDoc, serverTimestamp, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, query, where, getDocs, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Customer, AppUser, EmailTemplate } from '@/lib/types';
 import { Search, RefreshCw, PlusCircle, ExternalLink, Users, Mail, Trash2 } from 'lucide-react';
@@ -167,14 +167,17 @@ export default function AdminCustomersPage() {
         setIsSendingEmail(true);
         try {
             let finalBody = emailBody;
+            let finalSubject = emailSubject;
             if (customerToSendEmail?.name) {
-                finalBody = finalBody.replace(/{{customerName}}/g, customerToSendEmail.name);
+                const customerName = customerToSendEmail.name;
+                finalBody = finalBody.replace(/{{customerName}}/gi, customerName);
+                finalSubject = finalSubject.replace(/{{customerName}}/gi, customerName);
             }
             
             await addDoc(collection(db, 'mail'), {
                 to: [customerToSendEmail.email],
                 message: {
-                    subject: emailSubject,
+                    subject: finalSubject,
                     html: finalBody.replace(/\n/g, '<br>'),
                 },
             });
@@ -362,7 +365,7 @@ export default function AdminCustomersPage() {
                             ) : (
                                 filteredCustomers.map((customer) => (
                                     <TableRow key={customer.id} onClick={() => router.push(`/admin/customers/${customer.id}`)} className="cursor-pointer">
-                                        <TableCell className="font-medium">{customer.name || customer.email}</TableCell>
+                                        <TableCell className="font-medium">{customer.name || ''}</TableCell>
                                         <TableCell className="hidden md:table-cell">{customer.email}</TableCell>
                                         <TableCell className="hidden sm:table-cell">
                                             <Badge variant={customer.status === 'active' ? 'default' : 'secondary'} className="capitalize">{customer.status?.charAt(0).toUpperCase() + customer.status?.slice(1) || 'Inactive'}</Badge>
