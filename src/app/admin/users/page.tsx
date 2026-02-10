@@ -128,7 +128,7 @@ export default function AdminUsersPage() {
                                     const isLastAdmin = adminCount === 1 && user.isAdmin;
                                     return (
                                         <TableRow key={user.uid}>
-                                            <TableCell className="font-medium">{user.displayName || 'N/A'}</TableCell>
+                                            <TableCell className="font-medium">{user.displayName || user.email}</TableCell>
                                             <TableCell className="hidden md:table-cell">{user.email}</TableCell>
                                             <TableCell className="text-right">
                                                 <Switch
@@ -149,4 +149,3 @@ export default function AdminUsersPage() {
         </div>
     );
 }
-

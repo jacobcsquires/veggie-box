@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -325,7 +326,7 @@ export default function AdminCustomersPage() {
                             ) : (
                                 filteredCustomers.map((customer) => (
                                     <TableRow key={customer.id} onClick={() => router.push(`/admin/customers/${customer.id}`)} className="cursor-pointer">
-                                        <TableCell className="font-medium">{customer.name || 'N/A'}</TableCell>
+                                        <TableCell className="font-medium">{customer.name || customer.email}</TableCell>
                                         <TableCell className="hidden md:table-cell">{customer.email}</TableCell>
                                         <TableCell className="hidden sm:table-cell">
                                             <Badge variant={customer.status === 'active' ? 'default' : 'secondary'} className="capitalize">{customer.status?.charAt(0).toUpperCase() + customer.status?.slice(1) || 'Inactive'}</Badge>
