@@ -421,8 +421,9 @@ export default function AdminCustomersPage() {
                         <div className="grid gap-2">
                             <Label htmlFor="template">Use a Template (Optional)</Label>
                             <Select value={selectedTemplateId} onValueChange={(value) => {
-                                setSelectedTemplateId(value);
-                                const template = emailTemplates.find(t => t.id === value);
+                                const newSelectedId = value === 'none' ? '' : value;
+                                setSelectedTemplateId(newSelectedId);
+                                const template = emailTemplates.find(t => t.id === newSelectedId);
                                 if (template) {
                                     setEmailSubject(template.subject);
                                     setEmailBody(template.body);
@@ -436,7 +437,7 @@ export default function AdminCustomersPage() {
                                     <SelectValue placeholder="Select a template" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">-- No Template --</SelectItem>
+                                    <SelectItem value="none">-- No Template --</SelectItem>
                                     {emailTemplates.map(template => (
                                         <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
                                     ))}
