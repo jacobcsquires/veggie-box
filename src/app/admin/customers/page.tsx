@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -18,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function AdminCustomersPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -33,7 +33,13 @@ export default function AdminCustomersPage() {
     const [isCreating, setIsCreating] = useState(false);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
-    const [isSendingEmail, setIsSendingEmail] = useState<string | null>(null);
+    
+    // State for sending email dialog
+    const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+    const [customerToSendEmail, setCustomerToSendEmail] = useState<Customer | null>(null);
+    const [emailSubject, setEmailSubject] = useState('');
+    const [emailBody, setEmailBody] = useState('');
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
 
 
     useEffect(() => {
@@ -106,28 +112,36 @@ export default function AdminCustomersPage() {
         setEmail('');
     }
 
-    const handleSendTestEmail = async (customer: Customer) => {
-        if (!customer.email) {
+    const handleOpenEmailDialog = (customer: Customer) => {
+        setCustomerToSendEmail(customer);
+        setEmailSubject('');
+        setEmailBody('');
+        setIsEmailDialogOpen(true);
+    };
+
+    const handleSendEmail = async () => {
+        if (!customerToSendEmail || !emailSubject || !emailBody) {
             toast({
                 variant: 'destructive',
-                title: 'Error',
-                description: 'Customer does not have an email address.',
+                title: 'Missing Fields',
+                description: 'Please fill out both the subject and body of the email.',
             });
             return;
         }
-        setIsSendingEmail(customer.id);
+        setIsSendingEmail(true);
         try {
             await addDoc(collection(db, 'mail'), {
-                to: customer.email,
+                to: customerToSendEmail.email,
                 message: {
-                    subject: 'Test Email from Veggie Box',
-                    html: `Hello ${customer.name || 'there'},<br><br>This is a test email to confirm the email functionality is working.`,
+                    subject: emailSubject,
+                    html: emailBody.replace(/\n/g, '<br>'),
                 },
             });
             toast({
-                title: 'Success',
-                description: `Test email sent to ${customer.email}.`,
+                title: 'Email Queued',
+                description: `Your email to ${customerToSendEmail.email} is being sent.`,
             });
+            setIsEmailDialogOpen(false);
         } catch (error: any) {
             toast({
                 variant: 'destructive',
@@ -136,7 +150,7 @@ export default function AdminCustomersPage() {
             });
             console.error('Failed to send email:', error);
         } finally {
-            setIsSendingEmail(null);
+            setIsSendingEmail(false);
         }
     };
 
@@ -274,16 +288,11 @@ export default function AdminCustomersPage() {
                                                     className="hover:bg-muted"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleSendTestEmail(customer);
+                                                        handleOpenEmailDialog(customer);
                                                     }}
-                                                    disabled={isSendingEmail === customer.id}
                                                 >
-                                                     {isSendingEmail === customer.id ? (
-                                                        <RefreshCw className="h-4 w-4 animate-spin" />
-                                                    ) : (
-                                                        <Mail className="h-4 w-4" />
-                                                    )}
-                                                    <span className="sr-only">Send Test Email</span>
+                                                    <Mail className="h-4 w-4" />
+                                                    <span className="sr-only">Send Email</span>
                                                 </Button>
                                                 <Button variant="ghost" size="icon" className="hover:bg-muted" asChild onClick={(e) => e.stopPropagation()}>
                                                     <a href={`https://dashboard.stripe.com/test/customers/${customer.id}`} target="_blank" rel="noopener noreferrer">
@@ -300,7 +309,33 @@ export default function AdminCustomersPage() {
                     </Table>
                 </CardContent>
             </Card>
+
+            <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Send Email to {customerToSendEmail?.name}</DialogTitle>
+                        <DialogDescription>
+                            Compose and send an email directly to {customerToSendEmail?.email}. The email will be sent via the Trigger Email extension.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="subject">Subject</Label>
+                            <Input id="subject" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder="Your message subject" disabled={isSendingEmail} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="body">Body</Label>
+                            <Textarea id="body" value={emailBody} onChange={(e) => setEmailBody(e.target.value)} disabled={isSendingEmail} rows={10} placeholder="Write your message here..." />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={handleSendEmail} disabled={isSendingEmail}>
+                            {isSendingEmail && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                            Send Email
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
-    
