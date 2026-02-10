@@ -14,6 +14,7 @@ import {
   Globe,
   Settings,
   ChevronRight,
+  Mail,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -52,6 +53,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const settingsNavItems = [
     { href: "/admin/profile", icon: User, label: "Profile" },
     { href: "/admin/users", icon: Users, label: "User Management" },
+    { href: "/admin/templates", icon: Mail, label: "Email Templates" },
     { href: "/admin/portal", icon: Globe, label: "Customer Portal" },
   ];
 

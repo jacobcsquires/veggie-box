@@ -71,3 +71,11 @@ export type Customer = {
     status: 'active' | 'inactive';
     activeSubscriptionCount: number;
 }
+
+export type EmailTemplate = {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  createdAt: Timestamp;
+};

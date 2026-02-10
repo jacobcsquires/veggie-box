@@ -3,9 +3,9 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, onSnapshot, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Customer, Subscription, AppUser } from '@/lib/types';
+import type { Customer, AppUser, EmailTemplate } from '@/lib/types';
 import { Search, RefreshCw, PlusCircle, ExternalLink, Users, Mail, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -29,6 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 export default function AdminCustomersPage() {
@@ -53,6 +54,8 @@ export default function AdminCustomersPage() {
     const [emailSubject, setEmailSubject] = useState('');
     const [emailBody, setEmailBody] = useState('');
     const [isSendingEmail, setIsSendingEmail] = useState(false);
+    const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
     // State for delete confirmation
     const [isDeleting, setIsDeleting] = useState(false);
@@ -72,10 +75,16 @@ export default function AdminCustomersPage() {
             const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
             setUsers(usersData);
         });
+
+        const unsubscribeTemplates = onSnapshot(query(collection(db, 'emailTemplates'), orderBy('name')), (snapshot) => {
+            const templatesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EmailTemplate));
+            setEmailTemplates(templatesData);
+        });
         
         return () => {
             unsubscribeCustomers();
             unsubscribeUsers();
+            unsubscribeTemplates();
         }
     }, []);
 
@@ -141,6 +150,7 @@ export default function AdminCustomersPage() {
         setCustomerToSendEmail(customer);
         setEmailSubject('');
         setEmailBody('');
+        setSelectedTemplateId('');
         setIsEmailDialogOpen(true);
     };
 
@@ -155,11 +165,16 @@ export default function AdminCustomersPage() {
         }
         setIsSendingEmail(true);
         try {
+            let finalBody = emailBody;
+            if (customerToSendEmail?.name) {
+                finalBody = finalBody.replace(/{{customerName}}/g, customerToSendEmail.name);
+            }
+            
             await addDoc(collection(db, 'mail'), {
                 to: [customerToSendEmail.email],
                 message: {
                     subject: emailSubject,
-                    html: emailBody.replace(/\n/g, '<br>'),
+                    html: finalBody.replace(/\n/g, '<br>'),
                 },
             });
             toast({
@@ -215,10 +230,8 @@ export default function AdminCustomersPage() {
     };
 
     const filteredCustomers = useMemo(() => {
-        // Create a map of users by UID for efficient lookup
         const usersMap = new Map(users.map(u => [u.uid, u]));
 
-        // Enrich customer data with displayName from users collection if name is missing
         const enrichedCustomers = customers.map(customer => {
             if (!customer.name && customer.userId) {
                 const user = usersMap.get(customer.userId);
@@ -348,7 +361,7 @@ export default function AdminCustomersPage() {
                             ) : (
                                 filteredCustomers.map((customer) => (
                                     <TableRow key={customer.id} onClick={() => router.push(`/admin/customers/${customer.id}`)} className="cursor-pointer">
-                                        <TableCell className="font-medium">{customer.name}</TableCell>
+                                        <TableCell className="font-medium">{customer.name || customer.email}</TableCell>
                                         <TableCell className="hidden md:table-cell">{customer.email}</TableCell>
                                         <TableCell className="hidden sm:table-cell">
                                             <Badge variant={customer.status === 'active' ? 'default' : 'secondary'} className="capitalize">{customer.status?.charAt(0).toUpperCase() + customer.status?.slice(1) || 'Inactive'}</Badge>
@@ -397,21 +410,46 @@ export default function AdminCustomersPage() {
             </Card>
 
             <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>Send Email to {customerToSendEmail?.name}</DialogTitle>
                         <DialogDescription>
                             Compose and send an email directly to {customerToSendEmail?.email}. The email will be sent via the Trigger Email extension.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                    <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="template">Use a Template (Optional)</Label>
+                            <Select value={selectedTemplateId} onValueChange={(value) => {
+                                setSelectedTemplateId(value);
+                                const template = emailTemplates.find(t => t.id === value);
+                                if (template) {
+                                    setEmailSubject(template.subject);
+                                    setEmailBody(template.body);
+                                } else {
+                                    setEmailSubject('');
+                                    setEmailBody('');
+                                }
+                            }}
+                            disabled={isSendingEmail}>
+                                <SelectTrigger id="template">
+                                    <SelectValue placeholder="Select a template" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">-- No Template --</SelectItem>
+                                    {emailTemplates.map(template => (
+                                        <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="grid gap-2">
                             <Label htmlFor="subject">Subject</Label>
                             <Input id="subject" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder="Your message subject" disabled={isSendingEmail} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="body">Body</Label>
-                            <Textarea id="body" value={emailBody} onChange={(e) => setEmailBody(e.target.value)} disabled={isSendingEmail} rows={10} placeholder="Write your message here..." />
+                            <Textarea id="body" value={emailBody} onChange={(e) => setEmailBody(e.target.value)} disabled={isSendingEmail} rows={10} placeholder="Write your message here... You can use {{customerName}} as a placeholder." />
                         </div>
                     </div>
                     <DialogFooter>
