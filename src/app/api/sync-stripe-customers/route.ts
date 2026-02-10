@@ -73,10 +73,22 @@ export async function POST() {
         const activeSubscriptionCount = subscriptionCounts[stripeCustomer.id] || 0;
         const newStatus = activeSubscriptionCount > 0 ? 'active' : 'inactive';
 
+        // Logic to determine the best name and update Stripe if necessary
+        let finalName = stripeCustomer.name;
+        if (!finalName && user?.displayName) {
+            // Stripe is missing a name, but we have one from Firebase Auth. Let's use it and update Stripe.
+            finalName = user.displayName;
+            try {
+                await stripe.customers.update(stripeCustomer.id, { name: finalName });
+            } catch (e) {
+                console.error(`Failed to update Stripe customer name for ${stripeCustomer.id}`, e);
+            }
+        }
+
         if (existingFirestoreCustomer) {
             // Customer exists in both, update if different
             const updates: { [key: string]: any } = {};
-            if (existingFirestoreCustomer.name !== stripeCustomer.name) updates.name = stripeCustomer.name;
+            if (existingFirestoreCustomer.name !== finalName) updates.name = finalName;
             if (existingFirestoreCustomer.email !== stripeCustomer.email) updates.email = stripeCustomer.email;
             if (existingFirestoreCustomer.userId !== (user?.uid || null)) updates.userId = user?.uid || null;
             if (existingFirestoreCustomer.activeSubscriptionCount !== activeSubscriptionCount) updates.activeSubscriptionCount = activeSubscriptionCount;
@@ -91,7 +103,7 @@ export async function POST() {
         } else {
             // Customer exists in Stripe but not Firestore -> Create it
             const customerData: Omit<Customer, 'id'> = {
-                name: stripeCustomer.name,
+                name: finalName,
                 email: stripeCustomer.email,
                 createdAt: Timestamp.fromMillis(stripeCustomer.created * 1000),
                 userId: user?.uid,

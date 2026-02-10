@@ -41,6 +41,10 @@ export async function POST(request: Request) {
     let customer;
     if (customerSearch.data.length > 0) {
         customer = customerSearch.data[0];
+        // If the existing customer doesn't have a name, but we do, update them.
+        if (!customer.name && customerName) {
+            customer = await stripe.customers.update(customer.id, { name: customerName });
+        }
     } else {
         customer = await stripe.customers.create({ email: email, name: customerName });
     }
