@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { collection, onSnapshot, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Customer, Subscription } from '@/lib/types';
-import { Search, RefreshCw, PlusCircle, ExternalLink, Users, Mail } from 'lucide-react';
+import { Search, RefreshCw, PlusCircle, ExternalLink, Users, Mail, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -18,6 +18,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 
 export default function AdminCustomersPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -40,6 +51,11 @@ export default function AdminCustomersPage() {
     const [emailSubject, setEmailSubject] = useState('');
     const [emailBody, setEmailBody] = useState('');
     const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+    // State for delete confirmation
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
 
     useEffect(() => {
@@ -131,7 +147,7 @@ export default function AdminCustomersPage() {
         setIsSendingEmail(true);
         try {
             await addDoc(collection(db, 'mail'), {
-                to: customerToSendEmail.email,
+                to: [customerToSendEmail.email],
                 message: {
                     subject: emailSubject,
                     html: emailBody.replace(/\n/g, '<br>'),
@@ -151,6 +167,41 @@ export default function AdminCustomersPage() {
             console.error('Failed to send email:', error);
         } finally {
             setIsSendingEmail(false);
+        }
+    };
+    
+    const handleOpenDeleteDialog = (customer: Customer) => {
+        setCustomerToDelete(customer);
+        setIsDeleteDialogOpen(true);
+    };
+
+    const confirmDeleteCustomer = async () => {
+        if (!customerToDelete) return;
+
+        setIsDeleting(true);
+        try {
+            const response = await fetch('/api/delete-stripe-customer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customerId: customerToDelete.id }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to delete customer.');
+            }
+
+            toast({ title: 'Success', description: `Customer "${customerToDelete.name}" has been deleted.` });
+            setIsDeleteDialogOpen(false);
+            setCustomerToDelete(null);
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error.message || 'Could not delete the customer.',
+            });
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -300,6 +351,18 @@ export default function AdminCustomersPage() {
                                                         <span className="sr-only">View in Stripe</span>
                                                     </a>
                                                 </Button>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon"
+                                                    className="hover:bg-muted text-destructive hover:text-destructive"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleOpenDeleteDialog(customer);
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                    <span className="sr-only">Delete Customer</span>
+                                                </Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -336,6 +399,23 @@ export default function AdminCustomersPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the customer "{customerToDelete?.name}" and cancel all of their active subscriptions in Stripe.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmDeleteCustomer} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                        {isDeleting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                        Yes, delete customer
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
