@@ -45,6 +45,7 @@ export type Subscription = {
     customerEmail?: string;
     notes?: string;
     trialEnd?: number | null;
+    skippedPickups?: string[];
 }
 
 export type Pickup = {

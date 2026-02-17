@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
-import { collection, query, where, onSnapshot, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, doc, updateDoc, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Pickup } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -26,13 +26,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Pencil } from 'lucide-react';
+import { Loader2, Pencil, CalendarX, Calendar as CalendarIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
@@ -55,6 +55,8 @@ export default function SubscriptionsPage() {
   const [isSkipDialogOpen, setIsSkipDialogOpen] = useState(false);
   const [subToSkip, setSubToSkip] = useState<Subscription | null>(null);
   const [isSkipping, setIsSkipping] = useState(false);
+  const [upcomingPickups, setUpcomingPickups] = useState<PickupInternal[]>([]);
+  const [isLoadingPickups, setIsLoadingPickups] = useState(false);
 
 
   useEffect(() => {
@@ -102,6 +104,23 @@ export default function SubscriptionsPage() {
         unsubscribeSubs();
     };
   }, [user, toast]);
+
+    useEffect(() => {
+        if (subToSkip && isSkipDialogOpen) {
+            setIsLoadingPickups(true);
+            const today = format(new Date(), 'yyyy-MM-dd');
+            const pickupsRef = collection(db, 'boxes', subToSkip.boxId, 'pickups');
+            const q = query(pickupsRef, where('pickupDate', '>=', today), orderBy('pickupDate'));
+
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const pickupsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as PickupInternal);
+                setUpcomingPickups(pickupsData);
+                setIsLoadingPickups(false);
+            });
+
+            return () => unsubscribe();
+        }
+    }, [subToSkip, isSkipDialogOpen]);
   
   const handleManageSubscription = async (customerId?: string) => {
     if (!customerId) {
@@ -320,22 +339,47 @@ export default function SubscriptionsPage() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-        <AlertDialog open={isSkipDialogOpen} onOpenChange={setIsSkipDialogOpen}>
-          <AlertDialogContent>
-              <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure you want to skip your next pickup?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                      This will pause your subscription for one billing cycle. You won't be charged, and your subscription will automatically resume afterwards.
-                  </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setSubToSkip(null)}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={confirmSkipPickup} disabled={isSkipping}>
-                      {isSkipping ? 'Processing...' : 'Yes, Skip Pickup'}
-                  </AlertDialogAction>
-              </AlertDialogFooter>
-          </AlertDialogContent>
-      </AlertDialog>
+
+        <Dialog open={isSkipDialogOpen} onOpenChange={setIsSkipDialogOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Skip Next Pickup for {subToSkip?.boxName}</DialogTitle>
+                  <DialogDescription>
+                      This will pause your subscription for one billing cycle. You won't be charged, and it will resume automatically. Below is your upcoming schedule for this plan.
+                  </DialogDescription>
+              </DialogHeader>
+               <div className="space-y-4">
+                    <h3 className="font-semibold text-sm mb-2">Upcoming Pickup Dates</h3>
+                    {isLoadingPickups ? (
+                        <div className="flex items-center justify-center h-24">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : upcomingPickups.length > 0 ? (
+                        <ScrollArea className="h-40 rounded-md border">
+                            <div className="p-4 text-sm">
+                            {upcomingPickups.map(pickup => (
+                                <div key={pickup.id} className="mb-2 flex items-center gap-3">
+                                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                                    <p className="font-medium">{format(parseISO(pickup.pickupDate), 'PPP')}</p>
+                                </div>
+                            ))}
+                            </div>
+                        </ScrollArea>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-24 text-center p-4 rounded-md border">
+                            <CalendarX className="h-8 w-8 text-muted-foreground mb-2" />
+                            <p className="text-sm text-muted-foreground">No upcoming pickups scheduled.</p>
+                        </div>
+                    )}
+               </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsSkipDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={confirmSkipPickup} disabled={isSkipping || isLoadingPickups || upcomingPickups.length === 0}>
+                      {isSkipping ? 'Processing...' : 'Yes, Skip Next Pickup'}
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }
