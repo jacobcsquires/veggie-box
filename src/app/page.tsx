@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { Box, PricingOption } from '@/lib/types';
+import type { Box, PricingOption, AddOn } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -36,6 +36,8 @@ import Link from 'next/link';
 import { Sprout } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 type PickupInternal = {
   id: string;
@@ -76,6 +78,10 @@ export default function HomePage() {
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
   const [isJoiningWaitlist, setIsJoiningWaitlist] = useState(false);
   const [waitlistedBoxes, setWaitlistedBoxes] = useState<string[]>([]);
+  
+  const [addOns, setAddOns] = useState<AddOn[]>([]);
+  const [isLoadingAddOns, setIsLoadingAddOns] = useState(false);
+  const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -92,7 +98,18 @@ export default function HomePage() {
       setBoxes(boxesData);
       setIsLoading(false);
     });
-    return () => unsubscribe();
+    
+    setIsLoadingAddOns(true);
+    const unsubscribeAddOns = onSnapshot(collection(db, 'addOns'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AddOn));
+      setAddOns(data);
+      setIsLoadingAddOns(false);
+    });
+    
+    return () => {
+        unsubscribe();
+        unsubscribeAddOns();
+    };
   }, []);
 
   useEffect(() => {
@@ -200,10 +217,11 @@ export default function HomePage() {
       if (selectedBox.pricingOptions && selectedBox.pricingOptions.length > 0) {
         setSelectedPriceId(selectedBox.pricingOptions[0].id);
       }
-
+      return () => unsubscribe();
     } else {
       setUpcomingPickups([]);
       setSelectedPriceId(null);
+      setSelectedAddOns([]);
     }
   }, [selectedBox, isDialogOpen]);
 
@@ -254,6 +272,7 @@ export default function HomePage() {
                 priceId: selectedPricingOption.id,
                 price: selectedPricingOption.price,
                 priceName: selectedPricingOption.name,
+                addOns: selectedAddOns,
             }),
         });
 
@@ -414,21 +433,21 @@ export default function HomePage() {
       </footer>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Subscribe to {selectedBox?.name}</DialogTitle>
               <DialogDescription>
                 Confirm your subscription. Your first pickup will be on the next available date.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
               <div>
                 <h3 className="font-semibold text-sm mb-2">Pricing Options</h3>
                 <RadioGroup value={selectedPriceId ?? ''} onValueChange={setSelectedPriceId}>
                     {selectedBox?.pricingOptions.map(option => (
                         <div key={option.id} className="flex items-center space-x-2 rounded-md border p-3">
-                            <RadioGroupItem value={option.id} id={option.id} />
-                            <Label htmlFor={option.id} className="flex flex-col w-full cursor-pointer">
+                            <RadioGroupItem value={option.id} id={`page-${option.id}`} />
+                            <Label htmlFor={`page-${option.id}`} className="flex flex-col w-full cursor-pointer">
                                 <div className="flex justify-between items-center">
                                     <span className="font-medium">{option.name}</span>
                                     <span className="font-bold">${option.price.toFixed(2)}</span>
@@ -464,6 +483,43 @@ export default function HomePage() {
                     </div>
                 )}
                </div>
+                <Separator />
+                 <div>
+                    <h3 className="font-semibold text-sm mb-2">Available Add-ons</h3>
+                    {isLoadingAddOns ? (
+                        <div className="flex items-center justify-center h-24">
+                            <Icons.Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : addOns.length > 0 ? (
+                        <ScrollArea className="h-40 rounded-md border">
+                            <div className="p-4 space-y-4">
+                            {addOns.map(addOn => (
+                                <div key={addOn.id} className="flex items-start space-x-3">
+                                    <Checkbox
+                                        id={`addon-page-${addOn.id}`}
+                                        onCheckedChange={(checked) => {
+                                            setSelectedAddOns(prev => 
+                                                checked 
+                                                ? [...prev, addOn.stripePriceId] 
+                                                : prev.filter(id => id !== addOn.stripePriceId)
+                                            );
+                                        }}
+                                    />
+                                    <div className="grid gap-1.5 leading-none">
+                                    <Label htmlFor={`addon-page-${addOn.id}`} className="font-medium cursor-pointer">
+                                        {addOn.name}
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">{addOn.description}</p>
+                                    <p className="text-sm font-bold">${addOn.price.toFixed(2)} / {addOn.frequency.replace('-weekly','wk').replace('bi-weekly', '2wk').replace('monthly', 'mo')}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            </div>
+                        </ScrollArea>
+                    ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">No add-ons available.</p>
+                    )}
+                </div>
             </div>
             <DialogFooter className="pt-4">
               <Button onClick={handleConfirmSubscription} disabled={isSubscribing || isLoadingPickups || upcomingPickups.length === 0} className="w-full">

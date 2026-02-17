@@ -11,7 +11,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 export async function POST(request: Request) {
-  const { boxId, userId, customerName, email, startDate, priceId, price, priceName } = await request.json();
+  const { boxId, userId, customerName, email, startDate, priceId, price, priceName, addOns } = await request.json();
 
   if (!boxId || !userId || !email || !startDate || !priceId || !price) {
     return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
@@ -63,14 +63,25 @@ export async function POST(request: Request) {
 
     const billingCycleAnchor = new Date(`${startDate}T00:00:00.000Z`).getTime() / 1000;
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
         {
           price: priceId,
           quantity: 1,
         },
-      ],
+    ];
+
+    if (addOns && Array.isArray(addOns) && addOns.length > 0) {
+        for (const addOnPriceId of addOns) {
+            lineItems.push({
+            price: addOnPriceId,
+            quantity: 1,
+            });
+        }
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: lineItems,
       mode: 'subscription',
       subscription_data: {
         billing_cycle_anchor: billingCycleAnchor,
@@ -89,6 +100,7 @@ export async function POST(request: Request) {
         priceName: priceName || '',
         startDate,
         stripeCustomerId: customer.id,
+        addOnPriceIds: addOns?.join(',') || '',
       },
     });
 

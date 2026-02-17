@@ -38,6 +38,12 @@ export type AddOn = {
   createdAt?: any;
 };
 
+export type AddOnItem = {
+    priceId: string;
+    name: string;
+    price: number;
+}
+
 export type Subscription = {
     id: string;
     userId: string;
@@ -59,6 +65,7 @@ export type Subscription = {
     notes?: string;
     trialEnd?: number | null;
     skippedPickups?: string[];
+    addOns?: AddOnItem[];
 }
 
 export type Pickup = {

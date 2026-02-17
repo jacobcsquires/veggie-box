@@ -4,7 +4,7 @@ import Stripe from 'stripe';
 import { headers } from 'next/headers';
 import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, getDoc, setDoc, limit, runTransaction, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription, Box, AppUser, Customer } from '@/lib/types';
+import type { Subscription, Box, AppUser, Customer, AddOnItem, AddOn } from '@/lib/types';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
-      const { boxId, userId, customerName, price, priceId, priceName, startDate, boxName } = session.metadata || {};
+      const { boxId, userId, customerName, price, priceId, priceName, startDate, boxName, addOnPriceIds } = session.metadata || {};
 
       if (!boxId || !userId || !priceId || !price || !startDate) {
         console.error('Webhook Error: Missing required metadata in checkout session.');
@@ -136,6 +136,26 @@ export async function POST(req: Request) {
       if (!existingSubSnapshot.empty) {
           console.log(`Webhook: Subscription for session ${session.id} already processed. Skipping.`);
           return NextResponse.json({ received: true, message: "Already processed." });
+      }
+
+      // Fetch addons info BEFORE the transaction
+      let addOnsData: AddOnItem[] = [];
+      if (addOnPriceIds) {
+        const addOnPriceIdList = addOnPriceIds.split(',');
+        if (addOnPriceIdList.length > 0 && addOnPriceIdList[0] !== '') {
+            const addOnsQuery = query(collection(db, 'addOns'), where('stripePriceId', 'in', addOnPriceIdList));
+            const addOnsSnapshot = await getDocs(addOnsQuery);
+            if (!addOnsSnapshot.empty) {
+            addOnsData = addOnsSnapshot.docs.map(doc => {
+                const addOn = doc.data() as AddOn;
+                return {
+                    name: addOn.name,
+                    price: addOn.price,
+                    priceId: addOn.stripePriceId,
+                };
+            });
+            }
+        }
       }
 
       const subscriptionRef = doc(collection(db, 'subscriptions'));
@@ -168,7 +188,7 @@ export async function POST(req: Request) {
                 customerName: customerName || session.customer_details?.name || 'N/A',
                 boxId,
                 boxName: currentBoxData.name,
-                price: parseFloat(price),
+                price: session.amount_total ? session.amount_total / 100 : parseFloat(price),
                 priceId,
                 priceName: priceName || '',
                 status: 'Active',
@@ -178,6 +198,7 @@ export async function POST(req: Request) {
                 stripeCustomerId: session.customer as string,
                 stripeSubscriptionId: session.subscription as string,
                 stripeSessionId: session.id,
+                addOns: addOnsData,
             };
             transaction.set(subscriptionRef, subscriptionData);
         });
@@ -199,7 +220,7 @@ export async function POST(req: Request) {
                     <p>Your subscription to the <strong>${freshBoxData.name}</strong> is confirmed.</p>
                     <p>
                         <strong>Plan:</strong> ${priceName || ''}<br>
-                        <strong>Price:</strong> $${parseFloat(price).toFixed(2)} per ${freshBoxData.frequency.replace('-ly','')}
+                        <strong>Price:</strong> $${(session.amount_total ? session.amount_total / 100 : parseFloat(price)).toFixed(2)} per ${freshBoxData.frequency.replace('-ly','')}
                     </p>
                     <p>Your first pickup date is scheduled for <strong>${startDate}</strong>.</p>
                     <p>You can manage your subscription anytime by visiting your dashboard.</p>
@@ -250,6 +271,7 @@ export async function POST(req: Request) {
           const updateData: Partial<Subscription> = {
             status: 'Active', // Ensure status is active
             lastCharged: lastCharged,
+            price: invoice.amount_paid / 100, // Update price from invoice total
           };
 
           if (newNextPickup) {
