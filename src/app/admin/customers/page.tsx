@@ -48,6 +48,7 @@ export default function AdminCustomersPage() {
     const [isCreating, setIsCreating] = useState(false);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     
     // State for sending email dialog
     const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
@@ -115,7 +116,7 @@ export default function AdminCustomersPage() {
     };
     
     const handleCreateCustomer = async () => {
-        if (!name || !email) {
+        if (!name || !email || !phone) {
             toast({ variant: 'destructive', title: 'Error', description: 'Please fill out all fields.'});
             return;
         }
@@ -125,7 +126,7 @@ export default function AdminCustomersPage() {
             const response = await fetch('/api/create-stripe-customer', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email }),
+                body: JSON.stringify({ name, email, phone }),
             });
             if (!response.ok) {
                 const error = await response.json();
@@ -145,6 +146,7 @@ export default function AdminCustomersPage() {
         setIsNewCustomerDialogOpen(false);
         setName('');
         setEmail('');
+        setPhone('');
     }
 
     const handleOpenEmailDialog = (customer: Customer) => {
@@ -297,6 +299,10 @@ export default function AdminCustomersPage() {
                                 <div className="grid gap-2">
                                     <Label htmlFor="email">Email Address</Label>
                                     <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isCreating}/>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="phone">Phone Number</Label>
+                                    <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={isCreating}/>
                                 </div>
                             </div>
                             <DialogFooter>

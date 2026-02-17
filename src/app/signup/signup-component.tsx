@@ -25,6 +25,7 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [phone, setPhone] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
@@ -52,6 +53,7 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
                 uid: user.uid,
                 displayName: fullName,
                 email: user.email,
+                phone: phone,
                 createdAt: serverTimestamp(),
                 isAdmin: false,
             });
@@ -81,6 +83,7 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
                     uid: user.uid,
                     displayName: user.displayName,
                     email: user.email,
+                    phone: user.phoneNumber,
                     createdAt: serverTimestamp(),
                     isAdmin: false,
                 });
@@ -136,8 +139,12 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
                     />
                 </div>
                 <div className="grid gap-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input id="phone" type="tel" placeholder="123-456-7890" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={isLoading || isGoogleLoading}/>
+                </div>
+                <div className="grid gap-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading || isGoogleLoading} />
+                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading || isGoogleLoading} required />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
                     {isLoading ? "Creating account..." : "Create an account"}

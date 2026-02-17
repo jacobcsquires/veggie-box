@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Box } from '@/lib/types';
+import type { Box, AppUser } from '@/lib/types';
 
 // Make sure to set the STRIPE_SECRET_KEY environment variable
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -35,18 +35,30 @@ export async function POST(request: Request) {
         throw new Error("Sorry, sign-ups for this Veggie Box Plan are currently closed.");
     }
 
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    const phone = userDoc.exists() ? (userDoc.data() as AppUser).phone : null;
+
 
     // Check if a customer already exists in Stripe
     const customerSearch = await stripe.customers.list({ email: email, limit: 1 });
     let customer;
     if (customerSearch.data.length > 0) {
         customer = customerSearch.data[0];
+        const updatePayload: Stripe.CustomerUpdateParams = {};
         // If the existing customer doesn't have a name, but we do, update them.
         if (!customer.name && customerName) {
-            customer = await stripe.customers.update(customer.id, { name: customerName });
+            updatePayload.name = customerName;
+        }
+        if (!customer.phone && phone) {
+            updatePayload.phone = phone;
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+            customer = await stripe.customers.update(customer.id, updatePayload);
         }
     } else {
-        customer = await stripe.customers.create({ email: email, name: customerName });
+        customer = await stripe.customers.create({ email: email, name: customerName, phone });
     }
 
     const billingCycleAnchor = new Date(`${startDate}T00:00:00.000Z`).getTime() / 1000;

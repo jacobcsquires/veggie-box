@@ -12,9 +12,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(request: Request) {
   try {
-    const { name, email } = await request.json();
+    const { name, email, phone } = await request.json();
 
-    if (!name || !email) {
+    if (!name || !email || !phone) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
@@ -22,12 +22,14 @@ export async function POST(request: Request) {
     const stripeCustomer = await stripe.customers.create({
         name,
         email,
+        phone,
     });
 
     // 2. Create customer in Firestore
     const customerData: Omit<Customer, 'id'> = {
         name,
         email,
+        phone,
         createdAt: serverTimestamp() as any,
         activeSubscriptionCount: 0,
         status: 'inactive',

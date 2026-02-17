@@ -60,6 +60,7 @@ export type AppUser = {
   email: string | null;
   displayName: string | null;
   isAdmin?: boolean;
+  phone?: string | null;
 }
 
 export type Customer = {
@@ -70,6 +71,7 @@ export type Customer = {
     createdAt: Timestamp;
     status: 'active' | 'inactive';
     activeSubscriptionCount: number;
+    phone?: string | null;
 }
 
 export type EmailTemplate = {
