@@ -233,7 +233,7 @@ export default function AdminAddOnsPage() {
                     </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                         <Label htmlFor="price">Price ($)</Label>
                         <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} disabled={isSaving}/>
@@ -267,7 +267,7 @@ export default function AdminAddOnsPage() {
       </div>
 
         {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-80 w-full" />)}
             </div>
         ) : addOns.length === 0 ? (
@@ -275,7 +275,7 @@ export default function AdminAddOnsPage() {
                 <p>No add-ons created yet. Click "New Add-on" to get started.</p>
             </div>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {addOns.map(addon => (
                     <Card key={addon.id} className="flex flex-col">
                         <CardHeader className="p-0">
