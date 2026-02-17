@@ -219,7 +219,7 @@ export default function SubscriptionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold md:text-2xl font-headline">
-            My Subscriptions
+            Manage Subscriptions
           </h1>
           <p className="text-muted-foreground mb-4">
             Manage your active and view past subscriptions.
@@ -300,7 +300,7 @@ export default function SubscriptionsPage() {
                 <DialogHeader>
                     <DialogTitle>Add a note for {selectedSubForNote?.boxName}</DialogTitle>
                     <DialogDescription>
-                        Add a note for the farmer. For example, any preferences or allergies.
+                        Add a note regarding this subscription's pickups. For example, specific delivery instructions.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
@@ -309,7 +309,7 @@ export default function SubscriptionsPage() {
                         id="note-content"
                         value={noteContent}
                         onChange={(e) => setNoteContent(e.target.value)}
-                        placeholder="e.g. I'm allergic to tomatoes."
+                        placeholder="e.g. Please leave the box by the back door if I'm not home."
                     />
                 </div>
                 <DialogFooter>
