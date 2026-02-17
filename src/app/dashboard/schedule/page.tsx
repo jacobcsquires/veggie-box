@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -21,7 +22,7 @@ export default function AllSchedulesPage() {
             return;
         }
 
-        const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), where('status', '==', 'Active'));
+        const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), where('status', 'in', ['Active', 'Trialing']));
         
         const unsubSubs = onSnapshot(subsQuery, async (snapshot) => {
             const subsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));

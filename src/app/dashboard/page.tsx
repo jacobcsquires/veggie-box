@@ -40,7 +40,7 @@ export default function DashboardPage() {
             const recentSubs = [...subsData].sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()).slice(0, 5);
             setRecentSubscriptions(recentSubs);
 
-            const activeSubs = subsData.filter(s => s.status === 'Active');
+            const activeSubs = subsData.filter(s => ['Active', 'Trialing'].includes(s.status));
             if (activeSubs.length > 0) {
                 const today = format(new Date(), 'yyyy-MM-dd');
                 let allPickups: Pickup[] = [];
