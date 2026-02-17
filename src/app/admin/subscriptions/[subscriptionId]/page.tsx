@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { Loader2, ExternalLink, ChevronRight, RefreshCw } from 'lucide-react';
+import { Loader2, ExternalLink, ChevronRight } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type Stripe from 'stripe';
@@ -36,7 +36,6 @@ export default function SubscriptionDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isStripeLoading, setIsStripeLoading] = useState(true);
   const [isManagingPortal, setIsManagingPortal] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     if (!subscriptionId) return;
@@ -123,13 +122,6 @@ export default function SubscriptionDetailPage() {
     }
   };
 
-  const handleSync = async () => {
-        setIsSyncing(true);
-        await fetchStripeData();
-        toast({ title: "Sync Complete", description: "Subscription data has been updated from Stripe."})
-        setIsSyncing(false);
-    }
-
 
   if (isLoading) {
     return (
@@ -183,12 +175,6 @@ export default function SubscriptionDetailPage() {
             <p className="text-muted-foreground mt-1">Manage subscription and view payment history.</p>
         </div>
         <div className="flex items-center gap-2">
-            {subscription.stripeSubscriptionId && (
-                <Button onClick={handleSync} disabled={isSyncing || isStripeLoading} variant="outline">
-                    <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                    Sync with Stripe
-                </Button>
-            )}
             <Button onClick={() => handleManageSubscription(subscription.stripeCustomerId)} disabled={isManagingPortal || !subscription.stripeCustomerId}>
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Manage in Stripe

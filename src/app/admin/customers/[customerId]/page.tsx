@@ -89,7 +89,6 @@ export default function CustomerDetailPage() {
             }
             const data = await response.json();
             setStripeData(data);
-            toast({ title: "Sync Complete", description: "Customer data has been refreshed from Stripe."})
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Stripe Error', description: error.message });
         } finally {
@@ -229,10 +228,6 @@ export default function CustomerDetailPage() {
             </div>
         </div>
          <div className="flex items-center gap-2">
-            <Button onClick={fetchStripeData} disabled={isStripeLoading}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${isStripeLoading ? 'animate-spin' : ''}`} />
-                Sync with Stripe
-            </Button>
             <Button asChild>
                 <a href={`https://dashboard.stripe.com/test/customers/${customer.id}`} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="mr-2 h-4 w-4" />

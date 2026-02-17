@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -35,7 +36,6 @@ export default function AdminCustomersPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [users, setUsers] = useState<AppUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isSyncing, setIsSyncing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState('all');
     const router = useRouter();
@@ -87,31 +87,6 @@ export default function AdminCustomersPage() {
             unsubscribeTemplates();
         }
     }, []);
-
-    const handleSync = async () => {
-        setIsSyncing(true);
-        try {
-            const response = await fetch('/api/sync-stripe-customers', {
-                method: 'POST',
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                throw new Error(result.message || 'Failed to sync with Stripe.');
-            }
-            toast({
-                title: 'Sync Complete',
-                description: `${result.createdCount} new customer(s) created, ${result.updatedCount} updated, and ${result.deletedCount || 0} deleted.`,
-            });
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Sync Error',
-                description: error.message,
-            });
-        } finally {
-            setIsSyncing(false);
-        }
-    };
     
     const handleCreateCustomer = async () => {
         if (!name || !email || !phone) {
@@ -324,10 +299,6 @@ export default function AdminCustomersPage() {
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
-                    <Button onClick={handleSync} disabled={isSyncing} variant="outline">
-                        <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                        {isSyncing ? 'Syncing...' : 'Sync with Stripe'}
-                    </Button>
                 </div>
             </div>
 
