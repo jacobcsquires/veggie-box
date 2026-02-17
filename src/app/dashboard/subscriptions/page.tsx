@@ -263,7 +263,7 @@ export default function SubscriptionsPage() {
                     </Button>
                 )}
                 <Button variant="outline" size="sm" onClick={() => handleManageSubscription(sub.stripeCustomerId)} disabled={isManaging}>
-                    {isManaging ? 'Redirecting...' : 'Manage'}
+                    {isManaging ? 'Redirecting...' : 'Update Billing'}
                 </Button>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
