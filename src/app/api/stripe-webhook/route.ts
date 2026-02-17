@@ -212,7 +212,7 @@ export async function POST(req: Request) {
             const freshBoxData = boxDoc.data() as Box;
             
             // Fetch the subscription confirmation email template
-            const templateQuery = query(collection(db, 'emailTemplates'), where('name', '==', 'Subscription Confirmation'), limit(1));
+            const templateQuery = query(collection(db, 'emailTemplates'), where('name', '==', 'Receipt'), limit(1));
             const templateSnapshot = await getDocs(templateQuery);
             
             let emailSubject: string;
@@ -238,7 +238,7 @@ export async function POST(req: Request) {
 
             } else {
                 // Fallback to hardcoded email if template doesn't exist
-                console.warn("Webhook: 'Subscription Confirmation' email template not found. Using fallback.");
+                console.warn("Webhook: 'Receipt' email template not found. Using fallback.");
                 emailSubject = `Your subscription to ${freshBoxData.name} is confirmed!`;
                 emailHtml = `
                     <h1>Thank you, ${customerName || 'there'}!</h1>
