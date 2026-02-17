@@ -28,8 +28,14 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Pencil, CalendarX, Calendar as CalendarIcon, RefreshCw } from 'lucide-react';
+import { Loader2, Pencil, CalendarX, Calendar as CalendarIcon, RefreshCw, MoreHorizontal } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -239,7 +245,7 @@ export default function SubscriptionsPage() {
     if (sub.status === 'Active' || sub.status === 'Trialing') {
         const hasActiveSkip = sub.trialEnd && sub.trialEnd > (Date.now() / 1000);
         return (
-            <>
+            <div className="flex items-center justify-end space-x-2">
                 {hasActiveSkip ? (
                     <Button 
                         variant="outline" 
@@ -248,25 +254,38 @@ export default function SubscriptionsPage() {
                         disabled={isResuming && subToResume?.id === sub.id}
                     >
                         {isResuming && subToResume?.id === sub.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                        Resume Subscription
+                        Resume
                     </Button>
                 ) : (
                     <Button variant="outline" size="sm" onClick={() => handleSkipClick(sub)}>
                         <CalendarX className="mr-2 h-4 w-4" />
-                        Skip Next Pickup
+                        Skip
                     </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={() => handleOpenNoteDialog(sub)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Note
-                </Button>
-                <Button asChild variant="outline" size="sm">
-                    <Link href={`/dashboard/schedule/${sub.boxId}`}>View Schedule</Link>
-                </Button>
                 <Button variant="outline" size="sm" onClick={() => handleManageSubscription(sub.stripeCustomerId)} disabled={isManaging}>
-                    {isManaging ? 'Redirecting...' : 'Update Payment'}
+                    {isManaging ? 'Redirecting...' : 'Manage'}
                 </Button>
-            </>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">More actions</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleOpenNoteDialog(sub)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            <span>Add/Edit Note</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/schedule/${sub.boxId}`}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <span>View Schedule</span>
+                            </Link>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
         )
     }
     return null;
@@ -342,7 +361,7 @@ export default function SubscriptionsPage() {
                     <TableCell className="hidden sm:table-cell text-right">
                       ${sub.price.toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-right space-x-2">
+                    <TableCell className="text-right">
                         {renderSubscriptionActions(sub)}
                     </TableCell>
                   </TableRow>
