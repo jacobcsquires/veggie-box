@@ -39,6 +39,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
@@ -308,67 +309,135 @@ export default function SubscriptionsPage() {
       </div>
       <Card>
         <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Veggie Box Plan</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden md:table-cell">Schedule Dates</TableHead>
-                <TableHead className="hidden sm:table-cell text-right">Price</TableHead>
-                <TableHead className="text-right">
-                    Actions
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+            {/* Mobile View */}
+            <div className="md:hidden">
               {isLoading ? (
-                Array.from({ length: 2 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-48" /></TableCell>
-                    <TableCell className="hidden sm:table-cell text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
-                  </TableRow>
-                ))
+                <div className="space-y-4">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <Card key={i} className="p-4 space-y-3">
+                       <div className="flex justify-between items-start">
+                          <div className="space-y-2">
+                              <Skeleton className="h-5 w-32" />
+                              <Skeleton className="h-6 w-20 rounded-full" />
+                          </div>
+                          <Skeleton className="h-6 w-16" />
+                       </div>
+                       <Separator />
+                        <Skeleton className="h-4 w-48" />
+                       <div className="flex items-center justify-end space-x-2 pt-2">
+                          <Skeleton className="h-9 w-24 rounded-md" />
+                          <Skeleton className="h-9 w-24 rounded-md" />
+                       </div>
+                    </Card>
+                  ))}
+                </div>
               ) : subscriptions.length === 0 ? (
-                <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
-                        You have no subscriptions yet.
-                    </TableCell>
-                </TableRow>
+                 <div className="h-24 text-center flex items-center justify-center">
+                    <p className="text-muted-foreground">You have no subscriptions yet.</p>
+                 </div>
               ) : (
-                subscriptions.map((sub) => (
-                  <TableRow key={sub.id}>
-                    <TableCell className="font-medium">{sub.boxName}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          sub.status === 'Active' ? 'default'
-                          : (sub.status === 'Pending' || sub.status === 'Trialing') ? 'secondary'
-                          : 'outline'
-                        }
-                      >
-                        {sub.status === 'Trialing' ? 'Skipped' : sub.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                <div className="space-y-4">
+                  {subscriptions.map((sub) => (
+                    <Card key={sub.id} className="p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="space-y-1">
+                          <p className="font-medium">{sub.boxName}</p>
+                           <Badge
+                            variant={
+                              sub.status === 'Active' ? 'default'
+                              : (sub.status === 'Pending' || sub.status === 'Trialing') ? 'secondary'
+                              : 'outline'
+                            }
+                          >
+                            {sub.status === 'Trialing' ? 'Skipped' : sub.status}
+                          </Badge>
+                        </div>
+                        <p className="font-bold text-lg">${sub.price.toFixed(2)}</p>
+                      </div>
+
+                      <Separator className="my-3" />
+                      
+                      <div className="text-sm text-muted-foreground mb-4">
+                        <strong>Schedule: </strong> 
                         {scheduleRanges[sub.boxId] 
                             ? `${scheduleRanges[sub.boxId]?.start} - ${scheduleRanges[sub.boxId]?.end}`
                             : 'Schedule TBD'
                         }
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-right">
-                      ${sub.price.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                        {renderSubscriptionActions(sub)}
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </div>
+
+                      <div className="flex justify-end">
+                          {renderSubscriptionActions(sub)}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               )}
-            </TableBody>
-          </Table>
+            </div>
+            
+            {/* Desktop View */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Veggie Box Plan</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden md:table-cell">Schedule Dates</TableHead>
+                    <TableHead className="hidden sm:table-cell text-right">Price</TableHead>
+                    <TableHead className="text-right">
+                        Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    Array.from({ length: 2 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-48" /></TableCell>
+                        <TableCell className="hidden sm:table-cell text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-32 ml-auto" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : subscriptions.length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                            You have no subscriptions yet.
+                        </TableCell>
+                    </TableRow>
+                  ) : (
+                    subscriptions.map((sub) => (
+                      <TableRow key={sub.id}>
+                        <TableCell className="font-medium">{sub.boxName}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              sub.status === 'Active' ? 'default'
+                              : (sub.status === 'Pending' || sub.status === 'Trialing') ? 'secondary'
+                              : 'outline'
+                            }
+                          >
+                            {sub.status === 'Trialing' ? 'Skipped' : sub.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                            {scheduleRanges[sub.boxId] 
+                                ? `${scheduleRanges[sub.boxId]?.start} - ${scheduleRanges[sub.boxId]?.end}`
+                                : 'Schedule TBD'
+                            }
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-right">
+                          ${sub.price.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            {renderSubscriptionActions(sub)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
         </CardContent>
       </Card>
 
@@ -441,3 +510,4 @@ export default function SubscriptionsPage() {
     </div>
   );
 }
+
