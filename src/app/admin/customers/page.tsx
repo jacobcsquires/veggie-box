@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -170,17 +168,30 @@ export default function AdminCustomersPage() {
         try {
             let finalBody = emailBody;
             let finalSubject = emailSubject;
+
+            const template = emailTemplates.find(t => t.id === selectedTemplateId);
+
+            let imageHtml = '';
+            if (template?.veggieListImageUrl) {
+                imageHtml += `<p><strong>This week's veggie list:</strong></p><img src="${template.veggieListImageUrl}" alt="Veggie List" style="max-width: 100%; height: auto; margin-bottom: 1rem;" />`;
+            }
+            if (template?.recipeCardImageUrl) {
+                imageHtml += `<p><strong>Recipe suggestion:</strong></p><img src="${template.recipeCardImageUrl}" alt="Recipe Card" style="max-width: 100%; height: auto; margin-bottom: 1rem;" />`;
+            }
+
             if (customerToSendEmail?.name) {
                 const customerName = customerToSendEmail.name;
                 finalBody = finalBody.replace(/{{customerName}}/gi, customerName);
                 finalSubject = finalSubject.replace(/{{customerName}}/gi, customerName);
             }
             
+            const fullHtmlBody = imageHtml + finalBody.replace(/\n/g, '<br>');
+
             await addDoc(collection(db, 'mail'), {
                 to: [customerToSendEmail.email],
                 message: {
                     subject: finalSubject,
-                    html: finalBody.replace(/\n/g, '<br>'),
+                    html: fullHtmlBody,
                 },
             });
             toast({

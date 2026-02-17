@@ -80,4 +80,6 @@ export type EmailTemplate = {
   subject: string;
   body: string;
   createdAt: Timestamp;
+  veggieListImageUrl?: string;
+  recipeCardImageUrl?: string;
 };

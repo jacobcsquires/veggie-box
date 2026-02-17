@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy, query } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { EmailTemplate } from '@/lib/types';
 import { PlusCircle, Trash2, FilePen, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -39,6 +41,11 @@ export default function AdminEmailTemplatesPage() {
     const [name, setName] = useState('');
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
+    const [veggieListImageFile, setVeggieListImageFile] = useState<File | null>(null);
+    const [veggieListImagePreview, setVeggieListImagePreview] = useState<string | null>(null);
+    const [recipeCardImageFile, setRecipeCardImageFile] = useState<File | null>(null);
+    const [recipeCardImagePreview, setRecipeCardImagePreview] = useState<string | null>(null);
+
 
     // Delete confirmation state
     const [isDeleting, setIsDeleting] = useState(false);
@@ -62,6 +69,10 @@ export default function AdminEmailTemplatesPage() {
         setName('');
         setSubject('');
         setBody('');
+        setVeggieListImageFile(null);
+        setVeggieListImagePreview(null);
+        setRecipeCardImageFile(null);
+        setRecipeCardImagePreview(null);
     };
     
     const handleNewTemplateClick = () => {
@@ -74,8 +85,27 @@ export default function AdminEmailTemplatesPage() {
         setName(template.name);
         setSubject(template.subject);
         setBody(template.body);
+        setVeggieListImagePreview(template.veggieListImageUrl || null);
+        setRecipeCardImagePreview(template.recipeCardImageUrl || null);
         setIsDialogOpen(true);
     };
+
+    const handleVeggieListImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          setVeggieListImageFile(file);
+          setVeggieListImagePreview(URL.createObjectURL(file));
+        }
+    };
+    
+    const handleRecipeCardImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          setRecipeCardImageFile(file);
+          setRecipeCardImagePreview(URL.createObjectURL(file));
+        }
+    };
+
 
     const handleSaveTemplate = async () => {
         if (!name || !subject || !body) {
@@ -85,19 +115,35 @@ export default function AdminEmailTemplatesPage() {
         setIsSaving(true);
       
         try {
+            let veggieListImageUrl = editingTemplate?.veggieListImageUrl || null;
+            if (veggieListImageFile) {
+                const storageRef = ref(storage, `emailTemplates/${Date.now()}_${veggieListImageFile.name}`);
+                await uploadBytes(storageRef, veggieListImageFile);
+                veggieListImageUrl = await getDownloadURL(storageRef);
+            }
+    
+            let recipeCardImageUrl = editingTemplate?.recipeCardImageUrl || null;
+            if (recipeCardImageFile) {
+                const storageRef = ref(storage, `emailTemplates/${Date.now()}_${recipeCardImageFile.name}`);
+                await uploadBytes(storageRef, recipeCardImageFile);
+                recipeCardImageUrl = await getDownloadURL(storageRef);
+            }
+
+            const templateData = {
+                name,
+                subject,
+                body,
+                veggieListImageUrl,
+                recipeCardImageUrl,
+                createdAt: serverTimestamp(),
+            };
+
             if (editingTemplate) {
-                // Update existing template
                 const templateRef = doc(db, 'emailTemplates', editingTemplate.id);
-                await updateDoc(templateRef, { name, subject, body, createdAt: serverTimestamp() });
+                await updateDoc(templateRef, templateData);
                 toast({ title: 'Success', description: 'Template updated successfully.'});
             } else {
-                // Create new template
-                await addDoc(collection(db, 'emailTemplates'), {
-                    name,
-                    subject,
-                    body,
-                    createdAt: serverTimestamp(),
-                });
+                await addDoc(collection(db, 'emailTemplates'), templateData);
                 toast({ title: 'Success', description: 'New email template created.'});
             }
             resetDialog();
@@ -237,9 +283,21 @@ export default function AdminEmailTemplatesPage() {
                             <Label htmlFor="subject">Subject</Label>
                             <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} disabled={isSaving} placeholder="Your message subject" />
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="veggie-list-image">Veggie List Image</Label>
+                                {veggieListImagePreview && <Image src={veggieListImagePreview} alt="Veggie List Preview" width={100} height={100} className="rounded-md object-cover" />}
+                                <Input id="veggie-list-image" type="file" accept="image/*" onChange={handleVeggieListImageChange} disabled={isSaving} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="recipe-card-image">Recipe Card Image</Label>
+                                {recipeCardImagePreview && <Image src={recipeCardImagePreview} alt="Recipe Card Preview" width={100} height={100} className="rounded-md object-cover" />}
+                                <Input id="recipe-card-image" type="file" accept="image/*" onChange={handleRecipeCardImageChange} disabled={isSaving} />
+                            </div>
+                        </div>
                         <div className="grid gap-2">
                             <Label htmlFor="body">Body</Label>
-                            <Textarea id="body" value={body} onChange={(e) => setBody(e.target.value)} disabled={isSaving} rows={12} placeholder="Write your message here..." />
+                            <Textarea id="body" value={body} onChange={(e) => setBody(e.target.value)} disabled={isSaving} rows={8} placeholder="Write your message here..." />
                             <p className="text-xs text-muted-foreground">You can use placeholders like {"{{customerName}}"} which will be replaced automatically.</p>
                         </div>
                     </div>
