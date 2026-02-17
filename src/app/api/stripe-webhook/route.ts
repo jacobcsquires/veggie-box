@@ -359,9 +359,10 @@ export async function POST(req: Request) {
         
         try {
             const user = await findUserByEmail(customer.email);
+            const customerName = customer.name || user?.displayName || null;
 
             const customerData: Partial<Customer> = {
-                name: customer.name,
+                name: customerName,
                 email: customer.email,
                 createdAt: serverTimestamp(),
                 userId: user?.uid || null,
@@ -371,6 +372,13 @@ export async function POST(req: Request) {
 
             await setDoc(doc(db, 'customers', customer.id), customerData, { merge: true });
             console.log(`Webhook: Successfully created/merged customer ${customer.id} in Firestore.`);
+            
+            // Back-fill name to Stripe if it was missing and we found a display name
+            if (!customer.name && customerName) {
+                await stripe.customers.update(customer.id, { name: customerName });
+                console.log(`Webhook: Back-filled name for Stripe customer ${customer.id}`);
+            }
+
             return NextResponse.json({ received: true });
         } catch (error) {
             console.error(`Webhook Error: Failed to create customer ${customer.id}`, error);
@@ -387,11 +395,12 @@ export async function POST(req: Request) {
       try {
         const docSnap = await getDoc(customerRef);
         const user = await findUserByEmail(customer.email!);
+        const customerName = customer.name || user?.displayName || null;
 
         if (docSnap.exists()) {
           // Update the local customer record
           await updateDoc(customerRef, {
-            name: customer.name,
+            name: customerName,
             email: customer.email,
             userId: user?.uid || null,
           });
@@ -401,7 +410,7 @@ export async function POST(req: Request) {
           console.warn(`Webhook: Received customer.updated for ${customer.id}, but customer does not exist in Firestore. Creating it now.`);
           
           const customerData: Omit<Customer, 'id'> = {
-                name: customer.name,
+                name: customerName,
                 email: customer.email!,
                 createdAt: serverTimestamp(),
                 userId: user?.uid || null,
