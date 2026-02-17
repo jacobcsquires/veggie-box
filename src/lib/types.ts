@@ -26,6 +26,18 @@ export type Box = {
   waitlistCount?: number;
 };
 
+export type AddOn = {
+  id: string; // Firestore doc ID
+  name: string;
+  description: string;
+  image: string;
+  price: number;
+  frequency: 'weekly' | 'bi-weekly' | 'monthly';
+  stripeProductId: string;
+  stripePriceId: string;
+  createdAt?: any;
+};
+
 export type Subscription = {
     id: string;
     userId: string;
