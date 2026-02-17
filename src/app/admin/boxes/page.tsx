@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -395,7 +396,7 @@ export default function AdminBoxesPage() {
             }
             toast({
                 title: 'Sync Complete',
-                description: `${result.createdCount} new plan(s) created, ${result.updatedCount} updated. Subscriber counts for ${result.countsUpdated} plan(s) were corrected.`,
+                description: `${result.createdCount} created, ${result.updatedCount} updated, ${result.deletedCount || 0} archived. Subscriber counts for ${result.countsUpdated} plan(s) were corrected.`,
             });
         } catch (error: any) {
             toast({

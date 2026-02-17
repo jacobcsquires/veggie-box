@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Box, PricingOption, Subscription } from '@/lib/types';
 
@@ -15,49 +15,67 @@ function getFrequencyFromInterval(interval: Stripe.Price.Recurring.Interval, int
     return 'weekly';
 }
 
-function getStripeInterval(frequency: string): { interval: Stripe.PriceCreateParams.Recurring.Interval, interval_count: number } {
-    switch (frequency) {
-        case 'bi-weekly':
-            return { interval: 'week', interval_count: 2 };
-        case 'monthly':
-            return { interval: 'month', interval_count: 1 };
-        case 'weekly':
-        default:
-            return { interval: 'week', interval_count: 1 };
-    }
-}
-
 export async function POST() {
   try {
-    const productSyncBatch = writeBatch(db);
     let createdCount = 0;
     let updatedCount = 0;
+    let deletedCount = 0;
 
-    // 1. Fetch all products from Stripe
-    const stripeProducts: Stripe.Product[] = [];
+    // 1. Fetch all active products from Stripe
+    const allStripeProducts: Stripe.Product[] = [];
     for await (const product of stripe.products.list({ active: true, limit: 100 })) {
-        stripeProducts.push(product);
+        allStripeProducts.push(product);
     }
+    
+    // 2. Filter out add-ons, keeping only veggie boxes
+    const veggieBoxStripeProducts = allStripeProducts.filter(p => p.metadata.product_type !== 'add_on');
 
-    // 2. Fetch all boxes from Firestore
+    // 3. Fetch all boxes from Firestore
     const boxesSnapshot = await getDocs(collection(db, 'boxes'));
-    const firestoreBoxes = boxesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Box));
-    const firestoreBoxMap = new Map(firestoreBoxes.map(box => [box.stripeProductId, box]));
+    const firestoreBoxMap = new Map(boxesSnapshot.docs.map(doc => [doc.data().stripeProductId, { id: doc.id, ...doc.data() } as Box]));
 
-    // 3. Sync from Stripe to Firestore
-    for (const product of stripeProducts) {
-        if (!firestoreBoxMap.has(product.id)) {
-            // Product exists in Stripe but not in Firestore -> Create it
-            const prices = await stripe.prices.list({ product: product.id, active: true });
-            if (prices.data.length === 0) continue; // Skip products with no active prices
+    const syncBatch = writeBatch(db);
 
-            const firstPrice = prices.data[0];
-            const pricingOptions: PricingOption[] = prices.data.map(p => ({
-                id: p.id,
-                name: p.nickname || 'Standard',
-                price: (p.unit_amount || 0) / 100,
-            }));
+    // 4. Sync from Stripe to Firestore
+    for (const product of veggieBoxStripeProducts) {
+        const existingBox = firestoreBoxMap.get(product.id);
+        const prices = await stripe.prices.list({ product: product.id, active: true });
+
+        if (prices.data.length === 0) {
+            console.log(`Stripe product ${product.id} has no active prices, skipping.`);
+            continue; // Don't sync products without prices
+        }
+
+        const pricingOptions: PricingOption[] = prices.data.map(p => ({
+            id: p.id,
+            name: p.nickname || 'Standard',
+            price: (p.unit_amount || 0) / 100,
+        }));
+        
+        const firstPrice = prices.data[0];
+
+        if (existingBox) {
+            // Product exists in both, check for updates
+            const updates: Partial<Box> = {};
+            if (existingBox.name !== product.name) updates.name = product.name;
+            if (existingBox.description !== product.description) updates.description = product.description;
             
+            const sortedExistingPrices = [...existingBox.pricingOptions].sort((a,b) => a.id.localeCompare(b.id));
+            const sortedNewPrices = [...pricingOptions].sort((a,b) => a.id.localeCompare(b.id));
+
+            if (JSON.stringify(sortedExistingPrices) !== JSON.stringify(sortedNewPrices)) {
+                 updates.pricingOptions = pricingOptions;
+            }
+            
+            if (Object.keys(updates).length > 0) {
+                const boxRef = doc(db, 'boxes', existingBox.id);
+                syncBatch.update(boxRef, updates);
+                updatedCount++;
+            }
+            
+            firestoreBoxMap.delete(product.id);
+        } else {
+            // Product exists in Stripe but not in Firestore -> Create it
             const newBoxData: Omit<Box, 'id'> = {
                 name: product.name,
                 description: product.description || 'Imported from Stripe.',
@@ -73,54 +91,24 @@ export async function POST() {
                 createdAt: serverTimestamp(),
             };
             
-            await addDoc(collection(db, 'boxes'), newBoxData);
+            const newBoxRef = doc(collection(db, 'boxes'));
+            syncBatch.set(newBoxRef, newBoxData);
             createdCount++;
-        } else {
-            // Product exists in both, mark it as processed
-            firestoreBoxMap.delete(product.id);
         }
     }
-    
-    // 4. Sync from Firestore to Stripe
-    for (const box of firestoreBoxes) {
-         if (!box.stripeProductId) {
-            // Box exists in Firestore but not in Stripe -> Create it
-             const { interval, interval_count } = getStripeInterval(box.frequency);
 
-            const newStripeProduct = await stripe.products.create({
-                name: box.name,
-                description: box.description,
-                images: [box.image],
-            });
-
-            const newPricingOptions: PricingOption[] = [];
-            for (const option of box.pricingOptions) {
-                const newStripePrice = await stripe.prices.create({
-                    product: newStripeProduct.id,
-                    unit_amount: option.price * 100,
-                    currency: 'usd',
-                    recurring: { interval, interval_count },
-                    nickname: option.name,
-                });
-                newPricingOptions.push({
-                    id: newStripePrice.id,
-                    name: option.name,
-                    price: option.price
-                });
-            }
-            
-            const boxRef = doc(db, 'boxes', box.id);
-            productSyncBatch.update(boxRef, {
-                stripeProductId: newStripeProduct.id,
-                pricingOptions: newPricingOptions
-            });
-            updatedCount++;
-         }
+    // 5. Any boxes remaining in firestoreBoxMap are not active in Stripe, so delete them from Firestore.
+    for (const [stripeProductId, boxToDelete] of firestoreBoxMap.entries()) {
+        if (stripeProductId) { // Only delete if it was a synced product
+            const boxRef = doc(db, 'boxes', boxToDelete.id);
+            syncBatch.delete(boxRef);
+            deletedCount++;
+        }
     }
 
-    await productSyncBatch.commit();
+    await syncBatch.commit();
 
-    // 5. Recalculate and sync subscriber counts for all boxes
+    // 6. Recalculate and sync subscriber counts for all boxes
     const boxesSnapshotAfterSync = await getDocs(collection(db, 'boxes'));
     const allBoxes = boxesSnapshotAfterSync.docs.map(doc => ({ id: doc.id, ...doc.data() } as Box));
     
@@ -149,9 +137,10 @@ export async function POST() {
     await countUpdateBatch.commit();
 
     return NextResponse.json({
-        message: 'Sync complete.',
+        message: `Sync complete. ${createdCount} created, ${updatedCount} updated, ${deletedCount} archived.`,
         createdCount,
         updatedCount,
+        deletedCount,
         countsUpdated,
     });
 

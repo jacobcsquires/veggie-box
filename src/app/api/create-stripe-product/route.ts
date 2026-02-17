@@ -27,12 +27,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
+    const productPayload: Stripe.ProductUpdateParams = {
+        name,
+        description,
+        metadata: { product_type: 'veggie_box' }
+    };
+
     let productId = existingProductId;
     // 1. Create or Update Stripe Product
     if (productId) {
-        await stripe.products.update(productId, { name, description });
+        await stripe.products.update(productId, productPayload);
     } else {
-        const product = await stripe.products.create({ name, description });
+        const product = await stripe.products.create(productPayload as Stripe.ProductCreateParams);
         productId = product.id;
     }
 

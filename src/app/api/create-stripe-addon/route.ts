@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
         name, 
         description,
         images: image ? [image] : [],
+        metadata: { product_type: 'add_on' }
     });
 
     const { interval, interval_count } = getStripeInterval(frequency);
