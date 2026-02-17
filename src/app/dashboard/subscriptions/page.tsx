@@ -206,7 +206,7 @@ export default function SubscriptionsPage() {
                     <Link href={`/dashboard/schedule/${sub.boxId}`}>View Schedule</Link>
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => handleManageSubscription(sub.stripeCustomerId)} disabled={isManaging}>
-                    {isManaging ? 'Redirecting...' : 'Manage'}
+                    {isManaging ? 'Redirecting...' : 'Update Payment'}
                 </Button>
             </>
         )
