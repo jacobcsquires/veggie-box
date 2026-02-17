@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -19,6 +18,7 @@ type UpcomingPickup = {
   boxId: string;
   boxName: string;
   pickupDate: string;
+  subscriberCount: number;
 };
 
 
@@ -32,6 +32,7 @@ export default function AdminDashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isPickupsLoading, setIsPickupsLoading] = useState(true);
 
+    // Effect for basic data loading
     useEffect(() => {
         setIsLoading(true);
 
@@ -51,51 +52,75 @@ export default function AdminDashboardPage() {
         });
 
         const boxesQuery = query(collection(db, 'boxes'));
-        const unsubBoxes = onSnapshot(boxesQuery, async (snapshot) => {
-            const boxesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Box));
-            setBoxes(boxesData);
-            
+        const unsubBoxes = onSnapshot(boxesQuery, (snapshot) => {
+            setBoxes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Box)));
+            setIsLoading(false); // Stop general loading once all initial data streams are active
+        });
+
+        return () => {
+            unsubSubs();
+            unsubAllSubs();
+            unsubCustomers();
+            unsubBoxes();
+        };
+    }, []);
+
+    // Effect for calculating pickups when boxes or subscriptions change
+    useEffect(() => {
+        if (isLoading) return; // Don't run until initial data is loaded
+
+        const calculatePickups = async () => {
             setIsPickupsLoading(true);
+
+            const subscriberCounts = allSubscriptions
+                .filter(s => s.status === 'Active')
+                .reduce((acc, sub) => {
+                    acc[sub.boxId] = (acc[sub.boxId] || 0) + 1;
+                    return acc;
+                }, {} as Record<string, number>);
+
             const today = new Date();
             const todayString = format(today, 'yyyy-MM-dd');
 
             let allTodaysPickups: UpcomingPickup[] = [];
             let allUpcomingPickups: UpcomingPickup[] = [];
 
-            for (const box of boxesData) {
+            for (const box of boxes) {
                 if (box.id) {
+                    const subscriberCount = subscriberCounts[box.id] || 0;
+                    if (subscriberCount === 0) continue;
+
                     const pickupsRef = collection(db, 'boxes', box.id, 'pickups');
                     
-                    // Query for today's pickups
                     const todayQuery = query(pickupsRef, where('pickupDate', '==', todayString));
                     const todaySnapshot = await getDocs(todayQuery);
-                    const boxTodaysPickups: UpcomingPickup[] = todaySnapshot.docs.map(doc => {
-                        const data = doc.data();
-                        return { id: doc.id, pickupDate: data.pickupDate, boxId: box.id, boxName: box.name };
-                    });
-                    allTodaysPickups.push(...boxTodaysPickups);
+                    allTodaysPickups.push(...todaySnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        pickupDate: doc.data().pickupDate,
+                        boxId: box.id,
+                        boxName: box.name,
+                        subscriberCount,
+                    })));
                     
-                    // Query for future pickups
                     const upcomingQuery = query(pickupsRef, where('pickupDate', '>', todayString), orderBy('pickupDate'));
                     const upcomingSnapshot = await getDocs(upcomingQuery);
-                    const boxUpcomingPickups: UpcomingPickup[] = upcomingSnapshot.docs.map(doc => {
-                        const data = doc.data();
-                        return { id: doc.id, pickupDate: data.pickupDate, boxId: box.id, boxName: box.name };
-                    });
-                    allUpcomingPickups.push(...boxUpcomingPickups);
+                    allUpcomingPickups.push(...upcomingSnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        pickupDate: doc.data().pickupDate,
+                        boxId: box.id,
+                        boxName: box.name,
+                        subscriberCount,
+                    })));
                 }
             }
 
             setTodaysPickups(allTodaysPickups.sort((a, b) => a.boxName.localeCompare(b.boxName)));
 
             const uniquePickups = allUpcomingPickups.filter((pickup, index, self) =>
-                index === self.findIndex((p) => (
-                    p.pickupDate === pickup.pickupDate && p.boxId === pickup.boxId
-                ))
+                index === self.findIndex((p) => p.pickupDate === pickup.pickupDate && p.boxId === pickup.boxId)
             );
 
-            const sortedPickups = uniquePickups
-                .sort((a, b) => new Date(a.pickupDate.replace(/-/g, '\/')).getTime() - new Date(b.pickupDate.replace(/-/g, '\/')).getTime());
+            const sortedPickups = uniquePickups.sort((a, b) => new Date(a.pickupDate.replace(/-/g, '\/')).getTime() - new Date(b.pickupDate.replace(/-/g, '\/')).getTime());
 
             if (sortedPickups.length > 0) {
                 const nextPickupDate = sortedPickups[0].pickupDate;
@@ -106,16 +131,11 @@ export default function AdminDashboardPage() {
             }
             
             setIsPickupsLoading(false);
-            setIsLoading(false);
-        });
-
-        return () => {
-            unsubSubs();
-            unsubAllSubs();
-            unsubCustomers();
-            unsubBoxes();
         };
-    }, []);
+
+        calculatePickups();
+
+    }, [boxes, allSubscriptions, isLoading]);
 
     const stats = {
         totalSubscriptions: allSubscriptions.filter(s => s.status === 'Active').length,
@@ -143,7 +163,7 @@ export default function AdminDashboardPage() {
                             <div key={`today-${pickup.id}`} className="flex items-center justify-between p-4 rounded-lg bg-background border">
                                 <div>
                                     <p className="font-semibold">{pickup.boxName}</p>
-                                    <p className="text-sm text-muted-foreground">Ready for collection</p>
+                                    <p className="text-sm text-muted-foreground">Ready for collection ({pickup.subscriberCount} boxes)</p>
                                 </div>
                                 <Button asChild size="lg">
                                     <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}?from=dashboard`}>
@@ -176,6 +196,10 @@ export default function AdminDashboardPage() {
                                                 <p className="text-sm text-muted-foreground">
                                                     {format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPP')}
                                                 </p>
+                                            </div>
+                                            <div className="ml-auto flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+                                                <Package className="h-4 w-4" />
+                                                {pickup.subscriberCount}
                                             </div>
                                         </div>
                                         <Button asChild variant="secondary" size="sm" className="w-full">
