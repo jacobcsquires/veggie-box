@@ -23,6 +23,7 @@ export type Box = {
   frequency: 'weekly' | 'bi-weekly' | 'monthly';
   displayOnWebsite: boolean;
   manualSignupCutoff: boolean;
+  waitlistCount?: number;
 };
 
 export type Subscription = {
@@ -84,3 +85,10 @@ export type EmailTemplate = {
   veggieListImageUrl?: string;
   recipeCardImageUrl?: string;
 };
+
+export type WaitlistEntry = {
+    id: string; // userId
+    userName: string;
+    userEmail: string;
+    joinedAt: Timestamp;
+}

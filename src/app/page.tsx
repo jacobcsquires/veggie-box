@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
-import { collection, doc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, where, orderBy, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import * as Icons from 'lucide-react';
@@ -75,6 +75,8 @@ export default function HomePage() {
   const [selectedPriceId, setSelectedPriceId] = useState<string | null>(null);
   const [upcomingPickups, setUpcomingPickups] = useState<PickupInternal[]>([]);
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
+  const [isJoiningWaitlist, setIsJoiningWaitlist] = useState(false);
+  const [waitlistedBoxes, setWaitlistedBoxes] = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -94,6 +96,30 @@ export default function HomePage() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (user && boxes.length > 0) {
+        const unsubs = boxes.map(box => {
+            if (!user) return () => {};
+            const waitlistRef = doc(db, 'boxes', box.id, 'waitlist', user.uid);
+            return onSnapshot(waitlistRef, (docSnap) => {
+                setWaitlistedBoxes(prev => {
+                    const newWaitlisted = new Set(prev);
+                    if (docSnap.exists()) {
+                        newWaitlisted.add(box.id);
+                    } else {
+                        newWaitlisted.delete(box.id);
+                    }
+                    return Array.from(newWaitlisted);
+                });
+            });
+        });
+        return () => unsubs.forEach(unsub => unsub());
+    } else {
+        setWaitlistedBoxes([]);
+    }
+  }, [user, boxes]);
+
+
   const handleSubscribeClick = useCallback((box: Box) => {
     if (!user) {
         const redirectToUrl = new URL('/dashboard/boxes', window.location.origin);
@@ -108,6 +134,50 @@ export default function HomePage() {
     setSelectedBox(box);
     setIsDialogOpen(true);
   }, [user, router]);
+  
+  const handleJoinWaitlist = async (box: Box) => {
+    if (!user) {
+        handleSubscribeClick(box); // Will redirect to login
+        return;
+    }
+
+    setIsJoiningWaitlist(true);
+    try {
+        const waitlistRef = doc(db, 'boxes', box.id, 'waitlist', user.uid);
+        const boxRef = doc(db, 'boxes', box.id);
+
+        await runTransaction(db, async (transaction) => {
+            const waitlistDoc = await transaction.get(waitlistRef);
+            if (waitlistDoc.exists()) {
+                throw new Error("You are already on the waitlist for this plan.");
+            }
+
+            transaction.set(waitlistRef, {
+                userName: user.displayName,
+                userEmail: user.email,
+                joinedAt: serverTimestamp(),
+            });
+            
+            const boxDoc = await transaction.get(boxRef);
+            const boxData = boxDoc.data() as Box;
+            const newWaitlistCount = (boxData.waitlistCount || 0) + 1;
+            transaction.update(boxRef, { waitlistCount: newWaitlistCount });
+        });
+
+        toast({
+            title: 'Success!',
+            description: `You've been added to the waitlist for ${box.name}.`,
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: error.message || 'Could not join the waitlist.',
+        });
+    } finally {
+        setIsJoiningWaitlist(false);
+    }
+};
 
   useEffect(() => {
     if (selectedBox && isDialogOpen) {
@@ -273,6 +343,7 @@ export default function HomePage() {
                     ))
                 : boxes.map((box) => {
                     const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
+                    const isWaitlisted = waitlistedBoxes.includes(box.id);
                     const hasSchedule = box.startDate && box.endDate;
                     const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
                     const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
@@ -306,8 +377,16 @@ export default function HomePage() {
                             </p>
                             <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                             </div>
-                            <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={isSoldOut || !box.pricingOptions || box.pricingOptions.length === 0 || box.manualSignupCutoff}>
-                                {isSoldOut ? 'Sold Out' : !box.pricingOptions || box.pricingOptions.length === 0 ? 'Not Available' : box.manualSignupCutoff ? 'Sign-ups Closed' : 'Subscribe'}
+                            <Button 
+                                className="w-full mt-2" 
+                                onClick={() => isSoldOut ? handleJoinWaitlist(box) : handleSubscribeClick(box)} 
+                                disabled={ (isJoiningWaitlist && selectedBox?.id === box.id) || (isSoldOut && isWaitlisted) || box.manualSignupCutoff || (!isSoldOut && (!box.pricingOptions || box.pricingOptions.length === 0)) }
+                            >
+                                {box.manualSignupCutoff ? 'Sign-ups Closed'
+                                    : isSoldOut 
+                                        ? (isWaitlisted ? 'On Waitlist' : 'Join Waitlist')
+                                        : (!box.pricingOptions || box.pricingOptions.length === 0) ? 'Not Available'
+                                        : 'Subscribe'}
                             </Button>
                         </CardFooter>
                         </Card>

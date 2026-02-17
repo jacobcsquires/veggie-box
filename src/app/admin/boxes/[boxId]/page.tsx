@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
-import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc, query, where, getDocs, orderBy, limit, runTransaction } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Calendar } from '@/components/ui/calendar';
@@ -11,10 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown, ExternalLink, ChevronRight, Users, DollarSign, CalendarDays, Download, UserCheck } from 'lucide-react';
-import type { Box, Pickup, Subscription, PricingOption, Customer } from '@/lib/types';
+import { Loader2, Calendar as CalendarIcon, Bot, Trash2, List, LayoutGrid, FilePen, Search, PlusCircle, ChevronsUpDown, ExternalLink, ChevronRight, Users, DollarSign, CalendarDays, Download, UserCheck, ListChecks } from 'lucide-react';
+import type { Box, Pickup, Subscription, PricingOption, Customer, WaitlistEntry } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, addDays, isBefore, startOfToday, addMonths, subDays, subMonths } from 'date-fns';
+import { format, addDays, isBefore, startOfToday, addMonths, subDays, subMonths, formatDistanceToNow } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -104,6 +104,7 @@ export default function AdminBoxDetailPage() {
   const [box, setBox] = useState<Box | null>(null);
   const [pickups, setPickups] = useState<PickupInternal[]>([]);
   const [subscriptions, setSubscriptions] = useState<EnrichedSubscription[]>([]);
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   
   // States for editing the box
   const [name, setName] = useState('');
@@ -194,11 +195,18 @@ export default function AdminBoxDetailPage() {
         
         setSubscriptions(enrichedSubs);
     });
+    
+    const waitlistRef = collection(db, 'boxes', boxId, 'waitlist');
+    const unsubWaitlist = onSnapshot(query(waitlistRef, orderBy('joinedAt')), (snapshot) => {
+        const waitlistData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WaitlistEntry));
+        setWaitlist(waitlistData);
+    });
 
     return () => {
       unsubBox();
       unsubPickups();
       unsubSubscriptions();
+      unsubWaitlist();
     };
   }, [boxId]);
   
@@ -522,6 +530,33 @@ export default function AdminBoxDetailPage() {
     
     toast({ title: 'Export Complete', description: 'The subscriber list has been downloaded.' });
   };
+  
+    const handleRemoveFromWaitlist = async (userId: string) => {
+        if (!boxId) return;
+        const waitlistRef = doc(db, 'boxes', boxId, 'waitlist', userId);
+        const boxRef = doc(db, 'boxes', boxId);
+    
+        try {
+            await runTransaction(db, async (transaction) => {
+                const waitlistDoc = await transaction.get(waitlistRef);
+                if (!waitlistDoc.exists()) {
+                    throw new Error("User not found on the waitlist.");
+                }
+    
+                transaction.delete(waitlistRef);
+    
+                const boxDoc = await transaction.get(boxRef);
+                if (boxDoc.exists()) {
+                    const boxData = boxDoc.data() as Box;
+                    const newWaitlistCount = Math.max(0, (boxData.waitlistCount || 0) - 1);
+                    transaction.update(boxRef, { waitlistCount: newWaitlistCount });
+                }
+            });
+            toast({ title: "Success", description: "User removed from waitlist." });
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: "Error", description: error.message });
+        }
+    };
 
 
   if (isLoading) {
@@ -808,11 +843,12 @@ export default function AdminBoxDetailPage() {
         </div>
         
         <Tabs defaultValue="details" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="details"><FilePen className="mr-2 h-4 w-4" />Details</TabsTrigger>
                 <TabsTrigger value="pricing"><DollarSign className="mr-2 h-4 w-4" />Pricing</TabsTrigger>
                 <TabsTrigger value="schedule"><CalendarDays className="mr-2 h-4 w-4" />Schedule ({pickups.length})</TabsTrigger>
                 <TabsTrigger value="subscriptions"><Users className="mr-2 h-4 w-4" />Subscribers ({subscriptions.length})</TabsTrigger>
+                <TabsTrigger value="waitlist"><ListChecks className="mr-2 h-4 w-4" />Waitlist ({waitlist.length})</TabsTrigger>
             </TabsList>
             <TabsContent value="details" className="mt-6">
                 <Card>
@@ -1026,6 +1062,44 @@ export default function AdminBoxDetailPage() {
                                             </TableCell>
                                             <TableCell className="hidden md:table-cell">{format(new Date(sub.startDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
                                             <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+            <TabsContent value="waitlist" className="mt-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Waitlist</CardTitle>
+                        <CardDescription>Users who have joined the waitlist for this plan.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Joined</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {waitlist.length === 0 ? (
+                                    <TableRow><TableCell colSpan={4} className="text-center h-24">The waitlist is empty.</TableCell></TableRow>
+                                ) : (
+                                    waitlist.map(entry => (
+                                        <TableRow key={entry.id}>
+                                            <TableCell>{entry.userName}</TableCell>
+                                            <TableCell>{entry.userEmail}</TableCell>
+                                            <TableCell>{formatDistanceToNow(entry.joinedAt.toDate(), { addSuffix: true })}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" onClick={() => handleRemoveFromWaitlist(entry.id)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 )}
