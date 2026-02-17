@@ -300,7 +300,7 @@ export default function SubscriptionsPage() {
                 <DialogHeader>
                     <DialogTitle>Add a note for {selectedSubForNote?.boxName}</DialogTitle>
                     <DialogDescription>
-                        Add a note regarding this subscription's pickups. For example, specific delivery instructions.
+                        Add a note regarding this subscription's pickups.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
@@ -309,7 +309,7 @@ export default function SubscriptionsPage() {
                         id="note-content"
                         value={noteContent}
                         onChange={(e) => setNoteContent(e.target.value)}
-                        placeholder="e.g. Please leave the box by the back door if I'm not home."
+                        placeholder=""
                     />
                 </div>
                 <DialogFooter>
