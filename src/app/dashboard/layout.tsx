@@ -9,6 +9,7 @@ import {
   User,
   Sprout,
   Package,
+  Calendar,
 } from "lucide-react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -49,6 +50,7 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
     const navItems = [
         { href: "/dashboard", icon: Home, label: "Dashboard" },
         { href: "/dashboard/subscriptions", icon: ShoppingCart, label: "My Subscriptions", badge: subscriptionsCount > 0 ? subscriptionsCount : undefined },
+        { href: "/dashboard/schedule", icon: Calendar, label: "Upcoming Pickups" },
         { href: "/dashboard/boxes", icon: Package, label: "Explore Boxes" },
     ];
     return (
