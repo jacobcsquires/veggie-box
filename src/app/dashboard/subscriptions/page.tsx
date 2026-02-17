@@ -28,7 +28,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Pencil, CalendarX, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, Pencil, CalendarX, Calendar as CalendarIcon, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -57,6 +57,10 @@ export default function SubscriptionsPage() {
   const [isSkipping, setIsSkipping] = useState(false);
   const [upcomingPickups, setUpcomingPickups] = useState<PickupInternal[]>([]);
   const [isLoadingPickups, setIsLoadingPickups] = useState(false);
+
+  // State for resuming subscription
+  const [isResuming, setIsResuming] = useState(false);
+  const [subToResume, setSubToResume] = useState<Subscription | null>(null);
 
 
   useEffect(() => {
@@ -208,15 +212,50 @@ export default function SubscriptionsPage() {
       }
   };
 
+    const handleResumeSubscription = async (sub: Subscription) => {
+        setSubToResume(sub);
+        setIsResuming(true);
+        try {
+            const response = await fetch('/api/resume-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscriptionId: sub.id }),
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to resume subscription.');
+            }
+            toast({ title: 'Success', description: 'Your subscription has been resumed.' });
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsResuming(false);
+            setSubToResume(null);
+        }
+    };
+
 
   const renderSubscriptionActions = (sub: Subscription) => {
     if (sub.status === 'Active' || sub.status === 'Trialing') {
         const hasActiveSkip = sub.trialEnd && sub.trialEnd > (Date.now() / 1000);
         return (
             <>
-                <Button variant="outline" size="sm" onClick={() => handleSkipClick(sub)} disabled={hasActiveSkip}>
-                  {hasActiveSkip ? 'Pickup Skipped' : 'Skip Next Pickup'}
-                </Button>
+                {hasActiveSkip ? (
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleResumeSubscription(sub)} 
+                        disabled={isResuming && subToResume?.id === sub.id}
+                    >
+                        {isResuming && subToResume?.id === sub.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                        Resume Subscription
+                    </Button>
+                ) : (
+                    <Button variant="outline" size="sm" onClick={() => handleSkipClick(sub)}>
+                        <CalendarX className="mr-2 h-4 w-4" />
+                        Skip Next Pickup
+                    </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => handleOpenNoteDialog(sub)}>
                     <Pencil className="mr-2 h-4 w-4" />
                     Note
