@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -453,16 +454,48 @@ export default function AdminBoxDetailPage() {
   const confirmDeletePickup = async () => {
     if (!pickupToDelete || !box) return;
 
+    setIsDeleting(true);
     try {
+        const sortedPickups = [...pickups].sort((a, b) => a.pickupDate.localeCompare(b.pickupDate));
+        const deletedIndex = sortedPickups.findIndex(p => p.id === pickupToDelete.id);
+        const isIntermediate = deletedIndex > 0 && deletedIndex < sortedPickups.length - 1;
+
+        let pauseMessage = '';
+        if (isIntermediate) {
+            const nextPickupDate = sortedPickups[deletedIndex + 1].pickupDate;
+            
+            const response = await fetch('/api/update-billing-anchor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    boxId: box.id,
+                    newStartDate: nextPickupDate,
+                }),
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to pause subscriptions.');
+            }
+            if (result.updatedCount > 0) {
+              pauseMessage = ` ${result.updatedCount} active subscriptions were paused until the next pickup.`;
+            }
+        }
+
+        // Now delete the pickup document itself
         await deleteDoc(doc(db, 'boxes', boxId, 'pickups', pickupToDelete.id));
-        toast({ title: 'Success', description: `Pickup for ${pickupToDelete.pickupDate} has been deleted.` });
+        
+        toast({ title: 'Success', description: `Pickup deleted.${pauseMessage}` });
+        
         await updateBoxDates();
+
     } catch (error: any) {
         console.error('Error during pickup deletion process: ', error);
         toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not complete the deletion process.' });
     } finally {
         setIsPickupDeleteDialogOpen(false);
         setPickupToDelete(null);
+        setIsDeleting(false);
     }
   };
   
@@ -1137,13 +1170,15 @@ export default function AdminBoxDetailPage() {
               {pickupToDelete && isBefore(new Date(pickupToDelete.pickupDate.replace(/-/g, '\/')), startOfToday()) && (
                 <span className="font-bold text-destructive">Warning: You are deleting a pickup from the past. </span> 
               )}
-              This action cannot be undone. This will permanently delete the pickup scheduled for "{pickupToDelete?.pickupDate}".
+              This action will permanently delete the pickup for "{pickupToDelete?.pickupDate}".
+              <br/><br/>
+              <span className="font-semibold">If this is an intermediate pickup date (not the first or last), all active subscriptions for this plan will be automatically paused until the next scheduled pickup.</span> This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeletePickup} className="bg-destructive hover:bg-destructive/90">
-                Yes, delete pickup
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePickup} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                {isDeleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...</> : 'Yes, delete pickup'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
