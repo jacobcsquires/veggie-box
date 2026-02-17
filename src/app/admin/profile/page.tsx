@@ -95,7 +95,7 @@ export default function ProfilePage() {
             
             await signOut(auth);
 
-        } catch (error: any) => {
+        } catch (error: any) {
             toast({ variant: 'destructive', title: "Error", description: error.message });
         } finally {
             setIsPasswordSaving(false);
@@ -110,7 +110,7 @@ export default function ProfilePage() {
         try {
             await signOut(auth);
             toast({ title: "Logged Out", description: "You have been successfully logged out." });
-        } catch (error: any) => {
+        } catch (error: any) {
             toast({ variant: 'destructive', title: "Error", description: error.message });
         } finally {
             setIsLoggingOut(false);
