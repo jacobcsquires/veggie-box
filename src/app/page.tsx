@@ -141,19 +141,20 @@ export default function HomePage() {
     }
 
     setIsJoiningWaitlist(true);
+    setSelectedBox(box); // To disable the correct button
     try {
         const waitlistRef = doc(db, 'boxes', box.id, 'waitlist', user.uid);
         const boxRef = doc(db, 'boxes', box.id);
 
         await runTransaction(db, async (transaction) => {
-            const waitlistDoc = await transaction.get(waitlistRef);
             const boxDoc = await transaction.get(boxRef);
+            if (!boxDoc.exists()) {
+                throw new Error("This veggie box plan does not exist.");
+            }
+            const waitlistDoc = await transaction.get(waitlistRef);
 
             if (waitlistDoc.exists()) {
                 throw new Error("You are already on the waitlist for this plan.");
-            }
-            if (!boxDoc.exists()) {
-                throw new Error("This veggie box plan does not exist.");
             }
             
             const boxData = boxDoc.data() as Box;
@@ -179,6 +180,7 @@ export default function HomePage() {
         });
     } finally {
         setIsJoiningWaitlist(false);
+        setSelectedBox(null);
     }
 };
 
@@ -382,6 +384,7 @@ export default function HomePage() {
                             </div>
                             <Button 
                                 className="w-full mt-2" 
+                                variant={isSoldOut && !isWaitlisted ? "accent" : "default"}
                                 onClick={() => isSoldOut ? handleJoinWaitlist(box) : handleSubscribeClick(box)} 
                                 disabled={ (isJoiningWaitlist && selectedBox?.id === box.id) || (isSoldOut && isWaitlisted) || box.manualSignupCutoff || (!isSoldOut && (!box.pricingOptions || box.pricingOptions.length === 0)) }
                             >

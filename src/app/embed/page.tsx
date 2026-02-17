@@ -154,7 +154,11 @@ export default function EmbedPage() {
                       </p>
                       <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                       </div>
-                      <Button className="w-full mt-2" onClick={() => handleSubscribeClick(box)} disabled={box.manualSignupCutoff || (!isSoldOut && (!box.pricingOptions || box.pricingOptions.length === 0))}>
+                      <Button 
+                        className="w-full mt-2"
+                        variant={isSoldOut ? "accent" : "default"}
+                        onClick={() => handleSubscribeClick(box)} 
+                        disabled={box.manualSignupCutoff || (!isSoldOut && (!box.pricingOptions || box.pricingOptions.length === 0))}>
                           {box.manualSignupCutoff ? 'Sign-ups Closed'
                               : isSoldOut ? 'Join Waitlist'
                               : (!box.pricingOptions || box.pricingOptions.length === 0) ? 'Not Available' 
