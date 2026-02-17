@@ -79,22 +79,6 @@ export default function AdminEmailTemplatesPage() {
         resetDialog();
         setIsDialogOpen(true);
     };
-
-    const handleCreateReceiptTemplate = () => {
-        resetDialog();
-        setName('Receipt');
-        setSubject('Your subscription to {{boxName}} is confirmed!');
-        setBody(`<h1>Thank you, {{customerName}}!</h1>
-<p>Your subscription to the <strong>{{boxName}}</strong> is confirmed.</p>
-<p>
-    <strong>Plan:</strong> {{priceName}}<br>
-    <strong>Price:</strong> {{price}} per {{frequency}}
-</p>
-<p>Your first pickup date is scheduled for <strong>{{startDate}}</strong>.</p>
-<p>You can manage your subscription anytime by visiting your dashboard.</p>
-<p>Thanks for supporting local!</p>`);
-        setIsDialogOpen(true);
-    };
     
     const handleEditTemplateClick = (template: EmailTemplate) => {
         setEditingTemplate(template);
@@ -208,7 +192,6 @@ export default function AdminEmailTemplatesPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={handleCreateReceiptTemplate}>Create Receipt Template</Button>
                     <Button onClick={handleNewTemplateClick}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         New Template
