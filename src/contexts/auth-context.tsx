@@ -8,6 +8,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 
 export type AppUser = User & {
   isAdmin?: boolean;
+  phone?: string | null;
 };
 
 type AuthContextType = {
@@ -43,9 +44,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (docSnap.exists()) {
                     const userData = docSnap.data();
                     userWithAdminFlag.isAdmin = userData.isAdmin || false;
+                    userWithAdminFlag.phone = userData.phone || null;
                 } else {
                     // Handle case where user exists in Auth but not Firestore
                     userWithAdminFlag.isAdmin = false;
+                    userWithAdminFlag.phone = null;
                 }
                 
                 setUser(userWithAdminFlag);
@@ -54,7 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             (error) => {
                 console.error("Error fetching user data:", error);
                 // Set user without admin flag and stop loading
-                setUser(authUser); 
+                const partialUser: AppUser = authUser;
+                partialUser.phone = null;
+                setUser(partialUser); 
                 setLoading(false);
             }
          );

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider, signOut } from "firebase/auth";
+import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider, signOut, updateEmail } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +25,7 @@ export default function ProfilePage() {
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -37,6 +38,7 @@ export default function ProfilePage() {
         if (user) {
             setName(user.displayName || '');
             setEmail(user.email || '');
+            setPhone(user.phone || '');
         }
     }, [user]);
 
@@ -45,11 +47,25 @@ export default function ProfilePage() {
         if (!user) return;
         setIsInfoSaving(true);
         try {
-            await updateProfile(user, { displayName: name });
+            if (user.displayName !== name) {
+                await updateProfile(user, { displayName: name });
+            }
+            if (user.email !== email) {
+                await updateEmail(user, email);
+            }
+
             const userDocRef = doc(db, 'users', user.uid);
-            await updateDoc(userDocRef, { displayName: name });
+            await updateDoc(userDocRef, { 
+                displayName: name,
+                phone: phone,
+                email: email,
+            });
             
             toast({ title: "Success", description: "Profile updated successfully." });
+            
+            if (user.email !== email) {
+                toast({ title: "Verify Email", description: "A verification link has been sent to your new email address." });
+            }
         } catch (error: any) {
             toast({ variant: 'destructive', title: "Error", description: error.message });
         } finally {
@@ -79,7 +95,7 @@ export default function ProfilePage() {
             
             await signOut(auth);
 
-        } catch (error: any) {
+        } catch (error: any) => {
             toast({ variant: 'destructive', title: "Error", description: error.message });
         } finally {
             setIsPasswordSaving(false);
@@ -94,7 +110,7 @@ export default function ProfilePage() {
         try {
             await signOut(auth);
             toast({ title: "Logged Out", description: "You have been successfully logged out." });
-        } catch (error: any) {
+        } catch (error: any) => {
             toast({ variant: 'destructive', title: "Error", description: error.message });
         } finally {
             setIsLoggingOut(false);
@@ -109,7 +125,7 @@ export default function ProfilePage() {
             <form onSubmit={handleSaveChanges}>
                 <CardHeader>
                 <CardTitle>Personal Information</CardTitle>
-                <CardDescription>Update your name and email address.</CardDescription>
+                <CardDescription>Update your name and contact information.</CardDescription>
                 </CardHeader>
                 <CardContent>
                 <div className="grid gap-4">
@@ -118,8 +134,12 @@ export default function ProfilePage() {
                         <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isInfoSaving} />
                     </div>
                     <div className="grid gap-2">
+                        <Label htmlFor="phone">Phone</Label>
+                        <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={isInfoSaving} />
+                    </div>
+                    <div className="grid gap-2">
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" value={email} disabled />
+                        <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isInfoSaving} />
                     </div>
                 </div>
                 </CardContent>
