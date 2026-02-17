@@ -4,7 +4,7 @@ import Stripe from 'stripe';
 import { headers } from 'next/headers';
 import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, getDoc, setDoc, limit, runTransaction, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription, Box, AppUser, Customer, AddOnItem, AddOn } from '@/lib/types';
+import type { Subscription, Box, AppUser, Customer, AddOnItem, AddOn, EmailTemplate } from '@/lib/types';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
@@ -210,12 +210,37 @@ export async function POST(req: Request) {
         if (customerEmail) {
             const boxDoc = await getDoc(boxRef);
             const freshBoxData = boxDoc.data() as Box;
-            const mailRef = doc(collection(db, "mail"));
-            await setDoc(mailRef, {
-                to: customerEmail,
-                message: {
-                    subject: `Your subscription to ${freshBoxData.name} is confirmed!`,
-                    html: `
+            
+            // Fetch the subscription confirmation email template
+            const templateQuery = query(collection(db, 'emailTemplates'), where('name', '==', 'Subscription Confirmation'), limit(1));
+            const templateSnapshot = await getDocs(templateQuery);
+            
+            let emailSubject: string;
+            let emailHtml: string;
+
+            if (!templateSnapshot.empty) {
+                const template = templateSnapshot.docs[0].data() as EmailTemplate;
+                emailSubject = template.subject;
+                emailHtml = template.body;
+
+                // Replace placeholders
+                emailSubject = emailSubject.replace(/{{boxName}}/g, freshBoxData.name);
+                emailHtml = emailHtml.replace(/{{customerName}}/g, customerName || 'there');
+                emailHtml = emailHtml.replace(/{{boxName}}/g, freshBoxData.name);
+                emailHtml = emailHtml.replace(/{{priceName}}/g, priceName || '');
+                const formattedPrice = (session.amount_total ? session.amount_total / 100 : parseFloat(price)).toFixed(2);
+                emailHtml = emailHtml.replace(/{{price}}/g, `$${formattedPrice}`);
+                emailHtml = emailHtml.replace(/{{frequency}}/g, freshBoxData.frequency.replace('-ly', ''));
+                emailHtml = emailHtml.replace(/{{startDate}}/g, startDate);
+                
+                // For newline characters in Firestore textarea to become <br> tags
+                emailHtml = emailHtml.replace(/\n/g, '<br>');
+
+            } else {
+                // Fallback to hardcoded email if template doesn't exist
+                console.warn("Webhook: 'Subscription Confirmation' email template not found. Using fallback.");
+                emailSubject = `Your subscription to ${freshBoxData.name} is confirmed!`;
+                emailHtml = `
                     <h1>Thank you, ${customerName || 'there'}!</h1>
                     <p>Your subscription to the <strong>${freshBoxData.name}</strong> is confirmed.</p>
                     <p>
@@ -225,7 +250,15 @@ export async function POST(req: Request) {
                     <p>Your first pickup date is scheduled for <strong>${startDate}</strong>.</p>
                     <p>You can manage your subscription anytime by visiting your dashboard.</p>
                     <p>Thanks for supporting local!</p>
-                    `,
+                `;
+            }
+
+            const mailRef = doc(collection(db, "mail"));
+            await setDoc(mailRef, {
+                to: customerEmail,
+                message: {
+                    subject: emailSubject,
+                    html: emailHtml,
                 },
             });
             console.log(`Webhook: Receipt email queued for subscription ${subscriptionRef.id}`);
