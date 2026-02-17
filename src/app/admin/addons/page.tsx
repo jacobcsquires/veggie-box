@@ -164,22 +164,21 @@ export default function AdminAddOnsPage() {
     if (!addOnToDelete) return;
     setIsDeleting(true);
     try {
-        // First, archive the product in Stripe
         const stripeResponse = await fetch('/api/archive-stripe-product', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ stripeProductId: addOnToDelete.stripeProductId }),
         });
 
+        const result = await stripeResponse.json();
         if (!stripeResponse.ok) {
-            const error = await stripeResponse.json();
-            throw new Error(error.message || 'Failed to archive Stripe product.');
+            throw new Error(result.message || 'Failed to archive Stripe product.');
         }
 
         // Then, delete the document from Firestore
         await deleteDoc(doc(db, 'addOns', addOnToDelete.id));
 
-        toast({ title: 'Success', description: `Add-on "${addOnToDelete.name}" has been deleted.` });
+        toast({ title: 'Success', description: result.message || `Add-on "${addOnToDelete.name}" has been deleted.` });
     } catch (error: any) {
         toast({
             variant: 'destructive',
@@ -304,7 +303,7 @@ export default function AdminAddOnsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will delete the add-on and archive the product in Stripe, preventing new customers from adding it.
+              This action cannot be undone. This will delete the add-on and archive the product in Stripe, preventing new customers from adding it. Any existing subscriptions with this add-on will have it removed at the end of their current billing cycle.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
