@@ -870,7 +870,7 @@ export default function AdminBoxDetailPage() {
   return (
     <div className="space-y-6">
         <div className="flex items-center text-sm text-muted-foreground">
-            <Link href="/admin/boxes" className="hover:text-primary">Veggie Box Plans</Link>
+            <Link href="/admin/boxes" className="hover:text-primary">Products</Link>
             <ChevronRight className="h-4 w-4 mx-1" />
             <span className="font-medium text-foreground">{box.name}</span>
         </div>
