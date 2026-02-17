@@ -167,19 +167,23 @@ export function BoxesComponent() {
 
         await runTransaction(db, async (transaction) => {
             const waitlistDoc = await transaction.get(waitlistRef);
+            const boxDoc = await transaction.get(boxRef);
+
             if (waitlistDoc.exists()) {
                 throw new Error("You are already on the waitlist for this plan.");
             }
-
+            if (!boxDoc.exists()) {
+                throw new Error("This veggie box plan does not exist.");
+            }
+            
+            const boxData = boxDoc.data() as Box;
+            const newWaitlistCount = (boxData.waitlistCount || 0) + 1;
+            
             transaction.set(waitlistRef, {
                 userName: user.displayName,
                 userEmail: user.email,
                 joinedAt: serverTimestamp(),
             });
-            
-            const boxDoc = await transaction.get(boxRef);
-            const boxData = boxDoc.data() as Box;
-            const newWaitlistCount = (boxData.waitlistCount || 0) + 1;
             transaction.update(boxRef, { waitlistCount: newWaitlistCount });
         });
 
