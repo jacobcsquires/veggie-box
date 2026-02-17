@@ -85,10 +85,15 @@ export default function EmbedPage() {
   }, [selectedBox, isDialogOpen]);
 
   const handleSubscribeClick = (box: Box) => {
-    // For embeds, we need to redirect to the main site to handle login.
-    const subscribeUrl = new URL(`/`, window.location.origin);
-    subscribeUrl.searchParams.set('subscribe_to', box.id);
-    window.open(subscribeUrl.href, '_blank');
+    // For embeds, we redirect to the main site's login page, with a final
+    // destination of the boxes page with the correct subscription dialog open.
+    const redirectToUrl = new URL('/dashboard/boxes', window.location.origin);
+    redirectToUrl.searchParams.set('subscribe_to', box.id);
+    
+    const loginUrl = new URL('/login', window.location.origin);
+    loginUrl.searchParams.set('redirect_to', redirectToUrl.pathname + redirectToUrl.search);
+
+    window.open(loginUrl.href, '_blank');
   };
   
   return (
