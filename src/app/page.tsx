@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, Suspense, useCallback } from 'react';
@@ -329,7 +330,7 @@ export default function HomePage() {
         </nav>
       </header>
       <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-primary/10">
+        <section className="w-full py-12 md:py-24 lg:py-32 bg-primary/10 grid place-items-center">
           <div className="container px-4 md:px-6">
             <div className="flex flex-col items-center justify-center space-y-4 text-center">
               <div className="space-y-2">
