@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -9,16 +8,13 @@ import { db } from '@/lib/firebase';
 import type { Subscription, Box, Pickup } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ShoppingCart, Package, ArrowRight, Calendar } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 
 export default function DashboardPage() {
     const { user, loading: authLoading } = useAuth();
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-    const [recentSubscriptions, setRecentSubscriptions] = useState<Subscription[]>([]);
     const [upcomingPickups, setUpcomingPickups] = useState<Pickup[]>([]);
     const [boxes, setBoxes] = useState<Box[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -37,9 +33,6 @@ export default function DashboardPage() {
             const subsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
             setSubscriptions(subsData);
             
-            const recentSubs = [...subsData].sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()).slice(0, 5);
-            setRecentSubscriptions(recentSubs);
-
             const activeSubs = subsData.filter(s => ['Active', 'Trialing'].includes(s.status));
             if (activeSubs.length > 0) {
                 const today = format(new Date(), 'yyyy-MM-dd');
@@ -142,7 +135,7 @@ export default function DashboardPage() {
                 </Card>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6">
                  {/* Upcoming Pickups */}
                 <Card>
                     <CardHeader>
@@ -165,39 +158,6 @@ export default function DashboardPage() {
                                 </div>
                             )) : <p className="text-sm text-muted-foreground text-center py-10">No upcoming pickups scheduled.</p>}
                         </div>
-                    </CardContent>
-                </Card>
-                
-                {/* Recent Subscriptions */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Recent Subscription Activity</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Veggie Box Plan</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Start Date</TableHead>
-                                    <TableHead className="text-right">Price</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {recentSubscriptions.length > 0 ? recentSubscriptions.map(sub => (
-                                    <TableRow key={sub.id}>
-                                        <TableCell className="font-medium">{sub.boxName}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>
-                                                {sub.status === 'Trialing' ? 'Skipped' : sub.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{format(new Date(sub.startDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
-                                        <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
-                                    </TableRow>
-                                )) : <TableRow><TableCell colSpan={4} className="text-center h-24">You haven't subscribed to any boxes yet.</TableCell></TableRow>}
-                            </TableBody>
-                        </Table>
                     </CardContent>
                 </Card>
             </div>
