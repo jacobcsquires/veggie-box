@@ -5,18 +5,17 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { collection, onSnapshot, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription, Box, Pickup } from '@/lib/types';
+import type { Subscription, Pickup } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { ShoppingCart, Package, ArrowRight, Calendar } from 'lucide-react';
+import { ShoppingCart, ArrowRight, Calendar } from 'lucide-react';
 
 export default function DashboardPage() {
     const { user, loading: authLoading } = useAuth();
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [upcomingPickups, setUpcomingPickups] = useState<Pickup[]>([]);
-    const [boxes, setBoxes] = useState<Box[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -26,8 +25,7 @@ export default function DashboardPage() {
         }
 
         const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), where('status', 'in', ['Active', 'Pending', 'Past Due', 'Unpaid', 'Trialing', 'Unknown']));
-        const boxesQuery = query(collection(db, 'boxes'), where('displayOnWebsite', '==', true));
-
+        
         const unsubSubs = onSnapshot(subsQuery, async (snapshot) => {
             setIsLoading(true);
             const subsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
@@ -68,31 +66,23 @@ export default function DashboardPage() {
             setIsLoading(false);
         });
 
-        const unsubBoxes = onSnapshot(boxesQuery, (snapshot) => {
-            setBoxes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Box)));
-        });
-
         return () => {
             unsubSubs();
-            unsubBoxes();
         };
     }, [user]);
 
     const stats = {
         totalSubscriptions: subscriptions.length,
-        activePlans: boxes.length,
     };
     
     if (authLoading || isLoading) {
         return (
             <div className="space-y-6">
                 <Skeleton className="h-8 w-64"/>
-                <div className="grid gap-4 md:grid-cols-2">
-                    <Skeleton className="h-28"/>
+                <div className="grid gap-4">
                     <Skeleton className="h-28"/>
                 </div>
-                 <div className="grid gap-6 md:grid-cols-2">
-                    <Skeleton className="h-64"/>
+                 <div className="grid gap-6">
                     <Skeleton className="h-64"/>
                 </div>
             </div>
@@ -109,7 +99,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Stat Cards */}
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Your Subscriptions</CardTitle>
@@ -117,20 +107,6 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.totalSubscriptions}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Available Plans</CardTitle>
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                         <div className="flex items-center justify-between">
-                            <span className="text-2xl font-bold">{stats.activePlans}</span>
-                            <Button asChild size="sm">
-                                <Link href="/dashboard/boxes">Explore</Link>
-                            </Button>
-                        </div>
                     </CardContent>
                 </Card>
             </div>
