@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, Suspense, useCallback } from 'react';
@@ -344,7 +345,7 @@ export default function HomePage() {
           </div>
         </section>
         <section id="boxes" className="w-full py-12 md:py-24 lg:py-32">
-             <div className="flex w-full gap-6 px-4 py-4 overflow-x-auto md:px-6">
+             <div className="grid grid-flow-col auto-cols-max justify-center gap-6 px-4 py-4 overflow-x-auto md:px-6">
                 {isLoading
                 ? Array.from({ length: 3 }).map((_, i) => (
                     <Card key={i} className="flex w-full max-w-sm flex-col">
