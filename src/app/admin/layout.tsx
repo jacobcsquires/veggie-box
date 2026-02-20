@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/sidebar";
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-  const { state, isMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
   const navItems = [
     { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
     { href: "/admin/boxes", icon: Package, label: "Products" },
@@ -72,7 +72,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 {navItems.map(item => (
                 <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton asChild tooltip={item.label}>
-                    <Link href={item.href}>
+                    <Link href={item.href} onClick={() => { if (isMobile) setOpenMobile(false); }}>
                         <item.icon />
                         <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                     </Link>
@@ -93,7 +93,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                                 {settingsNavItems.map(item => (
                                     <SidebarMenuItem key={item.label}>
                                         <SidebarMenuSubButton asChild>
-                                            <Link href={item.href}>
+                                            <Link href={item.href} onClick={() => { if (isMobile) setOpenMobile(false); }}>
                                                 <item.icon />
                                                 <span>{item.label}</span>
                                             </Link>

@@ -36,7 +36,7 @@ import {
 
 function DashboardPageContent({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
-    const { state } = useSidebar();
+    const { isMobile, setOpenMobile } = useSidebar();
     const [subscriptionsCount, setSubscriptionsCount] = useState(0);
 
     useEffect(() => {
@@ -70,7 +70,7 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
                     {navItems.map(item => (
                     <SidebarMenuItem key={item.label}>
                         <SidebarMenuButton asChild tooltip={item.label}>
-                        <Link href={item.href}>
+                        <Link href={item.href} onClick={() => { if (isMobile) setOpenMobile(false); }}>
                             <item.icon />
                             <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                             {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
