@@ -8,7 +8,7 @@ import { collection, onSnapshot, addDoc, serverTimestamp, getDocs, query, where,
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, FilePen, Package, Users, ListTree, CalendarDays, RefreshCw, EyeOff, Trash2, Clock, ListChecks } from 'lucide-react';
+import { PlusCircle, FilePen, Package, Users, ListTree, CalendarDays, EyeOff, Trash2, Clock, ListChecks } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -191,7 +191,6 @@ export default function AdminProductsPage() {
   const [boxes, setBoxes] = useState<BoxWithSchedule[]>([]);
   const [addOns, setAddOns] = useState<AddOn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   // Box Dialog State
   const [isBoxDialogOpen, setIsBoxDialogOpen] = useState(false);
@@ -508,31 +507,6 @@ export default function AdminProductsPage() {
     };
 
 
-  const handleSync = async () => {
-        setIsSyncing(true);
-        try {
-            const response = await fetch('/api/sync-stripe-products', {
-                method: 'POST',
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                throw new Error(result.message || 'Failed to sync with Stripe.');
-            }
-            toast({
-                title: 'Sync Complete',
-                description: `${result.createdCount} created, ${result.updatedCount} updated, ${result.deletedCount || 0} archived. Subscriber counts for ${result.countsUpdated} plan(s) were corrected.`,
-            });
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Sync Error',
-                description: error.message,
-            });
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-2">
@@ -540,10 +514,6 @@ export default function AdminProductsPage() {
           Manage Products
         </h1>
         <div className="flex items-center gap-2">
-            <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="lg">
-                <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? 'Syncing...' : 'Sync with Stripe'}
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="lg">
