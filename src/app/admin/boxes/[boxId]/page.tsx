@@ -533,6 +533,28 @@ export default function AdminBoxDetailPage() {
     
     return prevDate;
   }, [box, pickups]);
+
+  const missingPickups = useMemo(() => {
+    if (!box || pickups.length < 2) return [];
+
+    const gaps: Date[] = [];
+    const sortedPickups = [...pickups].sort((a, b) => a.pickupDate.localeCompare(b.pickupDate));
+
+    for (let i = 0; i < sortedPickups.length - 1; i++) {
+        const currentPickupDate = new Date(sortedPickups[i].pickupDate.replace(/-/g, '\/'));
+        const nextScheduledPickupDate = new Date(sortedPickups[i+1].pickupDate.replace(/-/g, '\/'));
+        
+        let nextExpectedDate = getNextPickupDate(currentPickupDate, box.frequency);
+
+        while (isBefore(nextExpectedDate, nextScheduledPickupDate)) {
+            if (!isBefore(nextExpectedDate, startOfToday())) {
+                gaps.push(nextExpectedDate);
+            }
+            nextExpectedDate = getNextPickupDate(nextExpectedDate, box.frequency);
+        }
+    }
+    return gaps;
+  }, [box, pickups]);
   
    const exportSubscribersToCSV = () => {
     if (filteredAndSortedSubscriptions.length === 0) {
@@ -699,6 +721,17 @@ export default function AdminBoxDetailPage() {
                                 Add previous: {format(previousPossiblePickupDate, 'PPP')}
                             </Button>
                         )}
+                        {missingPickups.map((date) => (
+                            <Button
+                                key={date.toISOString()}
+                                variant="outline"
+                                className="justify-start border-dashed"
+                                onClick={() => handleAddSinglePickup(date)}
+                            >
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Add missing: {format(date, 'PPP')}
+                            </Button>
+                        ))}
                         {nextPossiblePickupDate && (
                              <Button
                                 variant="ghost"
