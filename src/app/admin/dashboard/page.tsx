@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -148,7 +149,7 @@ export default function AdminDashboardPage() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-headline">Dashboard</h1>
+                <h1 className="text-2xl font-headline font-bold">Dashboard</h1>
             </div>
 
             {todaysPickups.length > 0 && (
