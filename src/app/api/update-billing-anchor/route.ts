@@ -9,6 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
 
+// This route is used to effectively 'pause' subscriptions until the next pickup date.
 export async function POST(request: Request) {
   try {
     const { boxId, newStartDate } = await request.json();
@@ -25,48 +26,50 @@ export async function POST(request: Request) {
         .map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
 
     if (activeSubscriptions.length === 0) {
-      return NextResponse.json({ message: 'No active subscriptions to update.', updatedCount: 0 });
+      return NextResponse.json({ message: 'No active subscriptions to pause.', updatedCount: 0 });
     }
     
-    // We need to parse the date as UTC to avoid timezone issues.
-    // '2024-08-15' becomes '2024-08-15T00:00:00.000Z'
-    const newBillingCycleAnchor = new Date(`${newStartDate}T00:00:00.000Z`).getTime() / 1000;
+    // The newStartDate is the next pickup date. We'll put the subscription on trial until then.
+    const trialEndTimestamp = new Date(`${newStartDate}T00:00:00.000Z`).getTime() / 1000;
 
     let updatedCount = 0;
     const batch = writeBatch(db);
 
     for (const sub of activeSubscriptions) {
         if (!sub.stripeSubscriptionId) {
-            console.warn(`Subscription ${sub.id} is missing a Stripe Subscription ID, skipping.`);
+            console.warn(`Subscription ${sub.id} is missing a Stripe Subscription ID, skipping pause.`);
             continue;
         }
 
         try {
+            // Put the subscription on a trial until the next pickup date.
+            // This effectively skips the payment for the deleted pickup.
             await stripe.subscriptions.update(sub.stripeSubscriptionId, {
-                billing_cycle_anchor: newBillingCycleAnchor,
+                trial_end: trialEndTimestamp,
                 proration_behavior: 'none',
             });
 
-            // Also update the subscription in Firestore
+            // Also update the subscription in Firestore to reflect the paused state.
             const subDocRef = doc(db, 'subscriptions', sub.id);
             batch.update(subDocRef, { 
-                startDate: newStartDate,
+                status: 'Trialing', // Using 'Trialing' status to represent the skipped/paused state.
+                trialEnd: trialEndTimestamp,
                 nextPickup: newStartDate 
             });
 
             updatedCount++;
         } catch (error: any) {
-             console.error(`Failed to update Stripe subscription ${sub.stripeSubscriptionId}:`, error.message);
+             console.error(`Failed to pause Stripe subscription ${sub.stripeSubscriptionId}:`, error.message);
              // Continue to the next subscription even if one fails
         }
     }
 
     await batch.commit();
 
-    return NextResponse.json({ message: 'Successfully updated billing cycle anchor for subscriptions.', updatedCount });
+    return NextResponse.json({ message: 'Successfully paused subscriptions until the next pickup.', updatedCount });
 
   } catch (error: any) {
-    console.error('Failed to update billing anchor:', error);
+    console.error('Failed to pause subscriptions:', error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
