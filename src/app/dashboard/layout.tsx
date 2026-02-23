@@ -39,13 +39,19 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
     const { isMobile, setOpenMobile } = useSidebar();
     const [subscriptionsCount, setSubscriptionsCount] = useState(0);
+    const [totalSubscriptionsCount, setTotalSubscriptionsCount] = useState(0);
     const [waitlistCount, setWaitlistCount] = useState(0);
 
     useEffect(() => {
         if (user) {
-            const q = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), where('status', 'in', ['Active', 'Pending', 'Past Due', 'Unpaid', 'Trialing', 'Unknown']));
-            const unsubscribeSubs = onSnapshot(q, (snapshot) => {
+            const activeSubQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), where('status', 'in', ['Active', 'Pending', 'Past Due', 'Unpaid', 'Trialing', 'Unknown']));
+            const unsubscribeSubs = onSnapshot(activeSubQuery, (snapshot) => {
                 setSubscriptionsCount(snapshot.size);
+            });
+
+            const allSubQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid));
+            const unsubscribeTotalSubs = onSnapshot(allSubQuery, (snapshot) => {
+                setTotalSubscriptionsCount(snapshot.size);
             });
 
             const boxesRef = collection(db, 'boxes');
@@ -66,6 +72,7 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
 
             return () => {
                 unsubscribeSubs();
+                unsubscribeTotalSubs();
                 unsubscribeWaitlists();
             };
         }
@@ -73,7 +80,7 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
 
     const navItems = [
         { href: "/dashboard", icon: Home, label: "Dashboard" },
-        ...(subscriptionsCount > 0 ? [
+        ...(totalSubscriptionsCount > 0 ? [
             { href: "/dashboard/subscriptions", icon: ShoppingCart, label: "Manage Subscriptions", badge: subscriptionsCount },
             { href: "/dashboard/schedule", icon: Calendar, label: "Upcoming Pickups" },
         ] : []),
