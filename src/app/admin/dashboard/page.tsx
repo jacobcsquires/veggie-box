@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Users, ShoppingCart, Package, ArrowRight, Calendar, UserCheck, AlertTriangle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 
 type UpcomingPickup = {
@@ -23,6 +24,7 @@ type UpcomingPickup = {
 
 
 export default function AdminDashboardPage() {
+    const router = useRouter();
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [allSubscriptions, setAllSubscriptions] = useState<Subscription[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -231,7 +233,7 @@ export default function AdminDashboardPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {subscriptions.length > 0 ? subscriptions.map(sub => (
-                                        <TableRow key={sub.id}>
+                                        <TableRow key={sub.id} className="cursor-pointer" onClick={() => router.push(`/admin/subscriptions/${sub.id}`)}>
                                             <TableCell>{sub.customerName}</TableCell>
                                             <TableCell>{sub.boxName}</TableCell>
                                             <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>
