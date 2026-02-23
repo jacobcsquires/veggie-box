@@ -13,7 +13,7 @@ import {
   Calendar,
   ListChecks,
 } from "lucide-react";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, getDocs, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -33,26 +33,48 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
+import type { Box } from '@/lib/types';
 
 function DashboardPageContent({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
     const { isMobile, setOpenMobile } = useSidebar();
     const [subscriptionsCount, setSubscriptionsCount] = useState(0);
+    const [waitlistCount, setWaitlistCount] = useState(0);
 
     useEffect(() => {
         if (user) {
-        const q = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), where('status', 'in', ['Active', 'Pending', 'Past Due', 'Unpaid', 'Trialing', 'Unknown']));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setSubscriptionsCount(snapshot.size);
-        });
-        return () => unsubscribe();
+            const q = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), where('status', 'in', ['Active', 'Pending', 'Past Due', 'Unpaid', 'Trialing', 'Unknown']));
+            const unsubscribeSubs = onSnapshot(q, (snapshot) => {
+                setSubscriptionsCount(snapshot.size);
+            });
+
+            const boxesRef = collection(db, 'boxes');
+            const unsubscribeWaitlists = onSnapshot(boxesRef, async (snapshot) => {
+                const boxesData = snapshot.docs.map(doc => ({ id: doc.id } as Box));
+                
+                const waitlistChecks = boxesData.map(async (box) => {
+                    if (!user) return false;
+                    const waitlistRef = doc(db, 'boxes', box.id, 'waitlist', user.uid);
+                    const waitlistSnap = await getDoc(waitlistRef);
+                    return waitlistSnap.exists();
+                });
+        
+                const results = await Promise.all(waitlistChecks);
+                const userWaitlistedCount = results.filter(exists => exists).length;
+                setWaitlistCount(userWaitlistedCount);
+            });
+
+            return () => {
+                unsubscribeSubs();
+                unsubscribeWaitlists();
+            };
         }
     }, [user]);
 
     const navItems = [
         { href: "/dashboard", icon: Home, label: "Dashboard" },
         { href: "/dashboard/subscriptions", icon: ShoppingCart, label: "Manage Subscriptions", badge: subscriptionsCount > 0 ? subscriptionsCount : undefined },
-        { href: "/dashboard/waitlist", icon: ListChecks, label: "Your Waitlists" },
+        ...(waitlistCount > 0 ? [{ href: "/dashboard/waitlist", icon: ListChecks, label: "Your Waitlists" }] : []),
         { href: "/dashboard/schedule", icon: Calendar, label: "Upcoming Pickups" },
         { href: "/dashboard/boxes", icon: Package, label: "Explore Boxes" },
     ];
