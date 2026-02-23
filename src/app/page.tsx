@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, Suspense, useCallback } from 'react';
@@ -330,20 +329,6 @@ export default function HomePage() {
         </nav>
       </header>
       <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-primary/10 grid place-items-center">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center justify-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none font-headline">
-                  Welcome to the Veggie Box Customer Portal
-                </h1>
-                <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
-                  Discover the best seasonal produce, sourced from local farms and delivered straight to your door.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
         <section id="boxes" className="w-full py-12 md:py-24 lg:py-32">
              <div className="grid grid-flow-col auto-cols-max justify-center gap-6 px-4 py-4 overflow-x-auto md:px-6">
                 {isLoading
