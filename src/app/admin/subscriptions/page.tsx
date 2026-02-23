@@ -338,7 +338,6 @@ export default function AdminSubscriptionsPage() {
                                     </Button>
                                 </TableHead>
                                 <TableHead className="hidden sm:table-cell text-right">Price</TableHead>
-                                <TableHead><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -351,20 +350,19 @@ export default function AdminSubscriptionsPage() {
                                         <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
                                         <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
                                         <TableCell className="hidden sm:table-cell text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
-                                        <TableCell className="text-right"><Skeleton className="h-9 w-16 ml-auto" /></TableCell>
                                     </TableRow>
                                 ))
                             ) : filteredAndSortedSubscriptions.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
+                                    <TableCell colSpan={6} className="h-24 text-center">
                                         No matching subscriptions found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 filteredAndSortedSubscriptions.map((sub) => (
-                                    <TableRow key={sub.id}>
+                                    <TableRow key={sub.id} onClick={() => router.push(`/admin/subscriptions/${sub.id}`)} className="cursor-pointer">
                                         <TableCell className="font-medium">
-                                            <Link href={`/admin/customers/${sub.stripeCustomerId}`} className="hover:underline">
+                                            <Link href={`/admin/customers/${sub.stripeCustomerId}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
                                                 {sub.customerName || sub.userId}
                                             </Link>
                                         </TableCell>
@@ -381,11 +379,6 @@ export default function AdminSubscriptionsPage() {
                                             {sub.lastCharged ? format(parseISO(sub.lastCharged), 'PPP') : 'N/A'}
                                         </TableCell>
                                         <TableCell className="hidden sm:table-cell text-right">${sub.price.toFixed(2)}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="outline" size="sm" onClick={() => router.push(`/admin/subscriptions/${sub.id}`)}>
-                                                View
-                                            </Button>
-                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}
