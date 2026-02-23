@@ -157,77 +157,122 @@ export default function AdminSubscriptionsPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>
-                                    <Button variant="ghost" onClick={() => handleSort('customerName')}>
-                                        Customer {renderSortIcon('customerName')}
-                                    </Button>
-                                </TableHead>
-                                <TableHead className="hidden sm:table-cell">
-                                     <Button variant="ghost" onClick={() => handleSort('boxName')}>
-                                        Plan {renderSortIcon('boxName')}
-                                    </Button>
-                                </TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="hidden md:table-cell">
-                                     <Button variant="ghost" onClick={() => handleSort('nextPickup')}>
-                                        Next Billing {renderSortIcon('nextPickup')}
-                                    </Button>
-                                </TableHead>
-                                <TableHead className="hidden lg:table-cell">
-                                    <Button variant="ghost" onClick={() => handleSort('lastCharged')}>
-                                        Last Charged {renderSortIcon('lastCharged')}
-                                    </Button>
-                                </TableHead>
-                                <TableHead className="hidden sm:table-cell text-right">Price</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                Array.from({ length: 5 }).map((_, i) => (
-                                    <TableRow key={i}>
-                                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
-                                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
-                                        <TableCell className="hidden sm:table-cell text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : filteredAndSortedSubscriptions.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
-                                        No matching subscriptions found.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredAndSortedSubscriptions.map((sub) => (
-                                    <TableRow key={sub.id} onClick={() => router.push(`/admin/subscriptions/${sub.id}`)} className="cursor-pointer">
-                                        <TableCell className="font-medium">
-                                            <Link href={`/admin/customers/${sub.stripeCustomerId}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
-                                                {sub.customerName || sub.userId}
-                                            </Link>
-                                        </TableCell>
-                                        <TableCell className="hidden sm:table-cell">{sub.boxName}</TableCell>
-                                        <TableCell>
+                    {/* Mobile View */}
+                    <div className="md:hidden space-y-4">
+                        {isLoading ? (
+                            Array.from({ length: 3 }).map((_, i) => (
+                                <Card key={i} className="p-4">
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-5 w-3/4" />
+                                        <Skeleton className="h-4 w-1/2" />
+                                        <Skeleton className="h-6 w-20 rounded-full" />
+                                    </div>
+                                </Card>
+                            ))
+                        ) : filteredAndSortedSubscriptions.length === 0 ? (
+                            <div className="text-center text-muted-foreground py-10">
+                                No matching subscriptions found.
+                            </div>
+                        ) : (
+                            filteredAndSortedSubscriptions.map((sub) => (
+                                <Card key={sub.id} onClick={() => router.push(`/admin/subscriptions/${sub.id}`)} className="cursor-pointer">
+                                    <CardContent className="p-4 grid gap-2">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-semibold">{sub.customerName || sub.userId}</p>
+                                                <p className="text-sm text-muted-foreground">{sub.boxName}</p>
+                                            </div>
+                                            <p className="font-bold">${sub.price.toFixed(2)}</p>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm">
                                             <Badge variant={getStatusVariant(sub.status)} className="capitalize">
                                                 {sub.status === 'Trialing' ? 'Skipped' : sub.status}
                                             </Badge>
+                                            <div className="text-muted-foreground">
+                                                {sub.nextPickup ? (
+                                                    <span>Next: {format(parseISO(sub.nextPickup), 'MMM d')}</span>
+                                                ) : 'N/A'}
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))
+                        )}
+                    </div>
+                    {/* Desktop View */}
+                    <div className="hidden md:block">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>
+                                        <Button variant="ghost" onClick={() => handleSort('customerName')}>
+                                            Customer {renderSortIcon('customerName')}
+                                        </Button>
+                                    </TableHead>
+                                    <TableHead className="hidden sm:table-cell">
+                                        <Button variant="ghost" onClick={() => handleSort('boxName')}>
+                                            Plan {renderSortIcon('boxName')}
+                                        </Button>
+                                    </TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="hidden md:table-cell">
+                                        <Button variant="ghost" onClick={() => handleSort('nextPickup')}>
+                                            Next Billing {renderSortIcon('nextPickup')}
+                                        </Button>
+                                    </TableHead>
+                                    <TableHead className="hidden lg:table-cell">
+                                        <Button variant="ghost" onClick={() => handleSort('lastCharged')}>
+                                            Last Charged {renderSortIcon('lastCharged')}
+                                        </Button>
+                                    </TableHead>
+                                    <TableHead className="hidden sm:table-cell text-right">Price</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoading ? (
+                                    Array.from({ length: 5 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                                            <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
+                                            <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                            <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                                            <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                                            <TableCell className="hidden sm:table-cell text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : filteredAndSortedSubscriptions.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="h-24 text-center">
+                                            No matching subscriptions found.
                                         </TableCell>
-                                        <TableCell className="hidden md:table-cell">
-                                            {sub.nextPickup ? format(parseISO(sub.nextPickup), 'PPP') : 'N/A'}
-                                        </TableCell>
-                                        <TableCell className="hidden lg:table-cell">
-                                            {sub.lastCharged ? format(parseISO(sub.lastCharged), 'PPP') : 'N/A'}
-                                        </TableCell>
-                                        <TableCell className="hidden sm:table-cell text-right">${sub.price.toFixed(2)}</TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : (
+                                    filteredAndSortedSubscriptions.map((sub) => (
+                                        <TableRow key={sub.id} onClick={() => router.push(`/admin/subscriptions/${sub.id}`)} className="cursor-pointer">
+                                            <TableCell className="font-medium">
+                                                <Link href={`/admin/customers/${sub.stripeCustomerId}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                                                    {sub.customerName || sub.userId}
+                                                </Link>
+                                            </TableCell>
+                                            <TableCell className="hidden sm:table-cell">{sub.boxName}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={getStatusVariant(sub.status)} className="capitalize">
+                                                    {sub.status === 'Trialing' ? 'Skipped' : sub.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="hidden md:table-cell">
+                                                {sub.nextPickup ? format(parseISO(sub.nextPickup), 'PPP') : 'N/A'}
+                                            </TableCell>
+                                            <TableCell className="hidden lg:table-cell">
+                                                {sub.lastCharged ? format(parseISO(sub.lastCharged), 'PPP') : 'N/A'}
+                                            </TableCell>
+                                            <TableCell className="hidden sm:table-cell text-right">${sub.price.toFixed(2)}</TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>
