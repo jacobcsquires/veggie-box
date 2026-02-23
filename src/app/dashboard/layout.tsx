@@ -104,7 +104,7 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
                         <Link href={item.href} onClick={() => { if (isMobile) setOpenMobile(false); }}>
                             <item.icon />
                             <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                            {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
+                            {item.badge != null && item.badge > 0 && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
                         </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
