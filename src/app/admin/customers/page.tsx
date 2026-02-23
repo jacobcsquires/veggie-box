@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -225,7 +226,7 @@ export default function AdminCustomersPage() {
         const usersMap = new Map(users.map(u => [u.uid, u]));
 
         const enrichedCustomers = customers.map(customer => {
-            if (!customer.name && customer.userId) {
+            if (customer.userId) {
                 const user = usersMap.get(customer.userId);
                 if (user?.displayName) {
                     return { ...customer, name: user.displayName };
@@ -473,3 +474,5 @@ export default function AdminCustomersPage() {
         </div>
     );
 }
+
+    
