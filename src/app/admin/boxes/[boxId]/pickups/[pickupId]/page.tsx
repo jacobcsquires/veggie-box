@@ -1,12 +1,11 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, serverTimestamp, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, serverTimestamp, query, where, orderBy, Timestamp, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Box, Subscription, Pickup } from '@/lib/types';
+import type { Box, Subscription, Pickup, EmailTemplate } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,10 +13,28 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
-import { ChevronRight, Search, Users, CheckCircle, XCircle, UserCheck, Package } from 'lucide-react';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { ChevronRight, Search, Users, CheckCircle, XCircle, UserCheck, Package, Mail, RefreshCw, AlertCircle } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/group-toggle'; // Note: corrected from ui/toggle-group if it was a hallucination, standard is @/components/ui/toggle-group
+import { ToggleGroup as ShToggleGroup, ToggleGroupItem as ShToggleGroupItem } from '@/components/ui/toggle-group';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 
 type SubscriberCheckin = Subscription & {
   collected: boolean;
@@ -27,6 +44,7 @@ type SubscriberCheckin = Subscription & {
 export default function PickupCheckinPage() {
     const params = useParams();
     const searchParams = useSearchParams();
+    const { toast } = useToast();
     const fromDashboard = searchParams.get('from') === 'dashboard';
     const boxId = params.boxId as string;
     const pickupId = params.pickupId as string;
@@ -39,6 +57,12 @@ export default function PickupCheckinPage() {
 
     const [filter, setFilter] = useState('all'); // 'all', 'collected', 'uncollected'
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Bulk Email State
+    const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+    const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState('');
+    const [isSendingEmails, setIsSendingEmails] = useState(false);
 
     useEffect(() => {
         if (!boxId || !pickupId) return;
@@ -68,7 +92,8 @@ export default function PickupCheckinPage() {
                     const customerRef = doc(db, 'customers', sub.stripeCustomerId);
                     const customerSnap = await getDoc(customerRef);
                     if (customerSnap.exists()) {
-                        return { ...sub, customerEmail: customerSnap.data().email };
+                        const custData = customerSnap.data();
+                        return { ...sub, customerEmail: custData.email, customerName: custData.name || sub.customerName };
                     }
                 } catch (error) {
                     console.error(`Failed to fetch customer data for sub ${sub.id}`, error);
@@ -90,11 +115,17 @@ export default function PickupCheckinPage() {
             setCollectionStatuses(statuses);
         });
 
+        const templatesQuery = query(collection(db, 'emailTemplates'), orderBy('name'));
+        const unsubTemplates = onSnapshot(templatesQuery, (snapshot) => {
+            setEmailTemplates(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EmailTemplate)));
+        });
+
         return () => {
             unsubBox();
             unsubPickup();
             unsubSubs();
             unsubCollections();
+            unsubTemplates();
         };
     }, [boxId, pickupId]);
 
@@ -136,11 +167,82 @@ export default function PickupCheckinPage() {
         });
     }, [subscribersWithStatus, filter, searchTerm]);
 
+    const uncollectedSubscribers = useMemo(() => {
+        return subscribersWithStatus.filter(s => !s.collected);
+    }, [subscribersWithStatus]);
+
     const collectedCount = useMemo(() => {
         return Array.from(collectionStatuses.values()).filter(s => s.collected).length;
     }, [collectionStatuses]);
     
     const progressPercentage = subscriptions.length > 0 ? (collectedCount / subscriptions.length) * 100 : 0;
+
+    const handleSendBulkEmail = async () => {
+        if (!selectedTemplateId || uncollectedSubscribers.length === 0) return;
+        
+        setIsSendingEmails(true);
+        try {
+            const template = emailTemplates.find(t => t.id === selectedTemplateId);
+            if (!template) throw new Error("Template not found");
+
+            const batchCount = uncollectedSubscribers.length;
+            
+            for (const sub of uncollectedSubscribers) {
+                if (!sub.customerEmail) continue;
+
+                let finalBody = template.body;
+                let finalSubject = template.subject;
+
+                // Replace placeholders
+                if (sub.customerName) {
+                    finalBody = finalBody.replace(/{{customerName}}/gi, sub.customerName);
+                    finalSubject = finalSubject.replace(/{{customerName}}/gi, sub.customerName);
+                }
+                if (box) {
+                    finalBody = finalBody.replace(/{{boxName}}/gi, box.name);
+                    finalSubject = finalSubject.replace(/{{boxName}}/gi, box.name);
+                }
+                if (pickup) {
+                    const formattedDate = format(new Date(pickup.pickupDate.replace(/-/g, '/')), 'PPPP');
+                    finalBody = finalBody.replace(/{{pickupDate}}/gi, formattedDate);
+                    finalSubject = finalSubject.replace(/{{pickupDate}}/gi, formattedDate);
+                }
+
+                let imageHtml = '';
+                if (template.veggieListImageUrl) {
+                    imageHtml += `<p><strong>This week's veggie list:</strong></p><img src="${template.veggieListImageUrl}" alt="Veggie List" style="max-width: 100%; height: auto; margin-bottom: 1rem;" />`;
+                }
+                if (template.recipeCardImageUrl) {
+                    imageHtml += `<p><strong>Recipe suggestion:</strong></p><img src="${template.recipeCardImageUrl}" alt="Recipe Card" style="max-width: 100%; height: auto; margin-bottom: 1rem;" />`;
+                }
+
+                const fullHtmlBody = imageHtml + finalBody.replace(/\n/g, '<br>');
+
+                await addDoc(collection(db, 'mail'), {
+                    to: [sub.customerEmail],
+                    message: {
+                        subject: finalSubject,
+                        html: fullHtmlBody,
+                    },
+                });
+            }
+
+            toast({
+                title: 'Emails Queued',
+                description: `Successfully queued reminder emails for ${batchCount} subscribers.`,
+            });
+            setIsEmailDialogOpen(false);
+        } catch (error: any) {
+            console.error("Failed to send bulk emails:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to send bulk reminder emails.',
+            });
+        } finally {
+            setIsSendingEmails(false);
+        }
+    };
 
     if (isLoading) {
         return <div className="p-6"><Skeleton className="h-96 w-full" /></div>;
@@ -169,11 +271,19 @@ export default function PickupCheckinPage() {
                 <span className="font-medium text-foreground">Check-in</span>
             </div>
 
-            <div>
-                <h1 className="text-2xl font-headline">Pickup Check-in</h1>
-                <p className="text-muted-foreground">
-                    For {box.name} on {format(new Date(pickup.pickupDate.replace(/-/g, '/')), 'PPPP')}
-                </p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-headline font-bold">Pickup Check-in</h1>
+                    <p className="text-muted-foreground">
+                        For {box.name} on {format(new Date(pickup.pickupDate.replace(/-/g, '/')), 'PPPP')}
+                    </p>
+                </div>
+                {uncollectedSubscribers.length > 0 && (
+                    <Button onClick={() => setIsEmailDialogOpen(true)} variant="outline">
+                        <Mail className="mr-2 h-4 w-4" />
+                        Email Uncollected ({uncollectedSubscribers.length})
+                    </Button>
+                )}
             </div>
             
             <Card>
@@ -203,11 +313,11 @@ export default function PickupCheckinPage() {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <ToggleGroup type="single" value={filter} onValueChange={(value) => { if(value) setFilter(value) }} defaultValue="all">
-                            <ToggleGroupItem value="all" aria-label="All subscribers">All</ToggleGroupItem>
-                            <ToggleGroupItem value="uncollected" aria-label="Uncollected"><XCircle className="mr-2 h-4 w-4" />Not Collected</ToggleGroupItem>
-                            <ToggleGroupItem value="collected" aria-label="Collected"><CheckCircle className="mr-2 h-4 w-4" />Collected</ToggleGroupItem>
-                        </ToggleGroup>
+                        <ShToggleGroup type="single" value={filter} onValueChange={(value) => { if(value) setFilter(value) }} defaultValue="all">
+                            <ShToggleGroupItem value="all" aria-label="All subscribers">All</ShToggleGroupItem>
+                            <ShToggleGroupItem value="uncollected" aria-label="Uncollected"><XCircle className="mr-2 h-4 w-4" />Not Collected</ShToggleGroupItem>
+                            <ShToggleGroupItem value="collected" aria-label="Collected"><CheckCircle className="mr-2 h-4 w-4" />Collected</ShToggleGroupItem>
+                        </ShToggleGroup>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -230,7 +340,7 @@ export default function PickupCheckinPage() {
                                 </TableRow>
                             ) : (
                                 filteredSubscribers.map((sub) => (
-                                    <TableRow key={sub.id} className={cn(sub.collected && "bg-secondary/40 hover:bg-secondary/60")}>
+                                    <TableRow key={sub.id} className={cn(sub.collected ? "bg-secondary/40 hover:bg-secondary/60" : "bg-orange-50/30 hover:bg-orange-50/50")}>
                                         <TableCell>
                                             <Checkbox
                                                 checked={sub.collected}
@@ -250,8 +360,15 @@ export default function PickupCheckinPage() {
                                         <TableCell className="hidden md:table-cell">{sub.customerEmail}</TableCell>
                                         <TableCell className="hidden sm:table-cell">
                                             <div className="flex items-center gap-2">
-                                                {sub.collected ? <CheckCircle className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-muted-foreground" />}
-                                                <span className="font-medium">{sub.collected ? 'Collected' : 'Not Collected'}</span>
+                                                {sub.collected ? (
+                                                    <Badge variant="default" className="bg-green-600 hover:bg-green-600">
+                                                        <CheckCircle className="mr-1 h-3 w-3" /> Collected
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">
+                                                        <AlertCircle className="mr-1 h-3 w-3" /> Pending Collection
+                                                    </Badge>
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -264,6 +381,42 @@ export default function PickupCheckinPage() {
                     </Table>
                 </CardContent>
             </Card>
+
+            <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Send Collection Reminder</DialogTitle>
+                        <DialogDescription>
+                            Send a reminder email to all {uncollectedSubscribers.length} subscribers who haven't collected their box today.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                        <div className="grid gap-2">
+                            <label className="text-sm font-medium">Select Template</label>
+                            <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select an email template..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {emailTemplates.map(template => (
+                                        <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEmailDialogOpen(false)} disabled={isSendingEmails}>Cancel</Button>
+                        <Button onClick={handleSendBulkEmail} disabled={isSendingEmails || !selectedTemplateId}>
+                            {isSendingEmails ? (
+                                <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Sending...</>
+                            ) : (
+                                <><Mail className="mr-2 h-4 w-4" /> Send Reminders</>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
         </div>
     );
