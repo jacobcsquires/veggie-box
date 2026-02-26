@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -146,7 +145,7 @@ const ProductGrid = ({ products, isLoading, onEditAddon, onDeleteAddon }: { prod
                                 </div>
                                 <Button asChild className="w-full mt-2">
                                     <Link href={`/admin/boxes/${box.id}`}>
-                                        <FilePen className="mr-2 h-4 w-4" /> Manage Plan
+                                        <FilePen className="mr-2 h-4 w-4" /> Edit
                                     </Link>
                                 </Button>
                             </CardFooter>
