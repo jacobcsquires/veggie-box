@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from "next/link";
@@ -13,7 +12,7 @@ import {
   Calendar,
   ListChecks,
 } from "lucide-react";
-import { collection, query, where, onSnapshot, getDocs, doc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 import { useAuth } from "@/contexts/auth-context";
