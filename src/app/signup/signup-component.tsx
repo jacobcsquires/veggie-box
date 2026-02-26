@@ -152,7 +152,18 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="phone">Phone Number</Label>
-                    <Input id="phone" type="tel" placeholder="123-456-7890" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={isLoading || isGoogleLoading}/>
+                    <Input 
+                        id="phone" 
+                        type="tel" 
+                        placeholder="1234567890" 
+                        required 
+                        value={phone} 
+                        onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                            setPhone(val);
+                        }} 
+                        disabled={isLoading || isGoogleLoading}
+                    />
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="password">Password</Label>

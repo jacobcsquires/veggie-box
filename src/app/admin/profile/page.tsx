@@ -138,7 +138,17 @@ export default function ProfilePage() {
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="phone">Phone</Label>
-                        <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={isInfoSaving} />
+                        <Input 
+                            id="phone" 
+                            type="tel" 
+                            placeholder="1234567890"
+                            value={phone} 
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                setPhone(val);
+                            }} 
+                            disabled={isInfoSaving} 
+                        />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="email">Email</Label>

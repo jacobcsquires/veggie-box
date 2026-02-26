@@ -295,7 +295,17 @@ export default function AdminCustomersPage() {
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="phone">Phone Number</Label>
-                                    <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={isCreating}/>
+                                    <Input 
+                                        id="phone" 
+                                        type="tel" 
+                                        placeholder="1234567890" 
+                                        value={phone} 
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                            setPhone(val);
+                                        }} 
+                                        disabled={isCreating}
+                                    />
                                 </div>
                             </div>
                             <DialogFooter>
