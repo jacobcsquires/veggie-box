@@ -143,7 +143,7 @@ const ProductGrid = ({ products, isLoading, onEditAddon, onDeleteAddon }: { prod
                                     <span className="text-lg font-bold">${basePrice.toFixed(2)}{box.pricingOptions?.length > 1 ? '+' : ''}</span>
                                     <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
                                 </div>
-                                <Button asChild className="w-full mt-2">
+                                <Button asChild variant="outline" className="w-full mt-2">
                                     <Link href={`/admin/boxes/${box.id}`}>
                                         <FilePen className="mr-2 h-4 w-4" /> Edit
                                     </Link>
