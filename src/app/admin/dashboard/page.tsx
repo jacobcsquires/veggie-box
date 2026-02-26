@@ -77,7 +77,7 @@ export default function AdminDashboardPage() {
             // For counting boxes needed for a pickup, we only count truly "Active" subs.
             // Trialing subs (skipped) do not receive a box for that period.
             const subscriberCounts = allSubscriptions
-                .filter(s => s.status === 'Active')
+                .filter(s => ['Active', 'Trialing'].includes(s.status))
                 .reduce((acc, sub) => {
                     acc[sub.boxId] = (acc[sub.boxId] || 0) + 1;
                     return acc;
@@ -189,7 +189,7 @@ export default function AdminDashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.totalSubscriptions}</div>
-                        <p className="text-xs text-muted-foreground">Active & Skipped</p>
+                        <p className="text-xs text-muted-foreground">Active & Scheduled</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -222,7 +222,7 @@ export default function AdminDashboardPage() {
                     </CardHeader>
                     <CardContent>
                         {isPickupsLoading ? <Skeleton className="h-40 w-full" /> : (
-                             <div className="grid gap-4 md:grid-cols-2">
+                             <div className="grid gap-4 grid-cols-1">
                                 {upcomingPickups.length > 0 ? upcomingPickups.map(pickup => (
                                     <div key={`${pickup.boxId}-${pickup.id}`} className="rounded-lg border p-4 space-y-3">
                                         <div className="flex items-center">
