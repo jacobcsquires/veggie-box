@@ -74,6 +74,8 @@ export default function AdminDashboardPage() {
         const calculatePickups = async () => {
             setIsPickupsLoading(true);
 
+            // For counting boxes needed for a pickup, we only count truly "Active" subs.
+            // Trialing subs (skipped) do not receive a box for that period.
             const subscriberCounts = allSubscriptions
                 .filter(s => s.status === 'Active')
                 .reduce((acc, sub) => {
@@ -139,8 +141,9 @@ export default function AdminDashboardPage() {
 
     }, [boxes, allSubscriptions, isLoading]);
 
+    // Track active subscribers: includes 'Active' and 'Trialing' (skipped)
     const stats = {
-        totalSubscriptions: allSubscriptions.filter(s => s.status === 'Active').length,
+        totalSubscriptions: allSubscriptions.filter(s => ['Active', 'Trialing'].includes(s.status)).length,
         totalCustomers: customers.length,
         activePlans: boxes.filter(b => b.displayOnWebsite).length,
     };
@@ -177,6 +180,39 @@ export default function AdminDashboardPage() {
                     </CardContent>
                 </Card>
             )}
+
+            <div className="grid gap-6 md:grid-cols-3">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Subscriptions</CardTitle>
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.totalSubscriptions}</div>
+                        <p className="text-xs text-muted-foreground">Active & Skipped</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.totalCustomers}</div>
+                        <p className="text-xs text-muted-foreground">In database</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Active Plans</CardTitle>
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.activePlans}</div>
+                        <p className="text-xs text-muted-foreground">Visible on website</p>
+                    </CardContent>
+                </Card>
+            </div>
 
             <div className="grid gap-6 md:grid-cols-2">
                 {/* Upcoming Pickups */}

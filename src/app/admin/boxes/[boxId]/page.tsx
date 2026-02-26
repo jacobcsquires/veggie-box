@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -66,7 +65,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import Link from 'next/link';
 
 
-type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
+type PickupInternal = {
+    id: string;
+    pickupDate: string;
+    note: string;
+};
 
 function getNextPickupDate(lastDate: Date, frequency: Box['frequency']): Date {
     switch (frequency) {
@@ -155,7 +158,6 @@ export default function AdminBoxDetailPage() {
       if (docSnap.exists()) {
         const boxData = { id: docSnap.id, ...docSnap.data() } as Box;
         setBox(boxData);
-        // Populate form fields with box data
         setName(boxData.name);
         setDescription(boxData.description);
         setQuantity(boxData.quantity.toString());
@@ -168,7 +170,6 @@ export default function AdminBoxDetailPage() {
       setIsLoading(false);
     });
 
-    // Listen for real-time pickup updates from Firestore
     const pickupsRef = collection(db, 'boxes', boxId, 'pickups');
     const unsubPickups = onSnapshot(query(pickupsRef, orderBy('pickupDate')), (snapshot) => {
       const pickupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PickupInternal));
@@ -179,7 +180,6 @@ export default function AdminBoxDetailPage() {
     const unsubSubscriptions = onSnapshot(subscriptionsQuery, async (snapshot) => {
         const subsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Subscription);
         
-        // Enrich subscriptions with customer email
         const enrichedSubs = await Promise.all(subsData.map(async (sub) => {
           if (!sub.stripeCustomerId) return sub;
           try {
@@ -221,15 +221,20 @@ export default function AdminBoxDetailPage() {
     }
   }, [selectedDate, pickups]);
 
+  // Active status includes skipping/trialing subs
+  const activeSubscriptions = useMemo(() => {
+    return subscriptions.filter(s => ['Active', 'Trialing', 'Past Due', 'Unpaid'].includes(s.status));
+  }, [subscriptions]);
+
   const subscriptionCountsByPrice = useMemo(() => {
     const counts: { [priceId: string]: number } = {};
-    subscriptions.forEach(sub => {
-      if (sub.status === 'Active' && sub.priceId) {
+    activeSubscriptions.forEach(sub => {
+      if (sub.priceId) {
         counts[sub.priceId] = (counts[sub.priceId] || 0) + 1;
       }
     });
     return counts;
-  }, [subscriptions]);
+  }, [activeSubscriptions]);
   
   const openNoteDialog = (date: Date) => {
     setSelectedDate(date);
@@ -240,9 +245,6 @@ export default function AdminBoxDetailPage() {
   }
 
   const handleDateSelect = (date: Date | undefined) => {
-    if (!date) return;
-    const isScheduled = pickups.some(p => p.pickupDate === format(date, 'yyyy-MM-dd'));
-    // Open dialog only if a date is selected, and for calendar view, only if it's already scheduled
     if (date) {
         openNoteDialog(date);
     }
@@ -283,7 +285,7 @@ export default function AdminBoxDetailPage() {
     };
 
     const removePricingOption = (index: number) => {
-        if (pricingOptions.length <= 1) return; // Must have at least one
+        if (pricingOptions.length <= 1) return;
         const newOptions = pricingOptions.filter((_, i) => i !== index);
         setPricingOptions(newOptions);
     };
@@ -319,7 +321,7 @@ export default function AdminBoxDetailPage() {
             body: JSON.stringify({ 
                 name, 
                 description, 
-                frequency, // frequency is not editable, so this is safe
+                frequency,
                 existingProductId: box.stripeProductId,
                 pricingOptions: validPricingOptions,
                 oldPricingOptions: box.pricingOptions
@@ -482,7 +484,6 @@ export default function AdminBoxDetailPage() {
             }
         }
 
-        // Now delete the pickup document itself
         await deleteDoc(doc(db, 'boxes', boxId, 'pickups', pickupToDelete.id));
         
         toast({ title: 'Success', description: `Pickup deleted.${pauseMessage}` });
@@ -502,13 +503,13 @@ export default function AdminBoxDetailPage() {
   const pickupDates = useMemo(() => pickups.map(d => new Date(d.pickupDate.replace(/-/g, '\/'))), [pickups]);
 
   const filteredAndSortedSubscriptions = useMemo(() => {
-    return subscriptions
+    return activeSubscriptions
       .filter(sub => 
         sub.customerName?.toLowerCase().includes(subscriptionSearch.toLowerCase()) ||
         sub.customerEmail?.toLowerCase().includes(subscriptionSearch.toLowerCase())
       )
       .sort((a, b) => (a.customerName || '').localeCompare(b.customerName || ''));
-  }, [subscriptions, subscriptionSearch]);
+  }, [activeSubscriptions, subscriptionSearch]);
   
   const nextPossiblePickupDate = useMemo(() => {
     if (!box || pickups.length === 0) return null;
@@ -526,7 +527,6 @@ export default function AdminBoxDetailPage() {
     const firstDate = new Date(firstPickupDateStr.replace(/-/g, '\/'));
     const prevDate = getPreviousPickupDate(firstDate, box.frequency);
     
-    // Only allow adding a previous date if it's today or in the future
     if (isBefore(prevDate, startOfToday())) {
         return null;
     }
@@ -558,7 +558,7 @@ export default function AdminBoxDetailPage() {
   
    const exportSubscribersToCSV = () => {
     if (filteredAndSortedSubscriptions.length === 0) {
-      toast({ variant: 'destructive', title: 'No Subscribers', description: 'There are no subscribers to export.' });
+      toast({ variant: 'destructive', title: 'No Subscribers', description: 'There are no active subscribers to export.' });
       return;
     }
 
@@ -823,7 +823,6 @@ export default function AdminBoxDetailPage() {
                      ) : (
                         pickups.map(pickup => {
                             const pickupDateObj = new Date(pickup.pickupDate.replace(/-/g, '\/'));
-                            const isPast = isBefore(pickupDateObj, today);
                             return (
                                 <Card key={pickup.id}>
                                     <CardHeader>
@@ -913,7 +912,7 @@ export default function AdminBoxDetailPage() {
                 <TabsTrigger value="details"><FilePen className="mr-2 h-4 w-4" />Details</TabsTrigger>
                 <TabsTrigger value="pricing"><DollarSign className="mr-2 h-4 w-4" />Pricing</TabsTrigger>
                 <TabsTrigger value="schedule"><CalendarDays className="mr-2 h-4 w-4" />Schedule ({pickups.length})</TabsTrigger>
-                <TabsTrigger value="subscriptions"><Users className="mr-2 h-4 w-4" />Subscribers ({subscriptions.length})</TabsTrigger>
+                <TabsTrigger value="subscriptions"><Users className="mr-2 h-4 w-4" />Subscribers ({activeSubscriptions.length})</TabsTrigger>
                 <TabsTrigger value="waitlist"><ListChecks className="mr-2 h-4 w-4" />Waitlist ({waitlist.length})</TabsTrigger>
             </TabsList>
             <TabsContent value="details" className="mt-6">

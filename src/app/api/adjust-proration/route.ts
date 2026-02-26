@@ -12,7 +12,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 export async function POST(request: Request) {
   try {
     const subscriptionsRef = collection(db, 'subscriptions');
-    const q = query(subscriptionsRef, where('status', '==', 'Active'));
+    // Adjust proration for all "active" subscribers, including those currently skipping
+    const q = query(subscriptionsRef, where('status', 'in', ['Active', 'Trialing', 'Past Due', 'Unpaid']));
     const querySnapshot = await getDocs(q);
 
     const activeSubscriptions = querySnapshot.docs
@@ -31,13 +32,10 @@ export async function POST(request: Request) {
         }
 
         try {
-            // Retrieve the subscription from Stripe
             const stripeSub = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
 
-            // There should be only one item for our use case
             if (stripeSub.items.data.length > 0) {
                 const subItem = stripeSub.items.data[0];
-                // Update the subscription item to disable proration
                 await stripe.subscriptionItems.update(subItem.id, {
                     proration_behavior: 'none',
                 });
@@ -45,7 +43,6 @@ export async function POST(request: Request) {
             }
         } catch (error: any) {
              console.error(`Failed to update Stripe subscription ${sub.stripeSubscriptionId}:`, error.message);
-             // Continue to the next subscription even if one fails
         }
     }
 
