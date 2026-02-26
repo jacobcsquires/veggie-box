@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sprout } from "lucide-react";
+import { sanitizePhoneNumber } from "@/lib/utils";
 
 function SignupForm({ redirectTo }: { redirectTo: string | null }) {
     const router = useRouter();
@@ -32,6 +33,17 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
     const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setIsLoading(true);
+
+        const sanitizedPhone = sanitizePhoneNumber(phone);
+        if (sanitizedPhone.length < 10) {
+            toast({
+                variant: "destructive",
+                title: "Signup Failed",
+                description: "Please enter a valid 10-digit phone number.",
+            });
+            setIsLoading(false);
+            return;
+        }
 
         if (password.length < 6) {
             toast({
@@ -53,7 +65,7 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
                 uid: user.uid,
                 displayName: fullName,
                 email: user.email,
-                phone: phone,
+                phone: sanitizedPhone,
                 createdAt: serverTimestamp(),
                 isAdmin: false,
             });
@@ -83,7 +95,7 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
                     uid: user.uid,
                     displayName: user.displayName,
                     email: user.email,
-                    phone: user.phoneNumber,
+                    phone: user.phoneNumber ? sanitizePhoneNumber(user.phoneNumber) : null,
                     createdAt: serverTimestamp(),
                     isAdmin: false,
                 });
@@ -127,7 +139,7 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
                     <Input id="full-name" placeholder="Max Robinson" required value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={isLoading || isGoogleLoading}/>
                 </div>
                 <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">Email Address</Label>
                     <Input
                         id="email"
                         type="email"

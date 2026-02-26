@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { sanitizePhoneNumber } from '@/lib/utils';
 
 
 export default function AdminCustomersPage() {
@@ -92,13 +93,20 @@ export default function AdminCustomersPage() {
             toast({ variant: 'destructive', title: 'Error', description: 'Please fill out all fields.'});
             return;
         }
+        
+        const sanitizedPhone = sanitizePhoneNumber(phone);
+        if (sanitizedPhone.length < 10) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please enter a valid 10-digit phone number.'});
+            return;
+        }
+
         setIsCreating(true);
       
         try {
             const response = await fetch('/api/create-stripe-customer', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, phone }),
+                body: JSON.stringify({ name, email, phone: sanitizedPhone }),
             });
             if (!response.ok) {
                 const error = await response.json();

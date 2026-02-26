@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogOut } from "lucide-react";
+import { sanitizePhoneNumber } from "@/lib/utils";
 
 export default function ProfilePage() {
     const { user } = useAuth();
@@ -47,6 +48,8 @@ export default function ProfilePage() {
         if (!user) return;
         setIsInfoSaving(true);
         try {
+            const sanitizedPhone = sanitizePhoneNumber(phone);
+
             if (user.displayName !== name) {
                 await updateProfile(user, { displayName: name });
             }
@@ -57,7 +60,7 @@ export default function ProfilePage() {
             const userDocRef = doc(db, 'users', user.uid);
             await updateDoc(userDocRef, { 
                 displayName: name,
-                phone: phone,
+                phone: sanitizedPhone,
                 email: email,
             });
             
