@@ -1,26 +1,28 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, orderBy, getDocs, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Box } from '@/lib/types';
-import { addWeeks, addMonths } from 'date-fns';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
 });
 
-function getNextBillingDate(currentPeriodEnd: Date, frequency: Box['frequency']): Date {
-    switch (frequency) {
-        case 'weekly':
-            return addWeeks(currentPeriodEnd, 1);
-        case 'bi-weekly':
-            return addWeeks(currentPeriodEnd, 2);
-        case 'monthly':
-            return addMonths(currentPeriodEnd, 1);
-        default:
-            return addWeeks(currentPeriodEnd, 1);
+/**
+ * Helper function to find the next scheduled pickup date after a given date.
+ */
+async function getNextScheduledPickup(boxId: string, afterDate: string): Promise<string | null> {
+    if (!boxId || !afterDate) return null;
+
+    const pickupsRef = collection(db, 'boxes', boxId, 'pickups');
+    const q = query(pickupsRef, where('pickupDate', '>', afterDate), orderBy('pickupDate', 'asc'), limit(1));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+        return null;
     }
+    return querySnapshot.docs[0].data().pickupDate;
 }
 
 export async function POST(request: Request) {
@@ -44,32 +46,33 @@ export async function POST(request: Request) {
 
         const stripeSub = await stripe.subscriptions.retrieve(subscriptionData.stripeSubscriptionId);
 
-        if (stripeSub.trial_end && stripeSub.trial_end > Date.now() / 1000) {
-             throw new Error("This subscription already has an active trial/skip period.");
+        // We use the nextPickup field from our database as the baseline for what to skip.
+        // For new subscriptions with a future start date, this is the first pickup.
+        const currentNextPickup = subscriptionData.nextPickup;
+        const newNextPickup = await getNextScheduledPickup(subscriptionData.boxId, currentNextPickup);
+
+        if (!newNextPickup) {
+            throw new Error("There are no more scheduled pickups available to skip to.");
         }
 
-        const boxRef = doc(db, 'boxes', subscriptionData.boxId);
-        const boxDoc = await getDoc(boxRef);
-        if (!boxDoc.exists()) {
-            throw new Error("Associated Veggie Box Plan not found.");
-        }
-        const boxData = boxDoc.data() as Box;
-
-        const currentPeriodEnd = new Date(stripeSub.current_period_end * 1000);
-        const nextBillingDate = getNextBillingDate(currentPeriodEnd, boxData.frequency);
-        const newTrialEndTimestamp = Math.floor(nextBillingDate.getTime() / 1000);
+        // Convert the next pickup date string (YYYY-MM-DD) to a Unix timestamp for Stripe.
+        // We append the T00:00:00Z to ensure it's interpreted as midnight UTC.
+        const newTrialEndTimestamp = Math.floor(new Date(`${newNextPickup}T00:00:00.000Z`).getTime() / 1000);
 
         await stripe.subscriptions.update(stripeSub.id, {
             trial_end: newTrialEndTimestamp,
             proration_behavior: 'none',
         });
         
-        // Also update our local record
+        // Sync our local record. We push the nextPickup date forward and update the status
+        // to 'Trialing' which the UI displays as 'Scheduled' or 'Skipped'.
         await updateDoc(subRef, {
             trialEnd: newTrialEndTimestamp,
+            nextPickup: newNextPickup,
+            status: 'Trialing',
         });
 
-        return NextResponse.json({ success: true, message: 'Subscription successfully scheduled to skip next payment.' });
+        return NextResponse.json({ success: true, message: 'Successfully skipped the next pickup.' });
 
     } catch (error: any) {
         console.error('Failed to skip pickup:', error);
