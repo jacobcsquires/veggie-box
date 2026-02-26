@@ -10,7 +10,6 @@ import {
   Sprout,
   ShoppingCart,
   User,
-  Globe,
   Settings,
   ChevronRight,
   Mail,
@@ -53,7 +52,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     { href: "/admin/profile", icon: User, label: "Profile" },
     { href: "/admin/users", icon: Users, label: "User Management" },
     { href: "/admin/templates", icon: Mail, label: "Email Templates" },
-    { href: "/admin/portal", icon: Globe, label: "Customer Portal" },
   ];
 
   return (
