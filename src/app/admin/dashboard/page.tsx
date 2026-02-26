@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { collection, onSnapshot, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Subscription, Customer, Box, ScheduledEmail } from '@/lib/types';
+import type { Subscription, Customer, Box } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { Users, ShoppingCart, Package, ArrowRight, Calendar, UserCheck, AlertTriangle, Mail } from 'lucide-react';
+import { Users, Package, Calendar, UserCheck, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 
@@ -33,8 +33,6 @@ export default function AdminDashboardPage() {
     const [todaysPickups, setTodaysPickups] = useState<UpcomingPickup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isPickupsLoading, setIsPickupsLoading] = useState(true);
-    const [upcomingEmails, setUpcomingEmails] = useState<ScheduledEmail[]>([]);
-    const [isEmailsLoading, setIsEmailsLoading] = useState(true);
 
     // Effect for basic data loading
     useEffect(() => {
@@ -61,31 +59,11 @@ export default function AdminDashboardPage() {
             setIsLoading(false); // Stop general loading once all initial data streams are active
         });
 
-        // Query only by status to avoid the need for a composite index
-        const emailsQuery = query(
-            collection(db, 'scheduledEmails'), 
-            where('status', '==', 'scheduled')
-        );
-        const unsubEmails = onSnapshot(emailsQuery, (snapshot) => {
-            const now = new Date();
-            const emailsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledEmail));
-            
-            // Filter and sort in memory to avoid needing a composite index
-            const upcoming = emailsData
-                .filter(email => email.sendAt && email.sendAt.toDate() >= now)
-                .sort((a, b) => a.sendAt.toMillis() - b.sendAt.toMillis())
-                .slice(0, 3);
-                
-            setUpcomingEmails(upcoming);
-            setIsEmailsLoading(false);
-        });
-
         return () => {
             unsubSubs();
             unsubAllSubs();
             unsubCustomers();
             unsubBoxes();
-            unsubEmails();
         };
     }, []);
 
@@ -202,13 +180,13 @@ export default function AdminDashboardPage() {
 
             <div className="grid gap-6 md:grid-cols-2">
                 {/* Upcoming Pickups */}
-                <Card>
+                <Card className="md:col-span-2">
                     <CardHeader>
                         <CardTitle>Next Pickup</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {isPickupsLoading ? <Skeleton className="h-40 w-full" /> : (
-                             <div className="space-y-4">
+                             <div className="grid gap-4 md:grid-cols-2">
                                 {upcomingPickups.length > 0 ? upcomingPickups.map(pickup => (
                                     <div key={`${pickup.boxId}-${pickup.id}`} className="rounded-lg border p-4 space-y-3">
                                         <div className="flex items-center">
@@ -232,36 +210,7 @@ export default function AdminDashboardPage() {
                                             </Link>
                                         </Button>
                                     </div>
-                                )) : <p className="text-sm text-muted-foreground text-center py-10">No upcoming pickups scheduled.</p>}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Upcoming Emails */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Upcoming Emails</CardTitle>
-                        <Button asChild variant="ghost" size="sm">
-                            <Link href="/admin/marketing">View All</Link>
-                        </Button>
-                    </CardHeader>
-                    <CardContent>
-                        {isEmailsLoading ? <Skeleton className="h-40 w-full" /> : (
-                            <div className="space-y-4">
-                                {upcomingEmails.length > 0 ? upcomingEmails.map(email => (
-                                    <div key={email.id} className="flex items-center">
-                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                                            <Mail className="h-5 w-5 text-primary" />
-                                        </div>
-                                        <div className="ml-4 space-y-1">
-                                            <p className="text-sm font-medium leading-none">{email.templateName}</p>
-                                            <p className="text-sm text-muted-foreground">
-                                                {format(email.sendAt.toDate(), 'PPP')} to {email.targetGroupName}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )) : <p className="text-sm text-muted-foreground text-center py-10">No emails scheduled.</p>}
+                                )) : <p className="text-sm text-muted-foreground text-center py-10 col-span-2">No upcoming pickups scheduled.</p>}
                             </div>
                         )}
                     </CardContent>

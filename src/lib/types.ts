@@ -111,17 +111,3 @@ export type WaitlistEntry = {
     userEmail: string;
     joinedAt: Timestamp;
 }
-
-export type ScheduledEmail = {
-  id: string;
-  templateId: string;
-  templateName: string;
-  sendAt: Timestamp;
-  targetGroup: string; // e.g., 'all_customers', 'all_active_subscribers', 'box_{boxId}'
-  targetGroupName: string; // e.g., 'All Customers', 'Subscribers: Summer Harvest Box'
-  status: 'scheduled' | 'sent' | 'error';
-  createdAt: Timestamp;
-  sentCount?: number;
-  sentAt?: Timestamp;
-  error?: string;
-};

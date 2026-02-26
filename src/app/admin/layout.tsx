@@ -14,8 +14,6 @@ import {
   Settings,
   ChevronRight,
   Mail,
-  PackagePlus,
-  Send,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -49,7 +47,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     { href: "/admin/boxes", icon: Package, label: "Products" },
     { href: "/admin/subscriptions", icon: ShoppingCart, label: "Subscriptions" },
     { href: "/admin/customers", icon: Users, label: "Customers" },
-    { href: "/admin/marketing", icon: Send, label: "Marketing" },
   ];
   
   const settingsNavItems = [
