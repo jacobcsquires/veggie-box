@@ -47,9 +47,6 @@ export default function AdminCustomersPage() {
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     
-    // State for syncing stats
-    const [isSyncing, setIsSyncing] = useState(false);
-
     // State for sending email dialog
     const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
     const [customerToSendEmail, setCustomerToSendEmail] = useState<Customer | null>(null);
@@ -117,31 +114,6 @@ export default function AdminCustomersPage() {
         }
     }
 
-    const handleSyncStats = async () => {
-        setIsSyncing(true);
-        try {
-            const response = await fetch('/api/update-customer-stats', {
-                method: 'POST',
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                throw new Error(result.message || 'Failed to sync customer stats.');
-            }
-            toast({
-                title: 'Success',
-                description: result.message,
-            });
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Sync Failed',
-                description: error.message,
-            });
-        } finally {
-            setIsSyncing(false);
-        }
-    }
-    
     const resetDialog = () => {
         setIsNewCustomerDialogOpen(false);
         setName('');
@@ -290,10 +262,6 @@ export default function AdminCustomersPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={handleSyncStats} disabled={isSyncing}>
-                        {isSyncing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                        Sync Stats
-                    </Button>
                      <Dialog open={isNewCustomerDialogOpen} onOpenChange={(isOpen) => { if(!isOpen) resetDialog(); else setIsNewCustomerDialogOpen(true); }}>
                         <DialogTrigger asChild>
                             <Button>
