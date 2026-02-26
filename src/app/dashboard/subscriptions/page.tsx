@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -353,7 +354,7 @@ export default function SubscriptionsPage() {
                               : 'outline'
                             }
                           >
-                            {sub.status === 'Trialing' ? 'Skipped' : sub.status}
+                            {sub.status === 'Trialing' ? (sub.lastCharged ? 'Skipped' : 'Scheduled') : sub.status}
                           </Badge>
                         </div>
                         <p className="font-bold text-lg">${sub.price.toFixed(2)}</p>
@@ -421,7 +422,7 @@ export default function SubscriptionsPage() {
                               : 'outline'
                             }
                           >
-                            {sub.status === 'Trialing' ? 'Skipped' : sub.status}
+                            {sub.status === 'Trialing' ? (sub.lastCharged ? 'Skipped' : 'Scheduled') : sub.status}
                           </Badge>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">

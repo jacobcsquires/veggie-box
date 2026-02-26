@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
-import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc, query, where, getDocs, orderBy, limit, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, collection, onSnapshot, setDoc, deleteDoc, writeBatch, updateDoc, addDoc, query, where, orderBy, limit, runTransaction } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Calendar } from '@/components/ui/calendar';
@@ -221,7 +222,7 @@ export default function AdminBoxDetailPage() {
     }
   }, [selectedDate, pickups]);
 
-  // Active status includes skipping/trialing subs
+  // Active status includes skipping/trialing/scheduled subs
   const activeSubscriptions = useMemo(() => {
     return subscriptions.filter(s => ['Active', 'Trialing', 'Past Due', 'Unpaid'].includes(s.status));
   }, [subscriptions]);
@@ -1123,7 +1124,7 @@ export default function AdminBoxDetailPage() {
                                             <TableCell>{sub.customerName || sub.userId}</TableCell>
                                             <TableCell className="hidden sm:table-cell">{sub.customerEmail || 'N/A'}</TableCell>
                                             <TableCell>
-                                                <Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>{sub.status === 'Trialing' ? 'Skipped' : sub.status}</Badge>
+                                                <Badge variant={sub.status === 'Active' ? 'default' : 'secondary'}>{sub.status === 'Trialing' ? (sub.lastCharged ? 'Skipped' : 'Scheduled') : sub.status}</Badge>
                                             </TableCell>
                                             <TableCell className="hidden md:table-cell">{format(new Date(sub.startDate.replace(/-/g, '\/')), 'PPP')}</TableCell>
                                             <TableCell className="text-right">${sub.price.toFixed(2)}</TableCell>

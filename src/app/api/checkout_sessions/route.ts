@@ -61,7 +61,9 @@ export async function POST(request: Request) {
         customer = await stripe.customers.create({ email: email, name: customerName, phone });
     }
 
-    const billingCycleAnchor = new Date(`${startDate}T00:00:00.000Z`).getTime() / 1000;
+    // startDate is YYYY-MM-DD. Convert to midnight UTC.
+    const startTimestamp = Math.floor(new Date(`${startDate}T00:00:00.000Z`).getTime() / 1000);
+    const nowTimestamp = Math.floor(Date.now() / 1000);
 
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
         {
@@ -79,14 +81,23 @@ export async function POST(request: Request) {
         }
     }
 
+    const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {
+        proration_behavior: 'none',
+    };
+
+    // If the start date is in the future, we use trial_end to delay the first payment.
+    // This avoids the "billing_cycle_anchor cannot be later than next natural billing date" error
+    // which occurs when the anchor is beyond the first cycle's duration.
+    // We add a buffer to ensure trial_end is strictly in the future.
+    if (startTimestamp > nowTimestamp + 3600) {
+        subscriptionData.trial_end = startTimestamp;
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'subscription',
-      subscription_data: {
-        billing_cycle_anchor: billingCycleAnchor,
-        proration_behavior: 'none',
-      },
+      subscription_data: subscriptionData,
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/subscriptions?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/subscriptions`,
       customer: customer.id,
