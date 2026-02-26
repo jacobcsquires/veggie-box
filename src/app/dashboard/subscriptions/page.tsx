@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -27,7 +26,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Pencil, CalendarX, Calendar as CalendarIcon, RefreshCw, MoreHorizontal } from 'lucide-react';
+import { Loader2, Pencil, CalendarX, Calendar as CalendarIcon, RefreshCw, MoreHorizontal, List } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
@@ -104,8 +103,8 @@ export default function SubscriptionsPage() {
             .sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
           
           if (relevantPickups.length > 0) {
-            const startDate = format(new Date(relevantPickups[0].pickupDate.replace(/-/g, '\/')), 'PPP');
-            const endDate = format(new Date(relevantPickups[relevantPickups.length - 1].pickupDate.replace(/-/g, '\/')), 'PPP');
+            const startDate = format(new Date(relevantPickups[0].pickupDate.replace(/-/g, '/')), 'PPP');
+            const endDate = format(new Date(relevantPickups[relevantPickups.length - 1].pickupDate.replace(/-/g, '/')), 'PPP');
             ranges[sub.boxId] = { start: startDate, end: endDate };
           } else {
             ranges[sub.boxId] = null;
@@ -151,7 +150,9 @@ export default function SubscriptionsPage() {
     try {
         const response = await fetch('/api/create-portal-session', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({ customerId }),
         });
 
@@ -285,7 +286,7 @@ export default function SubscriptionsPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link href={`/dashboard/schedule/${sub.boxId}`}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <List className="mr-2 h-4 w-4" />
                                 <span>View Schedule</span>
                             </Link>
                         </DropdownMenuItem>
