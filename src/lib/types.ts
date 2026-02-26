@@ -98,6 +98,7 @@ export type Customer = {
 export type EmailTemplate = {
   id: string;
   name: string;
+  description: string;
   subject: string;
   body: string;
   createdAt: Timestamp;

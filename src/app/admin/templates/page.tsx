@@ -6,7 +6,7 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimest
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { EmailTemplate } from '@/lib/types';
-import { PlusCircle, Trash2, FilePen, RefreshCw } from 'lucide-react';
+import { PlusCircle, Trash2, FilePen, RefreshCw, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +27,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 
 export default function AdminEmailTemplatesPage() {
@@ -39,6 +45,7 @@ export default function AdminEmailTemplatesPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
     const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
     const [veggieListImageFile, setVeggieListImageFile] = useState<File | null>(null);
@@ -67,6 +74,7 @@ export default function AdminEmailTemplatesPage() {
         setIsDialogOpen(false);
         setEditingTemplate(null);
         setName('');
+        setDescription('');
         setSubject('');
         setBody('');
         setVeggieListImageFile(null);
@@ -83,6 +91,7 @@ export default function AdminEmailTemplatesPage() {
     const handleEditTemplateClick = (template: EmailTemplate) => {
         setEditingTemplate(template);
         setName(template.name);
+        setDescription(template.description || '');
         setSubject(template.subject);
         setBody(template.body);
         setVeggieListImagePreview(template.veggieListImageUrl || null);
@@ -109,7 +118,7 @@ export default function AdminEmailTemplatesPage() {
 
     const handleSaveTemplate = async () => {
         if (!name || !subject || !body) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Please fill out all fields.'});
+            toast({ variant: 'destructive', title: 'Error', description: 'Please fill out all required fields.'});
             return;
         }
         setIsSaving(true);
@@ -131,6 +140,7 @@ export default function AdminEmailTemplatesPage() {
 
             const templateData = {
                 name,
+                description,
                 subject,
                 body,
                 veggieListImageUrl,
@@ -233,7 +243,23 @@ export default function AdminEmailTemplatesPage() {
                             ) : (
                                 templates.map((template) => (
                                     <TableRow key={template.id}>
-                                        <TableCell className="font-medium">{template.name}</TableCell>
+                                        <TableCell className="font-medium">
+                                            <div className="flex items-center gap-2">
+                                                {template.name}
+                                                {template.description && (
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                                                            </TooltipTrigger>
+                                                            <TooltipContent className="max-w-xs">
+                                                                <p className="text-xs">{template.description}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                )}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="hidden md:table-cell max-w-sm truncate">{template.subject}</TableCell>
                                         <TableCell className="hidden sm:table-cell">
                                             {template.createdAt ? format(template.createdAt.toDate(), 'PPP') : 'N/A'}
@@ -280,6 +306,10 @@ export default function AdminEmailTemplatesPage() {
                         <div className="grid gap-2">
                             <Label htmlFor="name">Template Name</Label>
                             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSaving} placeholder="e.g., Welcome Email" />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="description">Description (Internal only)</Label>
+                            <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isSaving} placeholder="Explain what this template is for..." rows={2} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="subject">Subject</Label>
