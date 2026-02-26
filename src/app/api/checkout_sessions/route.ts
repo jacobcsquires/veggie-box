@@ -81,9 +81,7 @@ export async function POST(request: Request) {
         }
     }
 
-    const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {
-        proration_behavior: 'none',
-    };
+    const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {};
 
     // If the start date is in the future, we use trial_end to delay the first payment.
     // This avoids the "billing_cycle_anchor cannot be later than next natural billing date" error
