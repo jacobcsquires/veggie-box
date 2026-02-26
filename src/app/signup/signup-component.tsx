@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sprout } from "lucide-react";
-import { sanitizePhoneNumber } from "@/lib/utils";
+import { sanitizePhoneNumber, formatPhoneNumber } from "@/lib/utils";
 
 function SignupForm({ redirectTo }: { redirectTo: string | null }) {
     const router = useRouter();
@@ -155,13 +155,10 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
                     <Input 
                         id="phone" 
                         type="tel" 
-                        placeholder="1234567890" 
+                        placeholder="(123) 456-7890" 
                         required 
                         value={phone} 
-                        onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                            setPhone(val);
-                        }} 
+                        onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} 
                         disabled={isLoading || isGoogleLoading}
                     />
                 </div>

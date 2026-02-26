@@ -29,7 +29,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { sanitizePhoneNumber } from '@/lib/utils';
+import { sanitizePhoneNumber, formatPhoneNumber } from '@/lib/utils';
 
 
 export default function AdminCustomersPage() {
@@ -298,12 +298,9 @@ export default function AdminCustomersPage() {
                                     <Input 
                                         id="phone" 
                                         type="tel" 
-                                        placeholder="1234567890" 
+                                        placeholder="(123) 456-7890" 
                                         value={phone} 
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                                            setPhone(val);
-                                        }} 
+                                        onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} 
                                         disabled={isCreating}
                                     />
                                 </div>
