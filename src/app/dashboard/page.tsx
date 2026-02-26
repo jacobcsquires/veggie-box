@@ -24,11 +24,16 @@ export default function DashboardPage() {
             return;
         }
 
-        const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), where('status', 'in', ['Active', 'Pending', 'Past Due', 'Unpaid', 'Trialing', 'Unknown']));
+        // Query by userId only and filter status in memory to avoid composite index requirement
+        const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid));
         
         const unsubSubs = onSnapshot(subsQuery, async (snapshot) => {
             setIsLoading(true);
-            const subsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
+            const statusFilter = ['Active', 'Pending', 'Past Due', 'Unpaid', 'Trialing', 'Unknown'];
+            const subsData = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() } as Subscription))
+                .filter(sub => statusFilter.includes(sub.status));
+                
             setSubscriptions(subsData);
             
             const activeSubs = subsData.filter(s => ['Active', 'Trialing'].includes(s.status));

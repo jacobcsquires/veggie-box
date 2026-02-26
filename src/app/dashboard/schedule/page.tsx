@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -22,10 +21,13 @@ export default function AllSchedulesPage() {
             return;
         }
 
-        const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid), where('status', 'in', ['Active', 'Trialing']));
+        // Query by userId only and filter status in memory to avoid composite index requirement
+        const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid));
         
         const unsubSubs = onSnapshot(subsQuery, async (snapshot) => {
-            const subsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
+            const subsData = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() } as Subscription))
+                .filter(sub => ['Active', 'Trialing'].includes(sub.status));
             
             if (subsData.length > 0) {
                 const today = format(new Date(), 'yyyy-MM-dd');

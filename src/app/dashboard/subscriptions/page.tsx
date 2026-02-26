@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -76,16 +74,22 @@ export default function SubscriptionsPage() {
       return;
     }
 
+    // Query by userId only and filter status in memory to avoid composite index requirement
     const q = query(
       collection(db, 'subscriptions'),
-      where('userId', '==', user.uid),
-      where('status', 'in', ['Active', 'Pending', 'Past Due', 'Unpaid', 'Trialing', 'Unknown'])
+      where('userId', '==', user.uid)
     );
 
     const unsubscribeSubs = onSnapshot(q, async (snapshot) => {
-      const subsData = snapshot.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Subscription)
-      ).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+      const statusFilter = ['Active', 'Pending', 'Past Due', 'Unpaid', 'Trialing', 'Unknown'];
+      const subsData = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() } as Subscription))
+        .filter(sub => statusFilter.includes(sub.status))
+        .sort((a, b) => {
+            const timeA = a.createdAt?.toMillis() || 0;
+            const timeB = b.createdAt?.toMillis() || 0;
+            return timeB - timeA;
+        });
 
       setSubscriptions(subsData);
 
@@ -510,4 +514,3 @@ export default function SubscriptionsPage() {
     </div>
   );
 }
-

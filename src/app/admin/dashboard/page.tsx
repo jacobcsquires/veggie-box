@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -62,16 +61,22 @@ export default function AdminDashboardPage() {
             setIsLoading(false); // Stop general loading once all initial data streams are active
         });
 
-        const today = new Date();
+        // Query only by status to avoid the need for a composite index
         const emailsQuery = query(
             collection(db, 'scheduledEmails'), 
-            where('sendAt', '>=', today), 
-            where('status', '==', 'scheduled'),
-            orderBy('sendAt'), 
-            limit(3)
+            where('status', '==', 'scheduled')
         );
         const unsubEmails = onSnapshot(emailsQuery, (snapshot) => {
-            setUpcomingEmails(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledEmail)));
+            const now = new Date();
+            const emailsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledEmail));
+            
+            // Filter and sort in memory to avoid needing a composite index
+            const upcoming = emailsData
+                .filter(email => email.sendAt && email.sendAt.toDate() >= now)
+                .sort((a, b) => a.sendAt.toMillis() - b.sendAt.toMillis())
+                .slice(0, 3);
+                
+            setUpcomingEmails(upcoming);
             setIsEmailsLoading(false);
         });
 

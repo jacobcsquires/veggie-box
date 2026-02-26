@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ChevronRight, Search, Users, CheckCircle, XCircle, UserCheck, Package, Mail, RefreshCw, AlertCircle } from 'lucide-react';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/group-toggle'; // Note: corrected from ui/toggle-group if it was a hallucination, standard is @/components/ui/toggle-group
 import { ToggleGroup as ShToggleGroup, ToggleGroupItem as ShToggleGroupItem } from '@/components/ui/toggle-group';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -81,9 +80,12 @@ export default function PickupCheckinPage() {
             }
         });
 
-        const subsQuery = query(collection(db, 'subscriptions'), where('boxId', '==', boxId), where('status', '==', 'Active'));
+        // Query by boxId only and filter status in memory to avoid composite index requirement
+        const subsQuery = query(collection(db, 'subscriptions'), where('boxId', '==', boxId));
         const unsubSubs = onSnapshot(subsQuery, async (snapshot) => {
-            const subsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Subscription);
+            const subsData = snapshot.docs
+                .map(doc => ({id: doc.id, ...doc.data()}) as Subscription)
+                .filter(sub => sub.status === 'Active');
             
             const enrichedSubs = await Promise.all(subsData.map(async (sub) => {
                 if (sub.customerEmail) return sub;
