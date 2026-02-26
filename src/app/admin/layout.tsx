@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from "next/link";
@@ -44,7 +43,7 @@ import {
 } from "@/components/ui/sidebar";
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, open, setOpen } = useSidebar();
   const navItems = [
     { href: "/admin/dashboard", icon: Home, label: "Dashboard" },
     { href: "/admin/boxes", icon: Package, label: "Products" },
@@ -84,7 +83,11 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                  <SidebarMenuItem>
                     <Collapsible>
                         <CollapsibleTrigger asChild>
-                            <SidebarMenuButton tooltip="Settings" className="group w-full justify-start">
+                            <SidebarMenuButton 
+                                tooltip="Settings" 
+                                className="group w-full justify-start"
+                                onClick={() => { if (!open) setOpen(true); }}
+                            >
                                 <Settings />
                                 <span className="group-data-[collapsible=icon]:hidden">Settings</span>
                                 <ChevronRight className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden group-data-[state=open]:rotate-90" />
