@@ -96,7 +96,6 @@ export async function POST(request: Request) {
       line_items: lineItems,
       mode: 'subscription',
       subscription_data: subscriptionData,
-      allow_promotion_codes: true,
       discounts: [
         {
           promotion_code: 'promo_1T7Lvl7KPjYNJb5jTQGlAoF0',
