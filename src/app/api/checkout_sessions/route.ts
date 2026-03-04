@@ -96,6 +96,7 @@ export async function POST(request: Request) {
       line_items: lineItems,
       mode: 'subscription',
       subscription_data: subscriptionData,
+      allow_promotion_codes: true,
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/subscriptions?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/subscriptions`,
       customer: customer.id,
