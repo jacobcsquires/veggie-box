@@ -33,10 +33,11 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { Sprout } from 'lucide-react';
+import { Sprout, Mail, Phone, MessageCircle } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ContactTeamDialog } from "@/components/contact-team-dialog";
 
 
 type PickupInternal = {
@@ -312,9 +313,14 @@ export default function HomePage() {
       <header className="px-4 lg:px-6 h-14 flex items-center bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 border-b">
         <Link href="#" className="flex items-center justify-center" prefetch={false}>
           <Sprout className="h-6 w-6 text-primary" />
-          <span className="sr-only">Veggie Box Customer Portal</span>
+          <span className="font-headline font-bold text-primary ml-2 hidden sm:inline-block">Veggie Box</span>
         </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
+        <nav className="ml-auto flex gap-4 sm:gap-6 items-center">
+          <ContactTeamDialog 
+            trigger={
+                <Button variant="ghost" className="text-sm font-medium">Contact Us</Button>
+            }
+          />
           {authLoading ? (
             <Skeleton className="h-8 w-20" />
           ) : user ? (
@@ -329,88 +335,127 @@ export default function HomePage() {
         </nav>
       </header>
       <main className="flex-1">
-        <section id="boxes" className="w-full py-12 md:py-24 lg:py-32">
-             <div className="grid grid-flow-col auto-cols-max justify-center gap-6 px-4 py-4 overflow-x-auto md:px-6">
-                {isLoading
-                ? Array.from({ length: 3 }).map((_, i) => (
-                    <Card key={i} className="flex w-full max-w-sm flex-col">
-                        <CardHeader className="p-0">
-                        <Skeleton className="rounded-t-lg aspect-video" />
-                        </CardHeader>
-                        <CardContent className="p-6 flex-1">
-                        <Skeleton className="h-7 w-48" />
-                        <Skeleton className="h-4 w-full mt-2" />
-                        <Skeleton className="h-4 w-2/3 mt-2" />
-                        </CardContent>
-                        <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
-                            <div className="flex justify-between items-center">
-                                <Skeleton className="h-8 w-24" />
-                                <Skeleton className="h-6 w-20" />
-                            </div>
-                            <Skeleton className="h-10 w-full mt-2" />
-                        </CardFooter>
-                    </Card>
-                    ))
-                : boxes.map((box) => {
-                    const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
-                    const isWaitlisted = waitlistedBoxes.includes(box.id);
-                    const hasSchedule = box.startDate && box.endDate;
-                    const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
-                    const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
-                    const basePrice = box.pricingOptions?.[0]?.price ?? 0;
+        <section className="w-full py-12 md:py-24 lg:py-32 bg-primary/5 flex flex-col items-center justify-center text-center px-4">
+            <div className="max-w-3xl space-y-6">
+                <Badge variant="outline" className="text-primary border-primary px-4 py-1">Fresh & Local</Badge>
+                <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl font-headline">
+                    Your Seasonal Produce, Delivered.
+                </h1>
+                <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
+                    Experience the best seasonal harvest from our local farms. Join our veggie box program and support local agriculture while eating fresh.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                    <Button size="lg" asChild>
+                        <Link href="#boxes">Browse Plans</Link>
+                    </Button>
+                    <ContactTeamDialog 
+                        trigger={
+                            <Button size="lg" variant="outline">Contact Our Team</Button>
+                        }
+                    />
+                </div>
+            </div>
+        </section>
 
-                    return (
-                        <Card key={box.id} className="flex w-full max-w-sm flex-col shrink-0">
+        <section id="boxes" className="w-full py-16 md:py-24">
+             <div className="container px-4 md:px-6 mx-auto">
+                <div className="flex flex-col items-center text-center mb-12 space-y-4">
+                    <h2 className="text-3xl font-bold font-headline">Choose Your Plan</h2>
+                    <p className="text-muted-foreground max-w-lg">
+                        Select the veggie box plan that fits your family's needs. All plans feature seasonal, locally sourced vegetables.
+                    </p>
+                </div>
+                <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 justify-center">
+                    {isLoading
+                    ? Array.from({ length: 3 }).map((_, i) => (
+                        <Card key={i} className="flex w-full max-w-sm flex-col">
                             <CardHeader className="p-0">
-                                <Image
-                                src={box.image}
-                                alt={box.name}
-                                width={600}
-                                height={400}
-                                data-ai-hint={box.hint}
-                                className="rounded-t-lg aspect-video object-cover"
-                                />
+                            <Skeleton className="rounded-t-lg aspect-video" />
                             </CardHeader>
-                        <CardContent className="p-6 flex-1">
-                            <CardTitle className="font-headline">{box.name}</CardTitle>
-                            <CardDescription className="mt-2">{box.description}</CardDescription>
-                            {hasSchedule && startDateObj && endDateObj && (
-                                <p className="text-xs text-muted-foreground pt-2">
-                                Available from {format(startDateObj, 'PPP')} to {format(endDateObj, 'PPP')}
-                                </p>
-                            )}
-                        </CardContent>
-                        <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
-                            <div className="flex justify-between items-center">
-                            <p className="text-2xl font-bold">
-                                ${basePrice.toFixed(2)}{box.pricingOptions.length > 1 ? '+' : ''}
-                            </p>
-                            <Badge variant="outline" className="capitalize">{box.frequency}</Badge>
-                            </div>
-                            <Button 
-                                className="w-full mt-2" 
-                                variant={isSoldOut && !isWaitlisted ? "accent" : "default"}
-                                onClick={() => isSoldOut ? handleJoinWaitlist(box) : handleSubscribeClick(box)} 
-                                disabled={ (isJoiningWaitlist && selectedBox?.id === box.id) || (isSoldOut && isWaitlisted) || box.manualSignupCutoff || (!isSoldOut && (!box.pricingOptions || box.pricingOptions.length === 0)) }
-                            >
-                                {box.manualSignupCutoff ? 'Sign-ups Closed'
-                                    : isSoldOut 
-                                        ? (isWaitlisted ? 'On Waitlist' : 'Join Waitlist')
-                                        : (!box.pricingOptions || box.pricingOptions.length === 0) ? 'Not Available'
-                                        : 'Subscribe'}
-                            </Button>
-                        </CardFooter>
+                            <CardContent className="p-6 flex-1">
+                            <Skeleton className="h-7 w-48" />
+                            <Skeleton className="h-4 w-full mt-2" />
+                            <Skeleton className="h-4 w-2/3 mt-2" />
+                            </CardContent>
+                            <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
+                                <div className="flex justify-between items-center">
+                                    <Skeleton className="h-8 w-24" />
+                                    <Skeleton className="h-6 w-20" />
+                                </div>
+                                <Skeleton className="h-10 w-full mt-2" />
+                            </CardFooter>
                         </Card>
-                    );
-                    })}
+                        ))
+                    : boxes.map((box) => {
+                        const isSoldOut = (box.subscribedCount || 0) >= box.quantity;
+                        const isWaitlisted = waitlistedBoxes.includes(box.id);
+                        const hasSchedule = box.startDate && box.endDate;
+                        const startDateObj = box.startDate ? new Date(box.startDate.replace(/-/g, '\/')) : null;
+                        const endDateObj = box.endDate ? new Date(box.endDate.replace(/-/g, '\/')) : null;
+                        const basePrice = box.pricingOptions?.[0]?.price ?? 0;
+
+                        return (
+                            <Card key={box.id} className="flex w-full max-w-sm flex-col mx-auto shadow-md transition-shadow hover:shadow-lg">
+                                <CardHeader className="p-0">
+                                    <Image
+                                    src={box.image}
+                                    alt={box.name}
+                                    width={600}
+                                    height={400}
+                                    data-ai-hint={box.hint}
+                                    className="rounded-t-lg aspect-video object-cover"
+                                    />
+                                </CardHeader>
+                            <CardContent className="p-6 flex-1">
+                                <CardTitle className="font-headline text-xl">{box.name}</CardTitle>
+                                <CardDescription className="mt-2 line-clamp-3">{box.description}</CardDescription>
+                                {hasSchedule && startDateObj && endDateObj && (
+                                    <p className="text-xs text-muted-foreground pt-4 flex items-center gap-2">
+                                        <Icons.Calendar className="h-3 w-3" />
+                                        {format(startDateObj, 'MMM d')} - {format(endDateObj, 'MMM d, yyyy')}
+                                    </p>
+                                )}
+                            </CardContent>
+                            <CardFooter className="p-6 pt-0 flex-col items-stretch gap-2">
+                                <div className="flex justify-between items-center mb-2">
+                                    <p className="text-2xl font-bold">
+                                        ${basePrice.toFixed(2)}{box.pricingOptions.length > 1 ? '+' : ''}
+                                    </p>
+                                    <Badge variant="secondary" className="capitalize px-3">{box.frequency}</Badge>
+                                </div>
+                                <Button 
+                                    className="w-full" 
+                                    size="lg"
+                                    variant={isSoldOut && !isWaitlisted ? "accent" : "default"}
+                                    onClick={() => isSoldOut ? handleJoinWaitlist(box) : handleSubscribeClick(box)} 
+                                    disabled={ (isJoiningWaitlist && selectedBox?.id === box.id) || (isSoldOut && isWaitlisted) || box.manualSignupCutoff || (!isSoldOut && (!box.pricingOptions || box.pricingOptions.length === 0)) }
+                                >
+                                    {box.manualSignupCutoff ? 'Sign-ups Closed'
+                                        : isSoldOut 
+                                            ? (isWaitlisted ? 'On Waitlist' : 'Join Waitlist')
+                                            : (!box.pricingOptions || box.pricingOptions.length === 0) ? 'Not Available'
+                                            : 'Get Started'}
+                                </Button>
+                            </CardFooter>
+                            </Card>
+                        );
+                        })}
+                </div>
             </div>
         </section>
       </main>
-      <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
-        <p className="text-xs text-muted-foreground">&copy; 2024 Veggie Box. All rights reserved.</p>
-        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
+      <footer className="flex flex-col gap-4 sm:flex-row py-8 w-full shrink-0 items-center px-4 md:px-6 border-t bg-background">
+        <div className="flex flex-col items-center sm:items-start gap-2">
+            <Link href="/" className="flex items-center gap-2">
+                <Sprout className="h-5 w-5 text-primary" />
+                <span className="font-headline font-bold text-sm">Veggie Box</span>
+            </Link>
+            <p className="text-xs text-muted-foreground">&copy; 2024 Veggie Box. All rights reserved.</p>
+        </div>
+        <nav className="sm:ml-auto flex gap-6 sm:gap-8 items-center">
+          <ContactTeamDialog trigger={<button className="text-xs hover:text-primary transition-colors">Support</button>} />
           <Link href="#" className="text-xs hover:underline underline-offset-4" prefetch={false}>
-            Terms of Service
+            Terms
           </Link>
           <Link href="#" className="text-xs hover:underline underline-offset-4" prefetch={false}>
             Privacy
