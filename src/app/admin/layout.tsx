@@ -13,6 +13,7 @@ import {
   Settings,
   ChevronRight,
   Mail,
+  Headset,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -38,6 +39,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { ContactTeamDialog } from "@/components/contact-team-dialog";
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const { isMobile, setOpenMobile, open, setOpen } = useSidebar();
@@ -103,6 +105,16 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                             </SidebarMenuSub>
                         </CollapsibleContent>
                     </Collapsible>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                    <ContactTeamDialog 
+                        trigger={
+                            <SidebarMenuButton tooltip="Contact Team">
+                                <Headset />
+                                <span className="group-data-[collapsible=icon]:hidden">Contact Our Team</span>
+                            </SidebarMenuButton>
+                        }
+                    />
                 </SidebarMenuItem>
             </SidebarMenu>
             </SidebarContent>

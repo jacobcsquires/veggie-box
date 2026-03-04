@@ -11,6 +11,7 @@ import {
   Package,
   Calendar,
   ListChecks,
+  Headset,
 } from "lucide-react";
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -33,6 +34,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import type { Box } from '@/lib/types';
+import { ContactTeamDialog } from "@/components/contact-team-dialog";
 
 function DashboardPageContent({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
@@ -108,6 +110,16 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                     ))}
+                    <SidebarMenuItem>
+                        <ContactTeamDialog 
+                            trigger={
+                                <SidebarMenuButton tooltip="Contact Team">
+                                    <Headset />
+                                    <span className="group-data-[collapsible=icon]:hidden">Contact Our Team</span>
+                                </SidebarMenuButton>
+                            }
+                        />
+                    </SidebarMenuItem>
                 </SidebarMenu>
                 </SidebarContent>
                 <SidebarRail />
