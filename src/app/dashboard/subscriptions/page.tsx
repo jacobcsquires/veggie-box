@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { collection, query, where, onSnapshot, getDocs, doc, updateDoc, orderBy } from 'firebase/firestore';
@@ -38,13 +38,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { useSearchParams } from 'next/navigation';
 
 
 type PickupInternal = Omit<Pickup, 'boxId' | 'boxName'>;
 
-export default function SubscriptionsPage() {
+function SubscriptionsContent() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [scheduleRanges, setScheduleRanges] = useState<{[boxId: string]: {start: string, end: string} | null}>({});
@@ -67,6 +69,20 @@ export default function SubscriptionsPage() {
   const [isResuming, setIsResuming] = useState(false);
   const [subToResume, setSubToResume] = useState<Subscription | null>(null);
 
+  // Handle successful purchase redirect
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    if (sessionId) {
+      toast({
+        title: "Purchase Successful!",
+        description: "Your subscription has been created. It may take a moment to appear in your list below.",
+      });
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('session_id');
+      window.history.replaceState({}, '', url.pathname);
+    }
+  }, [searchParams, toast]);
 
   useEffect(() => {
     if (!user) {
@@ -514,5 +530,13 @@ export default function SubscriptionsPage() {
           </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function SubscriptionsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+      <SubscriptionsContent />
+    </Suspense>
   );
 }
