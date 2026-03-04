@@ -78,13 +78,13 @@ function DashboardPageContent({ children }: { children: React.ReactNode }) {
     }, [user]);
 
     const navItems = [
+        { href: "/dashboard/boxes", icon: Package, label: "Explore Boxes" },
         { href: "/dashboard", icon: Home, label: "Dashboard" },
         ...(totalSubscriptionsCount > 0 ? [
             { href: "/dashboard/subscriptions", icon: ShoppingCart, label: "Manage Subscriptions", badge: subscriptionsCount },
             { href: "/dashboard/schedule", icon: Calendar, label: "Upcoming Pickups" },
         ] : []),
         ...(waitlistCount > 0 ? [{ href: "/dashboard/waitlist", icon: ListChecks, label: "Your Waitlists" }] : []),
-        { href: "/dashboard/boxes", icon: Package, label: "Explore Boxes" },
     ];
     return (
         <>
