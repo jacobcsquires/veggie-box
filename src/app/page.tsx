@@ -27,13 +27,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { Box, PricingOption, AddOn } from '@/lib/types';
+import type { Box, AddOn } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { Sprout, Mail, Phone, MessageCircle } from 'lucide-react';
+import { Sprout } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -335,28 +335,6 @@ export default function HomePage() {
         </nav>
       </header>
       <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-primary/5 flex flex-col items-center justify-center text-center px-4">
-            <div className="max-w-3xl space-y-6">
-                <Badge variant="outline" className="text-primary border-primary px-4 py-1">Fresh & Local</Badge>
-                <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl font-headline">
-                    Your Seasonal Produce, Delivered.
-                </h1>
-                <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
-                    Experience the best seasonal harvest from our local farms. Join our veggie box program and support local agriculture while eating fresh.
-                </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                    <Button size="lg" asChild>
-                        <Link href="#boxes">Browse Plans</Link>
-                    </Button>
-                    <ContactTeamDialog 
-                        trigger={
-                            <Button size="lg" variant="outline">Contact Our Team</Button>
-                        }
-                    />
-                </div>
-            </div>
-        </section>
-
         <section id="boxes" className="w-full py-16 md:py-24">
              <div className="container px-4 md:px-6 mx-auto">
                 <div className="flex flex-col items-center text-center mb-12 space-y-4">
