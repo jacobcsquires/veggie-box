@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, getAdditionalUserInfo } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,7 +55,6 @@ export function LoginComponent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -72,36 +70,6 @@ export function LoginComponent() {
       });
     } finally {
       setIsLoading(false);
-    }
-  };
-  
-  const handleGoogleLogin = async () => {
-    setIsGoogleLoading(true);
-    const provider = new GoogleAuthProvider();
-    try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
-        const additionalInfo = getAdditionalUserInfo(result);
-
-        // If it's a new user, create their document in Firestore
-        if (additionalInfo?.isNewUser) {
-            await setDoc(doc(db, "users", user.uid), {
-                uid: user.uid,
-                displayName: user.displayName,
-                email: user.email,
-                createdAt: serverTimestamp(),
-                isAdmin: false,
-            });
-        }
-        // Let the Redirecter handle redirection
-    } catch (error: any) {
-        toast({
-            variant: "destructive",
-            title: "Login Failed",
-            description: error.message,
-        });
-    } finally {
-        setIsGoogleLoading(false);
     }
   };
 
@@ -134,7 +102,7 @@ export function LoginComponent() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading || isGoogleLoading}
+                disabled={isLoading}
               />
             </div>
             <div className="grid gap-2">
@@ -147,13 +115,10 @@ export function LoginComponent() {
                   Forgot your password?
                 </Link>
               </div>
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading || isGoogleLoading} />
+              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Logging in..." : "Login"}
-            </Button>
-            <Button variant="outline" className="w-full" onClick={handleGoogleLogin} type="button" disabled={isLoading || isGoogleLoading}>
-                {isGoogleLoading ? "Logging in..." : "Login with Google"}
             </Button>
           </form>
            <Suspense fallback={<div className="mt-4 text-center text-sm h-5" />}>

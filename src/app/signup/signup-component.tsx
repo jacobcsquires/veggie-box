@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile, getAdditionalUserInfo } from "firebase/auth";
+import { useState, Suspense } from "react";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +28,6 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
     const [password, setPassword] = useState("");
     const [phone, setPhone] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
     const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -82,41 +81,6 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
         }
     };
 
-    const handleGoogleSignup = async () => {
-        setIsGoogleLoading(true);
-        const provider = new GoogleAuthProvider();
-        try {
-            const result = await signInWithPopup(auth, provider);
-            const user = result.user;
-            const additionalInfo = getAdditionalUserInfo(result);
-
-            if (additionalInfo?.isNewUser) {
-                await setDoc(doc(db, "users", user.uid), {
-                    uid: user.uid,
-                    displayName: user.displayName,
-                    email: user.email,
-                    phone: user.phoneNumber ? sanitizePhoneNumber(user.phoneNumber) : null,
-                    createdAt: serverTimestamp(),
-                    isAdmin: false,
-                });
-            } else {
-                await setDoc(doc(db, "users", user.uid), {
-                    displayName: user.displayName,
-                }, { merge: true });
-            }
-
-            router.push(redirectTo || '/dashboard');
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Signup Failed",
-                description: error.message,
-            });
-        } finally {
-            setIsGoogleLoading(false);
-        }
-    };
-
   return (
      <div className="flex items-center justify-center min-h-screen bg-muted/40">
         <Card className="mx-auto max-w-sm w-full">
@@ -136,7 +100,7 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
             <form onSubmit={handleSignup} className="grid gap-4">
                 <div className="grid gap-2">
                     <Label htmlFor="full-name">Full name</Label>
-                    <Input id="full-name" placeholder="Max Robinson" required value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={isLoading || isGoogleLoading}/>
+                    <Input id="full-name" placeholder="Max Robinson" required value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={isLoading}/>
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="email">Email Address</Label>
@@ -147,7 +111,7 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        disabled={isLoading || isGoogleLoading}
+                        disabled={isLoading}
                     />
                 </div>
                 <div className="grid gap-2">
@@ -159,18 +123,15 @@ function SignupForm({ redirectTo }: { redirectTo: string | null }) {
                         required 
                         value={phone} 
                         onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} 
-                        disabled={isLoading || isGoogleLoading}
+                        disabled={isLoading}
                     />
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading || isGoogleLoading} required />
+                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} required />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
+                <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Creating account..." : "Create an account"}
-                </Button>
-                 <Button variant="outline" type="button" className="w-full" onClick={handleGoogleSignup} disabled={isLoading || isGoogleLoading}>
-                    {isGoogleLoading ? "Signing up..." : "Sign up with Google"}
                 </Button>
             </form>
             <div className="mt-4 text-center text-sm">
