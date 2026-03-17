@@ -340,7 +340,7 @@ export default function HomePage() {
                 <div className="flex flex-col items-center text-center mb-12 space-y-4">
                     <h2 className="text-3xl font-bold font-headline">Choose Your Plan</h2>
                     <p className="text-muted-foreground max-w-lg">
-                        Select the veggie box plan that fits your family's needs. All plans feature seasonal, locally sourced vegetables.
+                        Select the veggie box plan that fits your family's needs.
                     </p>
                 </div>
                 <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 justify-center">
