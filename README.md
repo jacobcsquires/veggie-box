@@ -47,8 +47,6 @@ STRIPE_SECRET_KEY=your_stripe_secret_key
 STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
 NEXT_PUBLIC_BASE_URL=http://localhost:9002
 
-# AI
-GOOGLE_GENAI_API_KEY=your_google_ai_key
 ```
 
 ### 3. Installation
