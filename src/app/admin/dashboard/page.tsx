@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { collection, onSnapshot, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, getDocs, where, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Customer, Box } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { Users, Package, Calendar, UserCheck, AlertTriangle } from 'lucide-react';
+import { Users, Package, Calendar, UserCheck, AlertTriangle, Pencil, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 
 type UpcomingPickup = {
@@ -20,11 +31,13 @@ type UpcomingPickup = {
   boxName: string;
   pickupDate: string;
   subscriberCount: number;
+  note?: string;
 };
 
 
 export default function AdminDashboardPage() {
     const router = useRouter();
+    const { toast } = useToast();
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [allSubscriptions, setAllSubscriptions] = useState<Subscription[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -33,6 +46,12 @@ export default function AdminDashboardPage() {
     const [todaysPickups, setTodaysPickups] = useState<UpcomingPickup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isPickupsLoading, setIsPickupsLoading] = useState(true);
+
+    // Note Dialog State
+    const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+    const [selectedPickup, setSelectedPickup] = useState<UpcomingPickup | null>(null);
+    const [noteContent, setNoteContent] = useState('');
+    const [isSavingNote, setIsSavingNote] = useState(false);
 
     // Effect for basic data loading
     useEffect(() => {
@@ -104,6 +123,7 @@ export default function AdminDashboardPage() {
                         boxId: box.id,
                         boxName: box.name,
                         subscriberCount,
+                        note: doc.data().note || '',
                     })));
                     
                     const upcomingQuery = query(pickupsRef, where('pickupDate', '>', todayString), orderBy('pickupDate'));
@@ -114,6 +134,7 @@ export default function AdminDashboardPage() {
                         boxId: box.id,
                         boxName: box.name,
                         subscriberCount,
+                        note: doc.data().note || '',
                     })));
                 }
             }
@@ -141,6 +162,32 @@ export default function AdminDashboardPage() {
 
     }, [boxes, allSubscriptions, isLoading]);
 
+    const handleOpenNoteDialog = (pickup: UpcomingPickup) => {
+        setSelectedPickup(pickup);
+        setNoteContent(pickup.note || '');
+        setIsNoteDialogOpen(true);
+    };
+
+    const handleSaveNote = async () => {
+        if (!selectedPickup) return;
+        setIsSavingNote(true);
+        try {
+            const pickupRef = doc(db, 'boxes', selectedPickup.boxId, 'pickups', selectedPickup.id);
+            await updateDoc(pickupRef, {
+                note: noteContent
+            });
+            toast({ title: 'Success', description: 'Pickup note updated.' });
+            setIsNoteDialogOpen(false);
+            
+            // Optimistically update local state if needed, or wait for next calculatePickups run
+            // Given the complexity of the aggregate state, a full re-fetch or waiting for the listener is safer
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not update pickup note.' });
+        } finally {
+            setIsSavingNote(false);
+        }
+    };
+
     // Track active subscribers: includes 'Active' and 'Trialing' (skipped)
     const stats = {
         totalSubscriptions: allSubscriptions.filter(s => ['Active', 'Trialing'].includes(s.status)).length,
@@ -165,16 +212,21 @@ export default function AdminDashboardPage() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                         {todaysPickups.map(pickup => (
-                            <div key={`today-${pickup.id}`} className="flex items-center justify-between p-4 rounded-lg bg-background border">
+                            <div key={`today-${pickup.id}`} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-background border gap-4">
                                 <div>
                                     <p className="font-semibold">{pickup.boxName}</p>
                                     <p className="text-sm text-muted-foreground">Ready for collection ({pickup.subscriberCount} boxes)</p>
                                 </div>
-                                <Button asChild size="lg">
-                                    <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}?from=dashboard`}>
-                                        <UserCheck className="mr-2 h-4 w-4" /> Go to Check-in
-                                    </Link>
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="outline" size="lg" onClick={() => handleOpenNoteDialog(pickup)}>
+                                        <Pencil className="mr-2 h-4 w-4" /> Edit Note
+                                    </Button>
+                                    <Button asChild size="lg">
+                                        <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}?from=dashboard`}>
+                                            <UserCheck className="mr-2 h-4 w-4" /> Go to Check-in
+                                        </Link>
+                                    </Button>
+                                </div>
                             </div>
                         ))}
                     </CardContent>
@@ -224,7 +276,7 @@ export default function AdminDashboardPage() {
                         {isPickupsLoading ? <Skeleton className="h-40 w-full" /> : (
                              <div className="grid gap-4 grid-cols-1">
                                 {upcomingPickups.length > 0 ? upcomingPickups.map(pickup => (
-                                    <div key={`${pickup.boxId}-${pickup.id}`} className="rounded-lg border p-4 space-y-3">
+                                    <div key={`${pickup.boxId}-${pickup.id}`} className="rounded-lg border p-4 space-y-3 w-full">
                                         <div className="flex items-center">
                                             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
                                                 <Calendar className="h-5 w-5 text-primary" />
@@ -240,11 +292,16 @@ export default function AdminDashboardPage() {
                                                 {pickup.subscriberCount}
                                             </div>
                                         </div>
-                                        <Button asChild variant="secondary" size="sm" className="w-full">
-                                            <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}?from=dashboard`}>
-                                                <UserCheck className="mr-2 h-4 w-4" /> Check-in
-                                            </Link>
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenNoteDialog(pickup)}>
+                                                <Pencil className="mr-2 h-4 w-4" /> Edit Note
+                                            </Button>
+                                            <Button asChild variant="secondary" size="sm" className="flex-1">
+                                                <Link href={`/admin/boxes/${pickup.boxId}/pickups/${pickup.id}?from=dashboard`}>
+                                                    <UserCheck className="mr-2 h-4 w-4" /> Check-in
+                                                </Link>
+                                            </Button>
+                                        </div>
                                     </div>
                                 )) : <p className="text-sm text-muted-foreground text-center py-10 col-span-2">No upcoming pickups scheduled.</p>}
                             </div>
@@ -281,6 +338,34 @@ export default function AdminDashboardPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Pickup Note for {selectedPickup?.boxName}</DialogTitle>
+                        <DialogDescription>
+                            Update the notes for the pickup on {selectedPickup ? format(new Date(selectedPickup.pickupDate.replace(/-/g, '/')), 'PPP') : ''}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label htmlFor="admin-pickup-note" className="sr-only">Note</Label>
+                        <Textarea
+                            id="admin-pickup-note"
+                            value={noteContent}
+                            onChange={(e) => setNoteContent(e.target.value)}
+                            placeholder="e.g. This week's box includes: Fresh carrots, kale, etc."
+                            rows={6}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsNoteDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleSaveNote} disabled={isSavingNote}>
+                            {isSavingNote ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Save Note
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
