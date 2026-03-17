@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
-import { collection, onSnapshot, query, where, orderBy, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Pickup } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -23,16 +23,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
+type PickupWithNote = Pickup & {
+    subscriberNote?: string;
+};
+
 export default function DashboardPage() {
     const { user, loading: authLoading } = useAuth();
     const { toast } = useToast();
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-    const [upcomingPickups, setUpcomingPickups] = useState<Pickup[]>([]);
+    const [upcomingPickups, setUpcomingPickups] = useState<PickupWithNote[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // State for the notes dialog
     const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
-    const [selectedSubForNote, setSelectedSubForNote] = useState<Subscription | null>(null);
+    const [selectedPickupForNote, setSelectedPickupForNote] = useState<PickupWithNote | null>(null);
     const [noteContent, setNoteContent] = useState('');
     const [isSavingNote, setIsSavingNote] = useState(false);
 
@@ -42,7 +46,6 @@ export default function DashboardPage() {
             return;
         }
 
-        // Query by userId only and filter status in memory to avoid composite index requirement
         const subsQuery = query(collection(db, 'subscriptions'), where('userId', '==', user.uid));
         
         const unsubSubs = onSnapshot(subsQuery, async (snapshot) => {
@@ -57,23 +60,30 @@ export default function DashboardPage() {
             const activeSubs = subsData.filter(s => ['Active', 'Trialing'].includes(s.status));
             if (activeSubs.length > 0) {
                 const today = format(new Date(), 'yyyy-MM-dd');
-                let allPickups: Pickup[] = [];
+                let allPickups: PickupWithNote[] = [];
 
                 for (const sub of activeSubs) {
                     const pickupsRef = collection(db, 'boxes', sub.boxId, 'pickups');
                     const q = query(pickupsRef, where('pickupDate', '>=', today), orderBy('pickupDate'));
                     const pickupsSnapshot = await getDocs(q);
 
-                    const subPickups: Pickup[] = pickupsSnapshot.docs.map(doc => {
-                        const data = doc.data();
+                    const subPickups: PickupWithNote[] = await Promise.all(pickupsSnapshot.docs.map(async (pDoc) => {
+                        const data = pDoc.data();
+                        
+                        // Fetch the specific note for this subscriber/pickup combination
+                        const noteRef = doc(db, 'boxes', sub.boxId, 'pickups', pDoc.id, 'subscriberNotes', sub.id);
+                        const noteSnap = await getDoc(noteRef);
+                        
                         return {
-                            id: doc.id,
+                            id: pDoc.id,
                             pickupDate: data.pickupDate,
                             note: data.note,
                             boxId: sub.boxId,
-                            boxName: sub.boxName
-                        };
-                    });
+                            boxName: sub.boxName,
+                            subscriberNote: noteSnap.exists() ? noteSnap.data().text : '',
+                            subscriptionId: sub.id
+                        } as any;
+                    }));
                     allPickups.push(...subPickups);
                 }
 
@@ -94,25 +104,32 @@ export default function DashboardPage() {
         };
     }, [user]);
 
-    const handleOpenNoteDialog = (pickup: Pickup) => {
-        const sub = subscriptions.find(s => s.boxId === pickup.boxId);
-        if (sub) {
-            setSelectedSubForNote(sub);
-            setNoteContent(sub.notes || '');
-            setIsNoteDialogOpen(true);
-        }
+    const handleOpenNoteDialog = (pickup: PickupWithNote) => {
+        setSelectedPickupForNote(pickup);
+        setNoteContent(pickup.subscriberNote || '');
+        setIsNoteDialogOpen(true);
     };
 
     const handleSaveNote = async () => {
-        if (!selectedSubForNote) return;
+        if (!selectedPickupForNote || !user) return;
         setIsSavingNote(true);
         try {
-            const subRef = doc(db, 'subscriptions', selectedSubForNote.id);
-            await updateDoc(subRef, {
-                notes: noteContent
+            // Save the note to a pickup-specific location
+            const noteRef = doc(db, 'boxes', selectedPickupForNote.boxId, 'pickups', selectedPickupForNote.id, 'subscriberNotes', (selectedPickupForNote as any).subscriptionId);
+            await setDoc(noteRef, {
+                text: noteContent,
+                updatedAt: new Date()
             });
-            toast({ title: 'Success', description: 'Your delivery note has been saved.' });
+            
+            toast({ title: 'Success', description: 'Your delivery instruction for this pickup has been saved.' });
             setIsNoteDialogOpen(false);
+            
+            // Update local state to reflect the change immediately
+            setUpcomingPickups(prev => prev.map(p => 
+                p.id === selectedPickupForNote.id && p.boxId === selectedPickupForNote.boxId 
+                ? { ...p, subscriberNote: noteContent } 
+                : p
+            ));
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not save your note.' });
         } finally {
@@ -169,18 +186,21 @@ export default function DashboardPage() {
                     <CardContent>
                         <div className="space-y-4">
                             {upcomingPickups.length > 0 ? upcomingPickups.map(pickup => (
-                                <div key={pickup.id} className="flex items-center flex-wrap gap-4">
+                                <div key={pickup.id + pickup.boxId} className="flex items-center flex-wrap gap-4">
                                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
                                         <Calendar className="h-5 w-5 text-primary" />
                                     </div>
                                     <div className="flex-1 space-y-1 min-w-[200px]">
                                         <p className="text-sm font-medium leading-none">{pickup.boxName}</p>
                                         <p className="text-sm text-muted-foreground">{format(new Date(pickup.pickupDate.replace(/-/g, '/')), 'PPPP')}</p>
+                                        {pickup.subscriberNote && (
+                                            <p className="text-xs italic text-primary mt-1">Note: "{pickup.subscriberNote}"</p>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Button variant="outline" size="sm" onClick={() => handleOpenNoteDialog(pickup)}>
                                             <Pencil className="mr-2 h-4 w-4" />
-                                            Add Note
+                                            {pickup.subscriberNote ? 'Edit Note' : 'Add Note'}
                                         </Button>
                                         <Button asChild variant="ghost" size="sm">
                                             <Link href={`/dashboard/schedule/${pickup.boxId}`}>View</Link>
@@ -196,9 +216,9 @@ export default function DashboardPage() {
             <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Delivery Note for {selectedSubForNote?.boxName}</DialogTitle>
+                        <DialogTitle>Instructions for {selectedPickupForNote?.boxName}</DialogTitle>
                         <DialogDescription>
-                            Add instructions for your pickup (e.g. "Leave on the porch", "Side gate is open").
+                            This note is only for the pickup on {selectedPickupForNote ? format(new Date(selectedPickupForNote.pickupDate.replace(/-/g, '/')), 'PPPP') : ''}.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
@@ -207,7 +227,7 @@ export default function DashboardPage() {
                             id="dashboard-note-content"
                             value={noteContent}
                             onChange={(e) => setNoteContent(e.target.value)}
-                            placeholder="Type your instructions here..."
+                            placeholder="e.g. Leave on the porch, side gate is open..."
                             rows={4}
                         />
                     </div>
@@ -215,7 +235,7 @@ export default function DashboardPage() {
                         <Button variant="outline" onClick={() => setIsNoteDialogOpen(false)}>Cancel</Button>
                         <Button onClick={handleSaveNote} disabled={isSavingNote}>
                             {isSavingNote ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Save Instructions
+                            Save for this Pickup
                         </Button>
                     </DialogFooter>
                 </DialogContent>

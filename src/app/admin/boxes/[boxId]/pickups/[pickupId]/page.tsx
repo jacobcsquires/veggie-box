@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 type SubscriberCheckin = Subscription & {
   collected: boolean;
   collectedAt: Date | null;
+  pickupSpecificNote?: string;
 };
 
 export default function PickupCheckinPage() {
@@ -52,6 +53,7 @@ export default function PickupCheckinPage() {
     const [pickup, setPickup] = useState<Pickup | null>(null);
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [collectionStatuses, setCollectionStatuses] = useState<Map<string, {collected: boolean, collectedAt: Date | null}>>(new Map());
+    const [subscriberNotes, setSubscriberNotes] = useState<Map<string, string>>(new Map());
     const [isLoading, setIsLoading] = useState(true);
 
     const [filter, setFilter] = useState('all'); // 'all', 'collected', 'uncollected'
@@ -80,12 +82,21 @@ export default function PickupCheckinPage() {
             }
         });
 
-        // Query by boxId only and filter status in memory to avoid composite index requirement
+        // Fetch pickup-specific subscriber notes
+        const notesRef = collection(db, 'boxes', boxId, 'pickups', pickupId, 'subscriberNotes');
+        const unsubNotes = onSnapshot(notesRef, (snapshot) => {
+            const notes = new Map<string, string>();
+            snapshot.docs.forEach(doc => {
+                notes.set(doc.id, doc.data().text || '');
+            });
+            setSubscriberNotes(notes);
+        });
+
         const subsQuery = query(collection(db, 'subscriptions'), where('boxId', '==', boxId));
         const unsubSubs = onSnapshot(subsQuery, async (snapshot) => {
             const subsData = snapshot.docs
                 .map(doc => ({id: doc.id, ...doc.data()}) as Subscription)
-                .filter(sub => sub.status === 'Active');
+                .filter(sub => sub.status === 'Active' || sub.status === 'Trialing');
             
             const enrichedSubs = await Promise.all(subsData.map(async (sub) => {
                 if (sub.customerEmail) return sub;
@@ -128,6 +139,7 @@ export default function PickupCheckinPage() {
             unsubSubs();
             unsubCollections();
             unsubTemplates();
+            unsubNotes();
         };
     }, [boxId, pickupId]);
 
@@ -157,9 +169,10 @@ export default function PickupCheckinPage() {
                 ...sub,
                 collected: collectionStatuses.has(sub.id),
                 collectedAt: collectionStatuses.get(sub.id)?.collectedAt || null,
+                pickupSpecificNote: subscriberNotes.get(sub.id)
             };
         }).sort((a,b) => (a.customerName || '').localeCompare(b.customerName || ''));
-    }, [subscriptions, collectionStatuses]);
+    }, [subscriptions, collectionStatuses, subscriberNotes]);
     
     const filteredSubscribers = useMemo(() => {
         return subscribersWithStatus.filter(sub => {
@@ -195,7 +208,6 @@ export default function PickupCheckinPage() {
                 let finalBody = template.body;
                 let finalSubject = template.subject;
 
-                // Replace placeholders
                 if (sub.customerName) {
                     finalBody = finalBody.replace(/{{customerName}}/gi, sub.customerName);
                     finalSubject = finalSubject.replace(/{{customerName}}/gi, sub.customerName);
@@ -328,7 +340,7 @@ export default function PickupCheckinPage() {
                             <TableRow>
                                 <TableHead className="w-[50px]"></TableHead>
                                 <TableHead>Customer</TableHead>
-                                <TableHead className="hidden md:table-cell">Email</TableHead>
+                                <TableHead className="hidden md:table-cell">Instructions</TableHead>
                                 <TableHead className="hidden sm:table-cell">Status</TableHead>
                                 <TableHead className="text-right">Collected At</TableHead>
                             </TableRow>
@@ -354,12 +366,19 @@ export default function PickupCheckinPage() {
                                         <TableCell className="font-medium">
                                             <div className="flex flex-col">
                                                 <span>{sub.customerName}</span>
-                                                {sub.notes && (
-                                                    <p className="text-xs text-muted-foreground font-normal pt-1">{sub.notes}</p>
-                                                )}
+                                                <span className="text-xs text-muted-foreground font-normal">{sub.customerEmail}</span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="hidden md:table-cell">{sub.customerEmail}</TableCell>
+                                        <TableCell className="hidden md:table-cell">
+                                            {sub.pickupSpecificNote ? (
+                                                <div className="bg-primary/10 border border-primary/20 rounded p-2 text-xs">
+                                                    <span className="font-bold text-primary block mb-1">Instruction:</span>
+                                                    {sub.pickupSpecificNote}
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground italic">No instructions</span>
+                                            )}
+                                        </TableCell>
                                         <TableCell className="hidden sm:table-cell">
                                             <div className="flex items-center gap-2">
                                                 {sub.collected ? (
@@ -368,7 +387,7 @@ export default function PickupCheckinPage() {
                                                     </Badge>
                                                 ) : (
                                                     <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">
-                                                        <AlertCircle className="mr-1 h-3 w-3" /> Pending Collection
+                                                        <AlertCircle className="mr-1 h-3 w-3" /> Pending
                                                     </Badge>
                                                 )}
                                             </div>
