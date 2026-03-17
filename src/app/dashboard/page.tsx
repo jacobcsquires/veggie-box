@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -25,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 
 type PickupWithNote = Pickup & {
     subscriberNote?: string;
+    subscriptionId: string;
 };
 
 export default function DashboardPage() {
@@ -82,7 +84,7 @@ export default function DashboardPage() {
                             boxName: sub.boxName,
                             subscriberNote: noteSnap.exists() ? noteSnap.data().text : '',
                             subscriptionId: sub.id
-                        } as any;
+                        } as PickupWithNote;
                     }));
                     allPickups.push(...subPickups);
                 }
@@ -115,7 +117,7 @@ export default function DashboardPage() {
         setIsSavingNote(true);
         try {
             // Save the note to a pickup-specific location
-            const noteRef = doc(db, 'boxes', selectedPickupForNote.boxId, 'pickups', selectedPickupForNote.id, 'subscriberNotes', (selectedPickupForNote as any).subscriptionId);
+            const noteRef = doc(db, 'boxes', selectedPickupForNote.boxId, 'pickups', selectedPickupForNote.id, 'subscriberNotes', selectedPickupForNote.subscriptionId);
             await setDoc(noteRef, {
                 text: noteContent,
                 updatedAt: new Date()
@@ -126,7 +128,7 @@ export default function DashboardPage() {
             
             // Update local state to reflect the change immediately
             setUpcomingPickups(prev => prev.map(p => 
-                p.id === selectedPickupForNote.id && p.boxId === selectedPickupForNote.boxId 
+                p.id === selectedPickupForNote.id && p.boxId === selectedPickupForNote.boxId && p.subscriptionId === selectedPickupForNote.subscriptionId
                 ? { ...p, subscriberNote: noteContent } 
                 : p
             ));
@@ -158,7 +160,7 @@ export default function DashboardPage() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-headline">Welcome, {user?.displayName || 'Veggie Lover'}!</h1>
+                <h1 className="text-2xl font-headline font-bold">Welcome, {user?.displayName || 'Veggie User'}!</h1>
                 <Button asChild variant="outline">
                     <Link href="/dashboard/subscriptions">Manage Subscriptions <ArrowRight className="ml-2 h-4 w-4"/></Link>
                 </Button>
@@ -186,7 +188,7 @@ export default function DashboardPage() {
                     <CardContent>
                         <div className="space-y-4">
                             {upcomingPickups.length > 0 ? upcomingPickups.map(pickup => (
-                                <div key={pickup.id + pickup.boxId} className="flex items-center flex-wrap gap-4">
+                                <div key={`${pickup.id}-${pickup.boxId}-${pickup.subscriptionId}`} className="flex items-center flex-wrap gap-4">
                                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
                                         <Calendar className="h-5 w-5 text-primary" />
                                     </div>
