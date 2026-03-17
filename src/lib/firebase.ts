@@ -4,12 +4,12 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDA4QzG5XMPBKoMrm7WPKNN9s1Uvbt-mfw",
-  authDomain: "veggie-box-app-25433570-29ebb.firebaseapp.com",
-  projectId: "veggie-box-app-25433570-29ebb",
-  storageBucket: "veggie-box-app-25433570-29ebb.firebasestorage.app",
-  messagingSenderId: "468927648474",
-  appId: "1:468927648474:web:c30b2994fd93823c758be3"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
