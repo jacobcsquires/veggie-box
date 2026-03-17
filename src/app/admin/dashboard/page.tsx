@@ -233,7 +233,7 @@ export default function AdminDashboardPage() {
                 </Card>
             )}
 
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Subscriptions</CardTitle>
@@ -252,16 +252,6 @@ export default function AdminDashboardPage() {
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.totalCustomers}</div>
                         <p className="text-xs text-muted-foreground">In database</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active Plans</CardTitle>
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.activePlans}</div>
-                        <p className="text-xs text-muted-foreground">Visible on website</p>
                     </CardContent>
                 </Card>
             </div>
