@@ -3,20 +3,38 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
-import { collection, onSnapshot, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Subscription, Pickup } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { ShoppingCart, ArrowRight, Calendar } from 'lucide-react';
+import { ShoppingCart, ArrowRight, Calendar, Pencil, Loader2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
     const { user, loading: authLoading } = useAuth();
+    const { toast } = useToast();
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [upcomingPickups, setUpcomingPickups] = useState<Pickup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    // State for the notes dialog
+    const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+    const [selectedSubForNote, setSelectedSubForNote] = useState<Subscription | null>(null);
+    const [noteContent, setNoteContent] = useState('');
+    const [isSavingNote, setIsSavingNote] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -60,7 +78,7 @@ export default function DashboardPage() {
                 }
 
                 const sortedAndLimitedPickups = allPickups
-                    .sort((a, b) => new Date(a.pickupDate.replace(/-/g, '\/')).getTime() - new Date(b.pickupDate.replace(/-/g, '\/')).getTime())
+                    .sort((a, b) => new Date(a.pickupDate.replace(/-/g, '/')).getTime() - new Date(b.pickupDate.replace(/-/g, '/')).getTime())
                     .slice(0, 5);
                 
                 setUpcomingPickups(sortedAndLimitedPickups);
@@ -75,6 +93,32 @@ export default function DashboardPage() {
             unsubSubs();
         };
     }, [user]);
+
+    const handleOpenNoteDialog = (pickup: Pickup) => {
+        const sub = subscriptions.find(s => s.boxId === pickup.boxId);
+        if (sub) {
+            setSelectedSubForNote(sub);
+            setNoteContent(sub.notes || '');
+            setIsNoteDialogOpen(true);
+        }
+    };
+
+    const handleSaveNote = async () => {
+        if (!selectedSubForNote) return;
+        setIsSavingNote(true);
+        try {
+            const subRef = doc(db, 'subscriptions', selectedSubForNote.id);
+            await updateDoc(subRef, {
+                notes: noteContent
+            });
+            toast({ title: 'Success', description: 'Your delivery note has been saved.' });
+            setIsNoteDialogOpen(false);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not save your note.' });
+        } finally {
+            setIsSavingNote(false);
+        }
+    };
 
     const stats = {
         totalSubscriptions: subscriptions.length,
@@ -125,23 +169,57 @@ export default function DashboardPage() {
                     <CardContent>
                         <div className="space-y-4">
                             {upcomingPickups.length > 0 ? upcomingPickups.map(pickup => (
-                                <div key={pickup.id} className="flex items-center">
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                                <div key={pickup.id} className="flex items-center flex-wrap gap-4">
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
                                         <Calendar className="h-5 w-5 text-primary" />
                                     </div>
-                                    <div className="ml-4 space-y-1">
+                                    <div className="flex-1 space-y-1 min-w-[200px]">
                                         <p className="text-sm font-medium leading-none">{pickup.boxName}</p>
-                                        <p className="text-sm text-muted-foreground">{format(new Date(pickup.pickupDate.replace(/-/g, '\/')), 'PPPP')}</p>
+                                        <p className="text-sm text-muted-foreground">{format(new Date(pickup.pickupDate.replace(/-/g, '/')), 'PPPP')}</p>
                                     </div>
-                                    <Button asChild variant="ghost" size="sm" className="ml-auto">
-                                        <Link href={`/dashboard/schedule/${pickup.boxId}`}>View</Link>
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => handleOpenNoteDialog(pickup)}>
+                                            <Pencil className="mr-2 h-4 w-4" />
+                                            Add Note
+                                        </Button>
+                                        <Button asChild variant="ghost" size="sm">
+                                            <Link href={`/dashboard/schedule/${pickup.boxId}`}>View</Link>
+                                        </Button>
+                                    </div>
                                 </div>
                             )) : <p className="text-sm text-muted-foreground text-center py-10">No upcoming pickups scheduled.</p>}
                         </div>
                     </CardContent>
                 </Card>
             </div>
+
+            <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delivery Note for {selectedSubForNote?.boxName}</DialogTitle>
+                        <DialogDescription>
+                            Add instructions for your pickup (e.g. "Leave on the porch", "Side gate is open").
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label htmlFor="dashboard-note-content" className="sr-only">Note</Label>
+                        <Textarea
+                            id="dashboard-note-content"
+                            value={noteContent}
+                            onChange={(e) => setNoteContent(e.target.value)}
+                            placeholder="Type your instructions here..."
+                            rows={4}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsNoteDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleSaveNote} disabled={isSavingNote}>
+                            {isSavingNote ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Save Instructions
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
